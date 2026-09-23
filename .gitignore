@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# La fixture de test est reconstruite par tests/fixtures/construire.py
+tests/fixtures/*.duckdb
+tests/fixtures/*.duckdb.wal
+
+# Produits par construire-exe.bat : le .exe est publié dans les « Releases »
+# de GitHub, pas dans le code.
+build/
+dist/

@@ -1,0 +1,83 @@
+TÉLÉMÉTRIE LMU
+==============
+
+Un outil pour regarder ce que tu fais au volant dans Le Mans Ultimate :
+comparer deux tours, voir où tu perds du temps virage par virage, mesurer ta
+régularité. Il lit les enregistrements que le jeu fait déjà tout seul.
+
+L'outil MONTRE, il ne juge pas : pas de conseil de réglage, uniquement des
+faits mesurés.
+
+
+INSTALLATION
+------------
+
+Il n'y a rien à installer. Mets Telemetrie-LMU.exe où tu veux (le Bureau, un
+dossier Jeux...) et double-clique dessus.
+
+Au premier lancement, Windows peut afficher « Windows a protégé votre
+ordinateur ». C'est normal pour un programme qui n'est pas vendu par un
+éditeur : clique sur « Informations complémentaires », puis sur « Exécuter
+quand même ». Il ne le redemandera plus.
+
+
+UTILISATION
+-----------
+
+1. Double-clique sur Telemetrie-LMU.exe.
+2. Une fenêtre noire s'ouvre, puis l'outil apparaît dans ton navigateur.
+3. Laisse la fenêtre noire ouverte pendant que tu t'en sers : c'est elle qui
+   fait tourner l'outil. Ferme-la quand tu as fini.
+
+Rien à régler dans le jeu : Le Mans Ultimate enregistre ta télémétrie tout
+seul, à chaque session. Roule, quitte la session, et elle apparaît dans la
+liste.
+
+L'outil cherche le jeu tout seul dans tes bibliothèques Steam. S'il ne le
+trouve pas, il te demande le dossier et t'explique comment le trouver. Tu ne
+le feras qu'une fois.
+
+Rien ne sort de ton ordinateur : l'outil ne se connecte à aucun serveur, et
+ne modifie aucun fichier du jeu. Il se contente de lire.
+
+
+METTRE À JOUR
+-------------
+
+Les nouvelles versions sont publiées ici :
+
+    https://github.com/Jimmyn0/lmu-telemetry/releases
+
+Remplace simplement l'ancien Telemetrie-LMU.exe par le nouveau. Tes réglages
+et tes découpages de circuits sont gardés à part, dans :
+
+    %LOCALAPPDATA%\Telemetrie LMU
+
+(colle cette ligne dans la barre d'adresse de l'Explorateur pour l'ouvrir).
+Le numéro de version est affiché en haut à droite de l'outil.
+
+
+LOGOS DES CONSTRUCTEURS
+-----------------------
+
+Certaines marques s'affichent avec une pastille colorée plutôt qu'avec leur
+logo : leurs logos ne peuvent pas être redistribués. Pour les voir quand
+même, dépose tes propres images dans le dossier « logos » du dossier
+ci-dessus, nommées d'après la marque telle qu'elle s'affiche dans l'outil :
+Porsche.png, Ferrari.png, Aston Martin.png...
+
+
+EN CAS DE PROBLÈME
+------------------
+
+* « L'outil ne répond plus » : la fenêtre noire a été fermée. Relance
+  Telemetrie-LMU.exe.
+* Une session n'apparaît pas : quitte d'abord la session dans le jeu (le jeu
+  garde le fichier ouvert tant qu'elle tourne).
+* Ton antivirus bloque le .exe : c'est une fausse alerte fréquente avec ce
+  genre de programme. Ajoute une exception, ou demande une nouvelle version.
+* Autre chose : envoie à la personne qui t'a donné l'outil le message affiché
+  et le numéro de version.
+
+Pour désinstaller : supprime Telemetrie-LMU.exe, et si tu veux le dossier
+%LOCALAPPDATA%\Telemetrie LMU.

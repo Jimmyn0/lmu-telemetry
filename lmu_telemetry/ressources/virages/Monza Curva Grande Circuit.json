@@ -1,0 +1,89 @@
+{
+  "circuit": "Monza Curva Grande Circuit",
+  "longueur": 5743.9,
+  "automatique": true,
+  "_aide": "Distances en mètres depuis la ligne de départ. Ce fichier est fait pour être modifié à la main : ajuste debut/fin, donne un nom aux virages, ou supprime ceux qui ne t'intéressent pas. Mets \"automatique\" à false pour que l'outil ne le regénère jamais.",
+  "virages": [
+    {
+      "numero": 1,
+      "nom": "",
+      "debut": 1260.0,
+      "fin": 1481.0,
+      "rayon_min": 202.1,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 2,
+      "nom": "",
+      "debut": 2088.0,
+      "fin": 2130.0,
+      "rayon_min": 18.8,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 3,
+      "nom": "",
+      "debut": 2133.0,
+      "fin": 2172.0,
+      "rayon_min": 21.4,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 4,
+      "nom": "",
+      "debut": 2449.0,
+      "fin": 2604.0,
+      "rayon_min": 59.7,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 5,
+      "nom": "",
+      "debut": 2806.0,
+      "fin": 2879.0,
+      "rayon_min": 33.5,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 6,
+      "nom": "",
+      "debut": 3884.0,
+      "fin": 3944.0,
+      "rayon_min": 33.6,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 7,
+      "nom": "",
+      "debut": 3956.0,
+      "fin": 4075.0,
+      "rayon_min": 100.2,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 8,
+      "nom": "",
+      "debut": 4080.0,
+      "fin": 4133.0,
+      "rayon_min": 46.2,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 9,
+      "nom": "",
+      "debut": 5068.0,
+      "fin": 5454.0,
+      "rayon_min": 73.1,
+      "sens": -1,
+      "chicane": false
+    }
+  ]
+}

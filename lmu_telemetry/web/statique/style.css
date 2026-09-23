@@ -1,0 +1,555 @@
+/* Fond sombre : c'est la convention en télémétrie, et les courbes claires sur
+   fond sombre se lisent plus longtemps sans fatigue. La priorité reste la
+   lisibilité des graphiques : la couleur sert à repérer, pas à décorer.
+
+   Chaque couleur a un rôle, et un seul :
+     bleu    tour de référence          orange  tour comparé
+     vert    gain, tour idéal           rouge   perte
+     violet  meilleur de la session (comme sur les écrans de chrono en course)
+     indigo → rose  l'accent de l'interface (boutons, onglet actif), jamais
+                    une donnée.
+
+   Les graphiques lisent ces mêmes variables (graphes.js) : changer une couleur
+   ici la change partout. Elles doivent rester en #rrggbb, les graphiques y
+   ajoutent leur transparence. */
+
+:root {
+  --fond: #0a0d14;
+  --fond-bloc: #111623;
+  --fond-releve: #171d2c;
+  --survol: #1c2335;
+  --bord: #232b3d;
+  --bord-fort: #33405a;
+  --texte: #e4e9f2;
+  --discret: #8792a8;
+
+  --reference: #4da6ff;
+  --compare: #ff9d3d;
+  --perte: #ff5f6d;
+  --gain: #3ddc84;
+  --record: #b57bff;
+
+  --accent: #7c6cff;
+  --accent-2: #e052a0;
+  --degrade: linear-gradient(135deg, var(--accent), var(--accent-2));
+
+  /* Graphiques et vue de la route. */
+  --grille: #1f2738;
+  --axe: #7d889e;
+  --curseur: #ffffff;
+  --route: #1a2031;
+  --bord-route: #5d6a82;
+  --bord-route-estime: #3b4660;
+  --trace-neutre: #4a5470;
+
+  --rayon: 10px;
+  --ombre: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--texte);
+  font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Deux halos très discrets aux couleurs de l'accent, fixés à l'écran. */
+  background:
+    radial-gradient(1100px 520px at 8% -8%, rgba(124, 108, 255, 0.11), transparent 70%),
+    radial-gradient(900px 480px at 100% -5%, rgba(224, 82, 160, 0.07), transparent 70%),
+    var(--fond);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+::selection { background: rgba(124, 108, 255, 0.45); }
+
+/* Barres de défilement assorties au thème, au lieu du gris clair du système. */
+* { scrollbar-width: thin; scrollbar-color: var(--bord-fort) transparent; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- en-tête ---- */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(10, 13, 20, 0.78);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--bord);
+}
+/* Un filet dégradé sous l'en-tête : la seule touche purement décorative. */
+header::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: var(--degrade);
+  opacity: 0.7;
+}
+
+.marque-appli { display: flex; align-items: center; gap: 10px; }
+.marque-appli svg {
+  width: 30px; height: 30px; flex: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(124, 108, 255, 0.35);
+}
+
+h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: 0.01em; line-height: 1.15; }
+h1 .discret {
+  display: block; font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.discret { color: var(--discret); font-weight: 400; }
+
+/* Fil d'Ariane en pastilles : l'écran courant est mis en avant. */
+nav#fil { display: flex; gap: 6px; align-items: center; font-size: 13px; flex-wrap: wrap; }
+nav#fil button, nav#fil span.actuel {
+  border: 1px solid var(--bord);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font: inherit;
+}
+nav#fil button {
+  background: var(--fond-bloc); color: var(--discret); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+nav#fil button:hover { color: var(--texte); border-color: var(--bord-fort); background: var(--survol); }
+nav#fil span.actuel {
+  color: var(--texte);
+  border-color: transparent;
+  background:
+    linear-gradient(var(--fond-releve), var(--fond-releve)) padding-box,
+    var(--degrade) border-box;
+}
+nav#fil span.separateur { color: var(--bord-fort); }
+
+main { padding: 20px 24px 48px; max-width: 1680px; margin: 0 auto; }
+
+main > section:not([hidden]) { animation: apparaitre 0.22s ease-out; }
+@keyframes apparaitre {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.barre {
+  display: flex; gap: 16px; align-items: center;
+  margin: 0 0 14px; flex-wrap: wrap;
+}
+.barre label { color: var(--discret); font-size: 13px; }
+
+/* ---- champs et boutons ---- */
+
+input[type="search"], select {
+  background-color: var(--fond-releve);
+  border: 1px solid var(--bord);
+  color: var(--texte);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: inherit;
+  transition: border-color 0.15s;
+}
+select {
+  appearance: none;
+  padding-right: 30px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238792a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+}
+select:hover, input[type="search"]:hover { border-color: var(--bord-fort); }
+select option { background: var(--fond-bloc); }
+input[type="search"] { min-width: 260px; }
+input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; vertical-align: -3px; }
+
+button {
+  background: var(--fond-releve);
+  border: 1px solid var(--bord);
+  color: var(--texte);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+button:hover:not(:disabled) { border-color: var(--bord-fort); background: var(--survol); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: 0.4; cursor: default; }
+
+/* L'action principale d'un écran : une seule par écran. */
+button.principal {
+  background: var(--degrade);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(124, 108, 255, 0.3);
+}
+button.principal:hover:not(:disabled) {
+  background: var(--degrade);
+  border-color: transparent;
+  box-shadow: 0 6px 22px rgba(224, 82, 160, 0.35);
+  filter: brightness(1.08);
+}
+
+/* ---- cartes ---- */
+
+.tableau, .resume, .lecture, .aide, .bloc-piste, .bloc-chronos, #carte, #graphiques {
+  background: var(--fond-bloc);
+  border: 1px solid var(--bord);
+  border-radius: var(--rayon);
+  box-shadow: var(--ombre);
+}
+
+/* ---- tableaux ---- */
+
+.tableau { overflow: hidden; }
+
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--bord); }
+th {
+  color: var(--discret); font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--fond-releve);
+}
+tbody tr { transition: background 0.12s; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr.cliquable { cursor: pointer; }
+/* Au survol, un liseré d'accent à gauche montre la ligne qu'on va ouvrir. */
+tbody tr.cliquable:hover { background: var(--survol); box-shadow: inset 3px 0 0 var(--accent); }
+tbody tr:not(.cliquable):hover { background: rgba(255, 255, 255, 0.02); }
+td.nombre, th.nombre { text-align: right; }
+tr.invalide td { color: var(--discret); opacity: 0.75; }
+
+/* Meilleur tour et meilleurs secteurs de la session, en violet. */
+tr.meilleur { background: rgba(181, 123, 255, 0.08); box-shadow: inset 3px 0 0 var(--record); }
+/* Seul le chrono du meilleur tour passe en violet : ses secteurs ne le sont
+   que s'ils sont eux-mêmes les meilleurs de la session. */
+tr.meilleur td { font-weight: 600; }
+tr.meilleur td.chrono-tour { color: var(--record); }
+.record { color: var(--record); font-weight: 600; }
+
+.marque { display: inline-block; width: 14px; font-weight: 700; }
+tr td.marque { color: var(--gain); }
+tr.invalide td.marque { color: var(--perte); opacity: 0.8; }
+tr.meilleur td.marque { color: var(--record); }
+.remarque { color: var(--discret); font-size: 12px; }
+
+/* Type de session : une étiquette colorée se repère plus vite qu'un mot. */
+.type {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  line-height: 1.5;
+}
+.type-P { color: #38c9d9; background: rgba(56, 201, 217, 0.10); }
+.type-Q { color: #f5b93d; background: rgba(245, 185, 61, 0.10); }
+.type-R { color: #ff6b81; background: rgba(255, 107, 129, 0.10); }
+.type-autre { color: var(--discret); background: rgba(135, 146, 168, 0.10); }
+
+/* ---- résumés en tuiles ---- */
+
+.resume {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch;
+  padding: 10px; margin-bottom: 14px;
+}
+.resume > div:not(.remarque) {
+  background: var(--fond-releve);
+  border: 1px solid var(--bord);
+  border-top: 2px solid var(--bord-fort);
+  border-radius: 8px;
+  padding: 8px 14px 9px;
+  min-width: 120px;
+}
+.resume > div > .discret:first-child {
+  font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.resume > .remarque { align-self: center; }
+.resume > .remarque:empty { display: none; }
+/* Chaque tuile porte la couleur de ce qu'elle résume. */
+.resume > div.tuile-ref { border-top-color: var(--reference); }
+.resume > div.tuile-cmp { border-top-color: var(--compare); }
+.resume > div.tuile-record { border-top-color: var(--record); }
+.resume > div.tuile-gain { border-top-color: var(--gain); }
+.resume > div.tuile-perte { border-top-color: var(--perte); }
+.resume > div.tuile-accent { border-top-color: var(--accent); }
+
+.tour-ref { color: var(--reference); font-weight: 600; }
+.tour-cmp { color: var(--compare); font-weight: 600; }
+.gros { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+
+/* ---- comparaison ---- */
+
+.colonnes { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; }
+@media (max-width: 1100px) { .colonnes { grid-template-columns: 1fr; } }
+
+.principal { min-width: 0; }
+
+.barre-zoom {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 10px; font-size: 12.5px;
+}
+.barre-zoom button { padding: 5px 12px; }
+#etendue { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Les graphiques empilés partagent une seule carte : la couleur de fond des
+   courbes est celle de la carte, les deux se confondent. */
+#graphiques { padding: 8px 6px 4px; }
+.graphe { position: relative; margin-bottom: 4px; }
+.graphe canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.graphe .calque { cursor: crosshair; }
+
+aside#cote { display: flex; flex-direction: column; gap: 14px; }
+
+.lecture {
+  padding: 10px 12px;
+  font-variant-numeric: tabular-nums; font-size: 13px;
+}
+/* Mise en page figée : sans `table-layout: fixed` et sans `nowrap`, les
+   colonnes se redimensionnent selon les valeurs affichées et la case change de
+   hauteur au survol, poussant toute la colonne de droite vers le bas. */
+.lecture table { font-size: 13px; width: 100%; table-layout: fixed; }
+.lecture th, .lecture td { white-space: nowrap; overflow: hidden; }
+/* Avec `table-layout: fixed`, ce sont les largeurs de la première ligne qui
+   font loi : sans cette règle les quatre colonnes se partageaient l'espace à
+   parts égales et le libellé le plus long était rogné. */
+.lecture th:first-child, .lecture td:first-child { width: 42%; }
+.titre-lecture {
+  margin-bottom: 2px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; min-height: 20px;
+}
+.unite { color: var(--discret); opacity: 0.65; margin-left: 3px; font-size: 11px; }
+.lecture th, .lecture td { padding: 3px 6px; border: none; background: none; }
+.lecture th { text-transform: none; letter-spacing: 0; }
+
+#carte { width: 100%; height: auto; aspect-ratio: 1; }
+
+.aide { padding: 12px 14px; font-size: 12.5px; color: var(--discret); }
+.aide strong { color: var(--texte); }
+.aide p { margin: 6px 0; }
+
+#troncons table { font-size: 12.5px; }
+
+#erreur {
+  margin-top: 16px; padding: 12px 14px 12px 16px;
+  border: 1px solid rgba(255, 95, 109, 0.45); border-left: 3px solid var(--perte);
+  border-radius: var(--rayon);
+  background: rgba(255, 95, 109, 0.08); white-space: pre-wrap;
+}
+
+.vide { padding: 28px; color: var(--discret); text-align: center; }
+
+#avertissements {
+  border: 1px solid rgba(245, 185, 61, 0.35); border-left: 3px solid #f5b93d;
+  background: rgba(245, 185, 61, 0.07); border-radius: var(--rayon);
+  padding: 8px 14px; margin-bottom: 14px; font-size: 13px;
+}
+#avertissements p { margin: 4px 0; }
+
+/* ---- vue rapprochée de la route ---- */
+
+.bloc-piste { padding: 10px 12px 8px; }
+.entete-piste {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px; font-size: 13px;
+}
+.entete-piste select { padding: 2px 26px 2px 8px; font-size: 12px; background-position: right 9px center; }
+#vue-piste {
+  width: 100%; max-width: 340px; height: auto; aspect-ratio: 4 / 5;
+  display: block; margin: 0 auto;
+}
+#note-piste { font-size: 11.5px; margin-top: 4px; }
+
+/* ---- tableau par virage ---- */
+
+#bloc-virages { margin-top: 24px; }
+#bloc-virages h2, .bloc-chronos h2, .titre-classement {
+  font-size: 15px; margin: 0 0 6px; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+}
+/* Petit repère coloré devant les titres de partie. */
+#bloc-virages h2::before, .bloc-chronos h2::before, .titre-classement::before {
+  content: ""; width: 4px; height: 15px; border-radius: 2px; background: var(--degrade);
+}
+#entete-virages { font-size: 12.5px; margin-bottom: 10px; }
+/* Le tableau par virage est large : sur un écran étroit il doit défiler
+   horizontalement, pas être rogné par le `overflow: hidden` de .tableau. */
+#table-virages { overflow-x: auto; }
+#table-virages table { font-size: 12.5px; min-width: 860px; }
+/* La colonne de gauche tenait sur deux lignes et occupait une largeur inutile :
+   tout tient désormais sur une ligne, et elle ne prend que la place du texte. */
+.col-virage { width: 1%; white-space: nowrap; }
+.col-virage .discret { font-size: 11px; margin-left: 6px; }
+.etiquette {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  border: 1px solid var(--bord-fort); border-radius: 999px;
+  font-size: 10.5px; color: var(--discret);
+}
+#table-virages th { white-space: nowrap; }
+#table-virages td { white-space: nowrap; padding: 6px 10px; }
+#table-virages .ecart { font-size: 11.5px; }
+.mieux { color: var(--gain); }
+.moins { color: var(--perte); }
+.neutre { color: var(--discret); }
+.groupe { border-left: 1px solid var(--bord); }
+
+/* Numéro de virage en pastille, comme sur la carte. */
+.num-virage {
+  display: inline-block; min-width: 30px; padding: 1px 6px;
+  border-radius: 6px; text-align: center;
+  font-weight: 700; font-size: 11.5px;
+  background: rgba(124, 108, 255, 0.14); color: #b9b1ff;
+  border: 1px solid rgba(124, 108, 255, 0.35);
+}
+
+/* ---- page régularité ---- */
+
+.colonnes-regularite {
+  display: grid; grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 16px; margin-bottom: 22px;
+}
+@media (max-width: 1100px) { .colonnes-regularite { grid-template-columns: 1fr; } }
+
+.bloc-chronos { padding: 12px 14px; }
+.titre-classement { margin-top: 4px; margin-bottom: 10px; }
+#graphe-chronos { width: 100%; height: 260px; display: block; }
+
+#note-regularite { margin-bottom: 14px; font-size: 12.5px; }
+
+#classement-virages { overflow-x: auto; }
+#classement-virages table { font-size: 12.5px; min-width: 780px; }
+#classement-virages td, #classement-virages th { white-space: nowrap; }
+
+/* Barre proportionnelle à la dispersion : on compare les virages d'un coup
+   d'œil, sans lire les chiffres un à un. */
+.barre-dispersion {
+  display: inline-block; vertical-align: middle; height: 8px;
+  background: linear-gradient(90deg, var(--compare), var(--perte));
+  border-radius: 4px; margin-left: 8px;
+  min-width: 2px;
+}
+.rang { color: var(--discret); width: 1%; text-align: center; }
+/* Les trois virages les moins constants : une pastille du rouge à l'ambre. */
+.rang-1, .rang-2, .rang-3 { font-weight: 700; }
+td.rang-1, td.rang-2, td.rang-3 { color: #fff; }
+td.rang-1 span, td.rang-2 span, td.rang-3 span {
+  display: inline-block; width: 22px; height: 22px; line-height: 22px;
+  border-radius: 50%; text-align: center; font-size: 11.5px;
+}
+td.rang-1 span { background: var(--perte); }
+td.rang-2 span { background: #ff7f50; }
+td.rang-3 span { background: #f5b93d; color: #1a1300; }
+
+/* --- Drapeaux, marques et modèles ------------------------------------ */
+
+/* Le drapeau se cale sur la hauteur des majuscules du texte voisin, sinon il
+   dépasse au-dessus de la ligne. */
+.drapeau {
+  height: 0.85em;
+  width: calc(0.85em * 1.5);
+  vertical-align: -0.08em;
+  margin-right: 7px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Pastille de marque : les initiales sur fond coloré, faute de pouvoir
+   afficher un logo déposé (voir emblemes.js). */
+.pastille {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 4px;
+  margin-right: 6px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-align: center;
+  vertical-align: 1px;
+}
+
+/* Logo sur fond transparent. Les logos noirs ou trop sombres sont éclaircis à
+   l'affichage (voir emblemes.js), sinon ils disparaîtraient sur le fond sombre.
+   La largeur est fixe, sinon le nom du modèle commencerait plus ou moins loin
+   selon que le logo est rond ou allongé. */
+.logo {
+  height: 18px;
+  width: 40px;
+  margin-right: 7px;
+  vertical-align: -4px;
+  object-fit: contain;
+}
+
+.voiture .modele { color: var(--texte); }
+
+/* L'engagement — l'écurie et le numéro — reste lisible mais s'efface derrière
+   le modèle, qui est ce qu'on cherche des yeux. */
+.voiture .engagement { font-size: 11px; }
+
+/* Sens du virage : discret, il complète le nom sans le concurrencer. */
+.sens {
+  color: var(--discret);
+  font-size: 13px;
+  cursor: help;
+}
+
+/* Les libellés « Circuit » et « Trier par » doivent coller à leur menu, alors
+   que la barre espace ses éléments de 16 px. */
+.barre label[for] { margin-right: -10px; }
+
+/* Le nom d'un circuit peut être long — « Autodromo Nazionale Monza (80) » —
+   sans que le menu ait à occuper toute la barre. */
+#circuit { max-width: 320px; }
+
+#pied-liste { margin-top: 12px; }
+
+/* ---- version, source des sessions ---- */
+
+.version {
+  margin-left: auto;
+  font-size: 11.5px; color: var(--discret);
+  font-variant-numeric: tabular-nums; cursor: help;
+}
+.source { margin-top: 18px; font-size: 12px; color: var(--discret); }
+.source .chemin { color: var(--texte); font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+button.lien {
+  background: none; border: none; padding: 0; font: inherit;
+  color: var(--accent); text-decoration: underline; cursor: pointer;
+}
+button.lien:hover:not(:disabled) { background: none; color: var(--accent-2); }
+
+/* ---- choix du dossier de télémétrie ---- */
+
+.carte-dossier {
+  max-width: 760px; margin: 24px auto;
+  background: var(--fond-bloc); border: 1px solid var(--bord);
+  border-radius: var(--rayon); box-shadow: var(--ombre);
+  padding: 22px 24px;
+}
+.carte-dossier h2 { margin: 0 0 8px; font-size: 18px; }
+.message-dossier { white-space: pre-wrap; color: var(--discret); margin: 0 0 16px; }
+.saisie-dossier { display: flex; gap: 10px; flex-wrap: wrap; }
+.saisie-dossier input {
+  flex: 1 1 380px; min-width: 0;
+  background: var(--fond-releve); border: 1px solid var(--bord); color: var(--texte);
+  padding: 8px 12px; border-radius: 8px;
+  font: 13px ui-monospace, Consolas, monospace;
+}
+.saisie-dossier input:focus { border-color: var(--accent); outline: none; }
+.erreur-dossier {
+  white-space: pre-wrap; margin: 12px 0 0; padding: 10px 12px;
+  border-left: 3px solid var(--perte); background: rgba(255, 95, 109, 0.08);
+  border-radius: 6px;
+}
+.carte-dossier .aide { margin-top: 18px; }
+.carte-dossier ol { margin: 6px 0; padding-left: 20px; }
+.carte-dossier li { margin: 4px 0; }
+
+/* Le résumé est vide le temps que l'analyse arrive : pas de carte vide. */
+.resume:empty { display: none; }

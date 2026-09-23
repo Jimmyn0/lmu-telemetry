@@ -1,0 +1,143 @@
+{
+  "circuit": "Algarve International Circuit",
+  "longueur": 4634.4,
+  "automatique": true,
+  "_aide": "Distances en mètres depuis la ligne de départ. Ce fichier est fait pour être modifié à la main : ajuste debut/fin, donne un nom aux virages, ou supprime ceux qui ne t'intéressent pas. Mets \"automatique\" à false pour que l'outil ne le regénère jamais.",
+  "virages": [
+    {
+      "numero": 1,
+      "nom": "",
+      "debut": 369.0,
+      "fin": 445.0,
+      "rayon_min": 13.5,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 2,
+      "nom": "",
+      "debut": 446.0,
+      "fin": 460.0,
+      "rayon_min": 22.5,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 3,
+      "nom": "",
+      "debut": 539.0,
+      "fin": 606.0,
+      "rayon_min": 40.0,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 4,
+      "nom": "",
+      "debut": 693.0,
+      "fin": 764.0,
+      "rayon_min": 19.1,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 5,
+      "nom": "",
+      "debut": 831.0,
+      "fin": 924.0,
+      "rayon_min": 47.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 6,
+      "nom": "",
+      "debut": 1417.0,
+      "fin": 1492.0,
+      "rayon_min": 17.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 7,
+      "nom": "",
+      "debut": 1650.0,
+      "fin": 1741.0,
+      "rayon_min": 127.1,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 8,
+      "nom": "",
+      "debut": 1881.0,
+      "fin": 1973.0,
+      "rayon_min": 56.1,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 9,
+      "nom": "",
+      "debut": 2029.0,
+      "fin": 2125.0,
+      "rayon_min": 27.9,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 10,
+      "nom": "",
+      "debut": 2392.0,
+      "fin": 2497.0,
+      "rayon_min": 80.5,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 11,
+      "nom": "",
+      "debut": 2628.0,
+      "fin": 2793.0,
+      "rayon_min": 28.3,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 12,
+      "nom": "",
+      "debut": 2910.0,
+      "fin": 3048.0,
+      "rayon_min": 93.4,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 13,
+      "nom": "",
+      "debut": 3146.0,
+      "fin": 3248.0,
+      "rayon_min": 28.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 14,
+      "nom": "",
+      "debut": 3356.0,
+      "fin": 3568.0,
+      "rayon_min": 36.3,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 15,
+      "nom": "",
+      "debut": 3718.0,
+      "fin": 4055.0,
+      "rayon_min": 108.7,
+      "sens": -1,
+      "chicane": false
+    }
+  ]
+}

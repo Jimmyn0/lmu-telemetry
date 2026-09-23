@@ -1,0 +1,116 @@
+{
+  "circuit": "Grand Prix of Long Beach",
+  "longueur": 3185.9,
+  "automatique": true,
+  "_aide": "Distances en mètres depuis la ligne de départ. Ce fichier est fait pour être modifié à la main : ajuste debut/fin, donne un nom aux virages, ou supprime ceux qui ne t'intéressent pas. Mets \"automatique\" à false pour que l'outil ne le regénère jamais.",
+  "virages": [
+    {
+      "numero": 1,
+      "nom": "",
+      "debut": 14.0,
+      "fin": 309.0,
+      "rayon_min": 202.5,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 2,
+      "nom": "",
+      "debut": 708.0,
+      "fin": 758.0,
+      "rayon_min": 18.6,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 3,
+      "nom": "",
+      "debut": 762.0,
+      "fin": 852.0,
+      "rayon_min": 71.7,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 4,
+      "nom": "",
+      "debut": 857.0,
+      "fin": 884.0,
+      "rayon_min": 22.5,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 5,
+      "nom": "",
+      "debut": 885.0,
+      "fin": 936.0,
+      "rayon_min": 17.5,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 6,
+      "nom": "",
+      "debut": 937.0,
+      "fin": 963.0,
+      "rayon_min": 25.4,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 7,
+      "nom": "",
+      "debut": 1037.0,
+      "fin": 1251.0,
+      "rayon_min": 19.7,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 8,
+      "nom": "",
+      "debut": 1586.0,
+      "fin": 1707.0,
+      "rayon_min": 15.9,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 9,
+      "nom": "",
+      "debut": 1893.0,
+      "fin": 1938.0,
+      "rayon_min": 14.4,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 10,
+      "nom": "",
+      "debut": 2510.0,
+      "fin": 2582.0,
+      "rayon_min": 32.3,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 11,
+      "nom": "",
+      "debut": 2645.0,
+      "fin": 2789.0,
+      "rayon_min": 38.7,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 12,
+      "nom": "",
+      "debut": 2791.0,
+      "fin": 2889.0,
+      "rayon_min": 10.4,
+      "sens": -1,
+      "chicane": false
+    }
+  ]
+}

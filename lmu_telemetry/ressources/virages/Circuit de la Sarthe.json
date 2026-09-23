@@ -1,0 +1,269 @@
+{
+  "circuit": "Circuit de la Sarthe",
+  "longueur": 13623.4,
+  "automatique": true,
+  "_aide": "Distances en mètres depuis la ligne de départ. Ce fichier est fait pour être modifié à la main : ajuste debut/fin, donne un nom aux virages, ou supprime ceux qui ne t'intéressent pas. Mets \"automatique\" à false pour que l'outil ne le regénère jamais.",
+  "virages": [
+    {
+      "numero": 1,
+      "nom": "",
+      "debut": 579.0,
+      "fin": 697.0,
+      "rayon_min": 124.2,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 2,
+      "nom": "",
+      "debut": 816.0,
+      "fin": 872.0,
+      "rayon_min": 24.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 3,
+      "nom": "",
+      "debut": 876.0,
+      "fin": 941.0,
+      "rayon_min": 30.7,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 4,
+      "nom": "",
+      "debut": 1066.0,
+      "fin": 1153.0,
+      "rayon_min": 155.0,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 5,
+      "nom": "",
+      "debut": 1165.0,
+      "fin": 1349.0,
+      "rayon_min": 120.1,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 6,
+      "nom": "",
+      "debut": 1407.0,
+      "fin": 1550.0,
+      "rayon_min": 69.2,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 7,
+      "nom": "",
+      "debut": 1556.0,
+      "fin": 1654.0,
+      "rayon_min": 58.8,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 8,
+      "nom": "",
+      "debut": 1882.0,
+      "fin": 1963.0,
+      "rayon_min": 43.6,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 9,
+      "nom": "",
+      "debut": 4017.0,
+      "fin": 4082.0,
+      "rayon_min": 43.5,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 10,
+      "nom": "",
+      "debut": 4085.0,
+      "fin": 4173.0,
+      "rayon_min": 40.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 11,
+      "nom": "",
+      "debut": 4187.0,
+      "fin": 4287.0,
+      "rayon_min": 129.3,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 12,
+      "nom": "",
+      "debut": 5983.0,
+      "fin": 6052.0,
+      "rayon_min": 52.8,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 13,
+      "nom": "",
+      "debut": 6057.0,
+      "fin": 6151.0,
+      "rayon_min": 37.6,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 14,
+      "nom": "",
+      "debut": 6161.0,
+      "fin": 6263.0,
+      "rayon_min": 121.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 15,
+      "nom": "",
+      "debut": 7716.0,
+      "fin": 7775.0,
+      "rayon_min": 19.2,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 16,
+      "nom": "",
+      "debut": 9617.0,
+      "fin": 9716.0,
+      "rayon_min": 124.7,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 17,
+      "nom": "",
+      "debut": 9797.0,
+      "fin": 9899.0,
+      "rayon_min": 36.2,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 18,
+      "nom": "",
+      "debut": 10133.0,
+      "fin": 10200.0,
+      "rayon_min": 19.3,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 19,
+      "nom": "",
+      "debut": 11436.0,
+      "fin": 11640.0,
+      "rayon_min": 126.9,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 20,
+      "nom": "",
+      "debut": 11722.0,
+      "fin": 11853.0,
+      "rayon_min": 117.2,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 21,
+      "nom": "",
+      "debut": 11930.0,
+      "fin": 12044.0,
+      "rayon_min": 102.1,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 22,
+      "nom": "",
+      "debut": 12077.0,
+      "fin": 12345.0,
+      "rayon_min": 104.1,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 23,
+      "nom": "",
+      "debut": 12367.0,
+      "fin": 12500.0,
+      "rayon_min": 85.2,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 24,
+      "nom": "",
+      "debut": 12657.0,
+      "fin": 12709.0,
+      "rayon_min": 146.6,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 25,
+      "nom": "",
+      "debut": 12752.0,
+      "fin": 12835.0,
+      "rayon_min": 133.3,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 26,
+      "nom": "",
+      "debut": 13231.0,
+      "fin": 13279.0,
+      "rayon_min": 36.7,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 27,
+      "nom": "",
+      "debut": 13281.0,
+      "fin": 13345.0,
+      "rayon_min": 42.5,
+      "sens": -1,
+      "chicane": false
+    },
+    {
+      "numero": 28,
+      "nom": "",
+      "debut": 13392.0,
+      "fin": 13428.0,
+      "rayon_min": 19.5,
+      "sens": 1,
+      "chicane": false
+    },
+    {
+      "numero": 29,
+      "nom": "",
+      "debut": 13429.0,
+      "fin": 13470.0,
+      "rayon_min": 18.4,
+      "sens": -1,
+      "chicane": false
+    }
+  ]
+}

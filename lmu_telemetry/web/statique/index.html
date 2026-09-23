@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Télémétrie — Le Mans Ultimate</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c6cff'/%3E%3Cstop offset='1' stop-color='%23e052a0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='30' height='30' rx='8' fill='url(%23d)'/%3E%3Cpath d='M5 20 L10 20 L13 11 L17 23 L20 15 L25 15' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header>
+  <div class="marque-appli">
+    <!-- Emblème maison : une courbe de télémétrie, pas le logo du jeu. -->
+    <svg viewBox="0 0 30 30" aria-hidden="true">
+      <defs>
+        <linearGradient id="degrade-embleme" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7c6cff"/><stop offset="1" stop-color="#e052a0"/>
+        </linearGradient>
+      </defs>
+      <rect width="30" height="30" rx="8" fill="url(#degrade-embleme)"/>
+      <path d="M5 20 L10 20 L13 11 L17 23 L20 15 L25 15" fill="none" stroke="#fff"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>Télémétrie <span class="discret">Le Mans Ultimate</span></h1>
+  </div>
+  <nav id="fil"></nav>
+  <span id="version" class="version"></span>
+</header>
+
+<main>
+
+  <!-- Écran 1 : la liste des sessions -->
+  <section id="ecran-sessions">
+    <div class="barre">
+      <label for="circuit" class="discret">Circuit</label>
+      <select id="circuit"><option value="">Tous</option></select>
+      <label for="tri" class="discret">Trier par</label>
+      <select id="tri">
+        <option value="date">Les plus récentes</option>
+        <option value="chrono">Meilleur chrono</option>
+      </select>
+      <label><input type="checkbox" id="avec-tours" checked> Masquer les sessions sans tour chronométré</label>
+    </div>
+    <div id="liste-sessions" class="tableau"></div>
+    <div id="pied-liste" class="barre-zoom"></div>
+    <div id="source-sessions" class="source"></div>
+  </section>
+
+  <!-- Écran 0 : choisir le dossier de télémétrie, quand il n'a pas été trouvé
+       tout seul ou qu'on veut en changer. -->
+  <section id="ecran-dossier" hidden>
+    <div class="carte-dossier">
+      <h2>Où sont tes sessions ?</h2>
+      <p id="message-dossier" class="message-dossier"></p>
+      <div class="saisie-dossier">
+        <input id="saisie-dossier" type="text" spellcheck="false" autocomplete="off"
+               placeholder="D:\SteamLibrary\steamapps\common\Le Mans Ultimate\UserData\Telemetry">
+        <button id="valider-dossier" type="button" class="principal">Utiliser ce dossier</button>
+        <button id="annuler-dossier" type="button" hidden>Annuler</button>
+      </div>
+      <p id="erreur-dossier" class="erreur-dossier" hidden></p>
+      <div class="aide">
+        <strong>Pour trouver ce dossier</strong>
+        <ol>
+          <li>Dans Steam, fais un clic droit sur <strong>Le Mans Ultimate</strong>,
+            puis <strong>Gérer › Parcourir les fichiers locaux</strong>.</li>
+          <li>Dans la fenêtre qui s'ouvre, entre dans <strong>UserData</strong>,
+            puis dans <strong>Telemetry</strong>.</li>
+          <li>Clique dans la barre d'adresse en haut de la fenêtre, copie le
+            chemin (Ctrl+C) et colle-le ci-dessus (Ctrl+V).</li>
+        </ol>
+        <p>Le dossier <strong>Telemetry</strong> n'apparaît qu'après ta première
+          session : si tu ne l'as pas encore, roule quelques tours et reviens.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Écran 2 : une session et ses tours -->
+  <section id="ecran-session" hidden>
+    <div id="entete-session"></div>
+    <div id="liste-tours" class="tableau"></div>
+    <div class="barre" id="choix-tours"></div>
+  </section>
+
+  <!-- Écran 4 : la régularité -->
+  <section id="ecran-regularite" hidden>
+    <div id="resume-regularite" class="resume"></div>
+    <div id="note-regularite" class="discret"></div>
+    <div class="colonnes-regularite">
+      <div class="bloc-chronos">
+        <h2>Chronos de la session</h2>
+        <canvas id="graphe-chronos"></canvas>
+      </div>
+      <div id="tendance" class="aide"></div>
+    </div>
+    <h2 class="titre-classement">Où tu es le moins constant</h2>
+    <div id="classement-virages" class="tableau"></div>
+  </section>
+
+  <!-- Écran 3 : la comparaison -->
+  <section id="ecran-comparaison" hidden>
+    <div id="resume-comparaison" class="resume"></div>
+    <div id="avertissements" hidden></div>
+    <div class="colonnes">
+      <div class="principal">
+        <div class="barre-zoom">
+          <button id="reset-zoom" type="button">Voir le tour entier</button>
+          <span id="etendue"></span>
+          <span class="discret">Glisser sur un graphique ou molette pour zoomer ·
+            double-clic pour revenir</span>
+        </div>
+        <div id="graphiques"></div>
+
+        <section id="bloc-virages" hidden>
+          <h2>Virage par virage</h2>
+          <div id="entete-virages" class="discret"></div>
+          <div id="table-virages" class="tableau"></div>
+        </section>
+      </div>
+      <aside id="cote">
+        <div id="lecture" class="lecture"></div>
+        <div class="bloc-piste">
+          <div class="entete-piste">
+            <strong>Vue de la route</strong>
+            <select id="fenetre-piste">
+              <option value="40">40 m</option>
+              <option value="80" selected>80 m</option>
+              <option value="160">160 m</option>
+              <option value="320">320 m</option>
+            </select>
+          </div>
+          <canvas id="vue-piste"></canvas>
+          <div id="note-piste" class="discret"></div>
+        </div>
+        <canvas id="carte" width="300" height="300"></canvas>
+      </aside>
+    </div>
+  </section>
+
+  <div id="erreur" hidden></div>
+</main>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
