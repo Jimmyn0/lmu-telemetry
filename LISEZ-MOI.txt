@@ -37,6 +37,9 @@ L'outil cherche le jeu tout seul dans tes bibliothèques Steam. S'il ne le
 trouve pas, il te demande le dossier et t'explique comment le trouver. Tu ne
 le feras qu'une fois.
 
+L'outil existe en français et en anglais : le bouton FR | EN, en haut à
+droite, change la langue. Ton choix est retenu.
+
 Rien ne sort de ton ordinateur : l'outil ne se connecte à aucun serveur, et
 ne modifie aucun fichier du jeu. Il se contente de lire.
 

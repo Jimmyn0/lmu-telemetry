@@ -15,6 +15,8 @@
 // `virages/`, nommés d'après la marque — `Porsche.png`, `Ferrari.svg`… — et
 // ils remplaceront automatiquement la pastille.
 
+import { locale } from "/i18n.js";
+
 // Neutralise un texte avant de l'insérer dans la page.
 //
 // Tout ce qui vient d'un FICHIER passe par ici : nom de circuit, de voiture,
@@ -102,13 +104,25 @@ const COULEURS_MARQUE = {
 
 const COULEUR_MARQUE_INCONNUE = "#5a6570";
 
+// Nom du pays dans la langue de la page. Le navigateur connaît le nom de tous
+// les pays dans toutes les langues : pas de table à tenir à jour. Le nom
+// français envoyé par le serveur ne sert que si le navigateur ne sait pas.
+function nomDuPays(pays) {
+  try {
+    return new Intl.DisplayNames([locale()], { type: "region" }).of(pays.code) || pays.nom;
+  } catch {
+    return pays.nom;
+  }
+}
+
 // Renvoie le HTML d'un drapeau, ou une chaîne vide si le pays est inconnu.
 // `pays` est l'objet { code, nom } renvoyé par l'API.
 export function drapeau(pays) {
   if (!pays || !DRAPEAUX[pays.code]) return "";
+  const nom = echapper(nomDuPays(pays));
   return (
-    `<svg class="drapeau" viewBox="0 0 3 2" role="img" aria-label="${echapper(pays.nom)}">` +
-    `<title>${echapper(pays.nom)}</title>${DRAPEAUX[pays.code]}` +
+    `<svg class="drapeau" viewBox="0 0 3 2" role="img" aria-label="${nom}">` +
+    `<title>${nom}</title>${DRAPEAUX[pays.code]}` +
     `<rect width="3" height="2" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="0.06"/></svg>`
   );
 }

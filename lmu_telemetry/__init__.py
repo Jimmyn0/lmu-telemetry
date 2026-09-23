@@ -3,7 +3,7 @@
 #: Version de l'outil, affichée dans l'interface et gravée dans le .exe.
 #: À augmenter à chaque version distribuée (voir NOTES-DE-VERSION.md) :
 #: le dernier chiffre pour une correction, celui du milieu pour un ajout.
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .errors import ErreurTelemetrie
 from .reader import ROUES, FichierSession, InfoCanal, InfoEvenement, InfoSession

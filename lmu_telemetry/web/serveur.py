@@ -14,10 +14,10 @@ Trois protections, parce qu'un serveur local n'est pas pour autant à l'abri :
 * seules les requêtes adressées à « 127.0.0.1 » ou « localhost » sont servies,
   ce qui ferme la porte à une page web qui ferait pointer son propre nom de
   domaine vers la machine (« DNS rebinding ») ;
-* la seule route qui modifie quelque chose — le choix du dossier de
-  télémétrie — exige une requête venue de la page de l'outil elle-même (en-tête
-  Origin), en JSON : un autre site ouvert dans le navigateur ne peut pas la
-  déclencher.
+* les deux routes qui modifient quelque chose — le choix du dossier de
+  télémétrie et celui de la langue — exigent une requête venue de la page de
+  l'outil elle-même (en-tête Origin), en JSON : un autre site ouvert dans le
+  navigateur ne peut pas les déclencher.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
-from .. import __version__, catalogue, emplacements, pays, resultats
+from .. import __version__, catalogue, emplacements, pays, resultats, textes
 from ..comparaison import comparer_fichiers
 from ..donnees_tour import charger
 from ..piste import construire as construire_piste
@@ -51,6 +51,7 @@ from ..virages import (
     secteurs,
 )
 from ..errors import DossierIntrouvable, ErreurTelemetrie
+from ..textes import Message
 from ..reader import FichierSession
 from ..session import Session
 
@@ -60,6 +61,7 @@ TYPES_MIME = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".jpg": "image/jpeg",
@@ -339,7 +341,7 @@ def _session(contexte: Contexte, chemin: str) -> dict:
                 "secteurs": list(t.secteurs),
                 "valide": t.valide,
                 "vitesse_min": round(t.vitesse_min, 1),
-                "remarques": list(t.remarques),
+                "remarques": [r.json() for r in t.remarques],
             }
             for t in session.tours
         ],
@@ -371,7 +373,7 @@ def _comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
             "numero": donnees.tour.numero,
             "chrono": donnees.tour.chrono,
             "longueur": round(donnees.longueur, 1),
-            "remarques": list(donnees.tour.remarques),
+            "remarques": [r.json() for r in donnees.tour.remarques],
         }
 
     return {
@@ -389,7 +391,7 @@ def _comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
         "ecart_final": round(comparaison.ecart_final, 3),
         "ecart_chronos": comparaison.ecart_chronos,
         "coherent": comparaison.coherent,
-        "avertissements": list(comparaison.avertissements),
+        "avertissements": [a.json() for a in comparaison.avertissements],
         "troncons": [
             {"distance": d, "delta": round(v, 3)}
             for d, v in comparaison.perte_par_troncon()
@@ -490,11 +492,7 @@ def _definition(contexte: Contexte, session: Session) -> tuple[DefinitionCircuit
         # grande part du tour.
         numeros = [t.numero for t in session.tours_valides if t.chrono][:5]
         if not numeros:
-            raise ErreurTelemetrie(
-                "Aucun tour valide dans cette session : impossible de découper le "
-                "circuit en virages. Ouvre une session où tu as bouclé au moins un "
-                "tour propre."
-            )
+            raise ErreurTelemetrie.de("serveur.erreur.decoupage_aucun_tour_valide")
         definition = detecter([charger(session.chemin, n) for n in numeros])
         definition.enregistrer(chemin)
         cle = _cle_fichier(chemin)
@@ -544,7 +542,7 @@ def _virages(contexte: Contexte, params: dict[str, list[str]]) -> dict:
             "debut": a.virage.debut,
             "fin": a.virage.fin,
             "rayon_min": round(a.virage.rayon_min, 1),
-            "remarques": list(a.remarques) + list(b.remarques if b else []),
+            "remarques": [r.json() for r in (*a.remarques, *(b.remarques if b else ()))],
             "mesures": {
                 nom: paire(nom)
                 for nom in (
@@ -645,10 +643,7 @@ HOTES_ACCEPTES = frozenset({"127.0.0.1", "localhost"})
 
 class CheminRefuse(ErreurTelemetrie):
     def __init__(self, brut: str) -> None:
-        super().__init__(
-            f"Ce fichier n'est pas une session du dossier de télémétrie :\n  {brut}\n"
-            "L'interface n'ouvre que les fichiers .duckdb de ce dossier."
-        )
+        super().__init__(Message("serveur.erreur.chemin_refuse", {"chemin": brut}))
 
 
 def _verifier_chemins(contexte: Contexte, params: dict[str, list[str]]) -> None:
@@ -679,7 +674,12 @@ def _etat_dossier(contexte: Contexte) -> dict:
     try:
         dossier = catalogue.dossier_telemetrie(contexte.dossier)
     except DossierIntrouvable as erreur:
-        return {"dossier": None, "erreur": str(erreur), "impose": impose}
+        return {
+            "dossier": None,
+            "erreur": str(erreur),
+            "message": erreur.message.json() if erreur.message else None,
+            "impose": impose,
+        }
     return {"dossier": str(dossier), "erreur": None, "impose": impose}
 
 
@@ -692,29 +692,57 @@ def _choisir_dossier(contexte: Contexte, charge: dict) -> dict:
     explication.
     """
     if contexte.dossier is not None:
-        raise ErreurTelemetrie(
-            "Le dossier est imposé par l'option --dossier de la ligne de commande : "
-            "il ne peut pas être changé depuis l'interface."
-        )
+        raise ErreurTelemetrie.de("serveur.erreur.dossier_impose")
     brut = str(charge.get("dossier") or "").strip().strip('"')
     if not brut:
-        raise ErreurTelemetrie("Indique un dossier.")
+        raise ErreurTelemetrie.de("serveur.erreur.dossier_vide")
     chemin = Path(brut)
     if not chemin.is_dir():
         raise DossierIntrouvable(chemin)
     if not any(chemin.glob("*.duckdb")):
-        indice = ""
+        # L'erreur la plus probable est de s'arrêter un niveau trop haut : on
+        # dit alors quel sous-dossier prendre.
+        cle = "serveur.erreur.aucune_session_dossier"
         if (chemin / "UserData" / "Telemetry").is_dir():
-            indice = "\nC'est le dossier du jeu : choisis son sous-dossier UserData\\Telemetry."
+            cle = "serveur.erreur.aucune_session_dossier_jeu"
         elif (chemin / "Telemetry").is_dir():
-            indice = "\nChoisis son sous-dossier Telemetry."
-        raise ErreurTelemetrie(
-            f"Aucune session (fichier .duckdb) dans ce dossier :\n  {chemin}{indice}"
-        )
+            cle = "serveur.erreur.aucune_session_dossier_userdata"
+        raise ErreurTelemetrie.de(cle, chemin=str(chemin))
     reglages = emplacements.lire_reglages()
     reglages[catalogue.REGLAGE_DOSSIER] = str(chemin)
     emplacements.enregistrer_reglages(reglages)
     return _etat_dossier(contexte)
+
+
+#: Langues de l'interface (textes dans statique/langues/), et la clé du fichier
+#: de réglages qui retient celle choisie : les mêmes que la fenêtre du .exe.
+LANGUES = textes.LANGUES_DISPONIBLES
+REGLAGE_LANGUE = textes.REGLAGE_LANGUE
+
+
+def _choisir_langue(charge: dict) -> dict:
+    """Retient la langue de l'interface.
+
+    C'est le serveur qui la garde, et non le navigateur : le .exe peut changer
+    de port d'un lancement à l'autre (8770 pris, il passe à 8771), et le
+    navigateur range ce qu'il mémorise par port — le choix serait perdu.
+    """
+    langue = str(charge.get("langue") or "")
+    if langue not in LANGUES:
+        raise ErreurTelemetrie.de("serveur.erreur.langue_inconnue", langue=repr(langue))
+    reglages = emplacements.lire_reglages()
+    reglages[REGLAGE_LANGUE] = langue
+    emplacements.enregistrer_reglages(reglages)
+    return {"langue": langue}
+
+
+def _version() -> dict:
+    langue = emplacements.lire_reglages().get(REGLAGE_LANGUE)
+    return {
+        "version": __version__,
+        "donnees": str(emplacements.donnees()),
+        "langue": langue if langue in LANGUES else None,
+    }
 
 
 def _origine_acceptee(origine: str | None, hote: str | None) -> bool:
@@ -777,7 +805,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
             elif url.path == "/api/logos":
                 self._json(sorted(_logos(self.contexte)))
             elif url.path == "/api/version":
-                self._json({"version": __version__, "donnees": str(emplacements.donnees())})
+                self._json(_version())
             elif url.path == "/api/dossier":
                 self._json(_etat_dossier(self.contexte))
             elif url.path == "/logo":
@@ -805,6 +833,8 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 raise ValueError("objet JSON attendu")
             if url.path == "/api/dossier":
                 self._json(_choisir_dossier(self.contexte, charge))
+            elif url.path == "/api/langue":
+                self._json(_choisir_langue(charge))
             else:
                 self.send_error(404, "Route inconnue")
         except Exception as erreur:  # noqa: BLE001
@@ -814,28 +844,28 @@ class Gestionnaire(BaseHTTPRequestHandler):
         """Répond par un message lisible, jamais par une trace de pile."""
         if isinstance(erreur, BrokenPipeError | ConnectionResetError):
             return  # le navigateur a fermé l'onglet en cours de route
+        # `erreur` : la phrase française ; `message` : de quoi l'écrire dans la
+        # langue de la page (voir textes.py).
         if isinstance(erreur, ErreurTelemetrie):
-            charge = {"erreur": str(erreur)}
+            message = erreur.message or Message("serveur.erreur.brute", {"texte": str(erreur)})
+            code = 400
+            charge = {}
             if isinstance(erreur, DossierIntrouvable):
                 charge["code"] = "dossier_introuvable"
-            self._json(charge, code=400)
         elif isinstance(erreur, KeyError | ValueError):
-            self._json({"erreur": f"Requête incomplète : {erreur}"}, code=400)
+            message = Message("serveur.erreur.requete_incomplete", {"detail": str(erreur)})
+            code = 400
+            charge = {}
         else:
             # Un défaut de l'outil, pas une erreur de l'utilisateur : on le dit,
             # avec de quoi le signaler, et la trace complète va dans la console.
             traceback.print_exception(erreur)
-            self._json(
-                {
-                    "erreur": (
-                        "L'outil a rencontré un problème inattendu. Ce n'est pas de ta "
-                        "faute : signale-le à qui t'a donné l'outil, en précisant ce "
-                        "que tu faisais.\n\nDétail technique : "
-                        f"{type(erreur).__name__}: {erreur}"
-                    )
-                },
-                code=500,
+            message = Message(
+                "serveur.erreur.inattendue", {"detail": f"{type(erreur).__name__}: {erreur}"}
             )
+            code = 500
+            charge = {}
+        self._json({"erreur": str(message), "message": message.json(), **charge}, code=code)
 
     # ------------------------------------------------------------------
 

@@ -7,6 +7,7 @@
 // compliqué.
 
 import { POLICE } from "/graphes.js";
+import { t } from "/i18n.js";
 
 const MARGE = { gauche: 66, droite: 16, haut: 14, bas: 30 };
 
@@ -28,7 +29,7 @@ export function dessinerChronos(canvas, donnees, couleurs) {
 
   // L'échelle part du tour idéal : sans lui en bas du cadre, on ne verrait pas
   // l'écart qui sépare le meilleur tour de ce que la régularité rapporterait.
-  const valeurs = tours.map((t) => t.chrono);
+  const valeurs = tours.map((tour) => tour.chrono);
   const bas = Math.min(ideal, ...valeurs);
   const haut = Math.max(...valeurs);
   const marge = (haut - bas) * 0.12 || 0.5;
@@ -60,9 +61,9 @@ export function dessinerChronos(canvas, donnees, couleurs) {
   // Les trois repères sont souvent à quelques dixièmes les uns des autres : on
   // décale leurs libellés horizontalement, sinon ils se superposent.
   const reperes = [
-    { valeur: ideal, couleur: couleurs.gain, texte: "tour idéal", decalage: 6 },
-    { valeur: meilleur, couleur: couleurs.record, texte: "meilleur", decalage: 82 },
-    { valeur: median, couleur: couleurs.compare, texte: "médian", decalage: 148 },
+    { valeur: ideal, couleur: couleurs.gain, texte: t("chronos.ideal"), decalage: 6 },
+    { valeur: meilleur, couleur: couleurs.record, texte: t("chronos.meilleur"), decalage: 82 },
+    { valeur: median, couleur: couleurs.compare, texte: t("chronos.median"), decalage: 148 },
   ];
   for (const r of reperes) {
     const y = Math.round(versY(r.valeur)) + 0.5;
@@ -90,29 +91,29 @@ export function dessinerChronos(canvas, donnees, couleurs) {
   ctx.strokeStyle = couleurs.reference;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  tours.forEach((t, i) => {
+  tours.forEach((tour, i) => {
     const x = versX(i);
-    const y = versY(t.chrono);
+    const y = versY(tour.chrono);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.stroke();
 
-  tours.forEach((t, i) => {
+  tours.forEach((tour, i) => {
     const x = versX(i);
-    const y = versY(t.chrono);
-    ctx.fillStyle = t.chrono === meilleur ? couleurs.record : couleurs.reference;
+    const y = versY(tour.chrono);
+    ctx.fillStyle = tour.chrono === meilleur ? couleurs.record : couleurs.reference;
     ctx.beginPath();
-    ctx.arc(x, y, t.chrono === meilleur ? 5 : 3.5, 0, Math.PI * 2);
+    ctx.arc(x, y, tour.chrono === meilleur ? 5 : 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = couleurs.axe;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(String(t.numero), x, y1 + 6);
+    ctx.fillText(String(tour.numero), x, y1 + 6);
   });
 
   ctx.fillStyle = couleurs.axe;
   ctx.textAlign = "right";
-  ctx.fillText("n° de tour", x1, y1 + 17);
+  ctx.fillText(t("chronos.axe_tours"), x1, y1 + 17);
 
   ctx.strokeStyle = couleurs.grille;
   ctx.lineWidth = 1;

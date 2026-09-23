@@ -6,7 +6,8 @@ enregistrements que Le Mans Ultimate produit déjà tout seul.
 L'outil **montre**, il ne juge pas. Pas de conseil de réglage, pas de
 diagnostic automatique : uniquement des faits mesurés.
 
-> **Version 1.0.0 — les six étapes du brief sont terminées.**
+> **Version 1.1.0 — les six étapes du brief sont terminées, et l'outil existe
+> en anglais.**
 > L'outil liste tes sessions, découpe chacune en tours, **compare deux tours**
 > (traces superposées, delta cumulé, vue de la route), donne le **détail virage
 > par virage** et analyse ta **régularité**. Il existe en **.exe autonome** à
@@ -91,8 +92,8 @@ résultat : appuie sur Entrée pour la fermer. Le dossier `dist` contient :
 | Fichier | À quoi il sert |
 |---|---|
 | `Telemetrie-LMU.exe` | l'outil, pour toi |
-| `Telemetrie-LMU-1.0.0.zip` | **ce que tu envoies** : le .exe et son mode d'emploi |
-| `LISEZ-MOI.txt` | le mode d'emploi, écrit pour quelqu'un qui n'a jamais vu l'outil |
+| `Telemetrie-LMU-1.1.0.zip` | **ce que tu envoies** : le .exe et ses deux modes d'emploi |
+| `LISEZ-MOI.txt`, `README.txt` | le mode d'emploi en français et en anglais, écrit pour quelqu'un qui n'a jamais vu l'outil |
 
 Compte une minute et demie. Le .exe pèse 32 Mo : trop pour une pièce jointe
 Discord sans abonnement. Passe par un lien Google Drive,
@@ -181,6 +182,15 @@ C'est la façon normale de se servir de l'outil :
 
 Le navigateur s'ouvre tout seul. Tu y trouves tes sessions, puis les tours de
 la session choisie, puis la comparaison de deux tours.
+
+L'interface existe en **français et en anglais** : le bouton **FR | EN**, en
+haut à droite, change la langue sans perdre l'écran en cours, et le choix est
+retenu. Au premier lancement, l'outil prend la langue du navigateur. Tout est
+traduit, y compris les remarques sur les tours, les avertissements et les
+messages d'erreur : le serveur n'écrit pas de phrases, il envoie une clé que la
+page traduit. Les textes sont dans `lmu_telemetry/web/statique/langues/` ; un
+test vérifie que les deux langues ont exactement les mêmes phrases. La ligne de
+commande, elle, reste en français.
 
 Les couleurs ont toujours le même sens, d'un écran à l'autre :
 
@@ -558,6 +568,8 @@ sessions quand LMU est installé sur la machine, et sont ignorés sinon.
 | `lmu_telemetry/catalogue.py` | repérage des fichiers sur le disque, et du jeu dans les bibliothèques Steam. |
 | `lmu_telemetry/emplacements.py` | où vont les ressources livrées et les données de l'utilisateur. |
 | `lmu_telemetry/lanceur.py` | ce qui se passe au double-clic sur le .exe. |
+| `lmu_telemetry/textes.py` | les messages que le serveur envoie à traduire, et le français de la ligne de commande. |
+| `lmu_telemetry/web/statique/langues/` | toutes les phrases de l'outil, en français et en anglais. |
 | `lmu_telemetry/ressources/` | livré avec l'outil : découpages de référence, logos libres, icône. |
 | `lmu_telemetry/errors.py` | messages d'erreur qui disent quoi faire. |
 | `lmu_telemetry/cli.py` | la ligne de commande. |
@@ -592,3 +604,5 @@ sessions quand LMU est installé sur la machine, et sont ignorés sinon.
 * [docs/10-distribution.md](docs/10-distribution.md) — le .exe : ce qu'il
   contient, où il range ses fichiers, comment il trouve le jeu chez les
   autres, et les défauts que ce travail a fait apparaître.
+* [docs/11-langues.md](docs/11-langues.md) — le français et l'anglais : où sont
+  les textes, comment en ajouter ou en corriger un, et ce que vérifient les tests.

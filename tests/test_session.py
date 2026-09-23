@@ -38,7 +38,7 @@ def test_dernier_tour_non_boucle(session: Session) -> None:
     assert dernier.fin is None
     assert dernier.duree_mesuree is None
     assert dernier.valide is False
-    assert "non bouclé" in " ".join(dernier.remarques)
+    assert "non bouclé" in " ".join(map(str, dernier.remarques))
 
 
 # ----------------------------------------------------------------------
@@ -84,7 +84,7 @@ def test_tour_de_sortie_des_stands_ecarte(session: Session) -> None:
     tour = session.tours[0]
     assert tour.stands is True
     assert tour.valide is False
-    assert "stands" in " ".join(tour.remarques)
+    assert "stands" in " ".join(map(str, tour.remarques))
 
 
 def test_tour_invalide_par_le_jeu(session: Session) -> None:
@@ -94,7 +94,7 @@ def test_tour_invalide_par_le_jeu(session: Session) -> None:
     assert tour.stands is False
     assert tour.chronometre is False
     assert tour.valide is False
-    assert "invalidé par le jeu" in " ".join(tour.remarques)
+    assert "invalidé par le jeu" in " ".join(map(str, tour.remarques))
 
 
 def test_tours_valides(session: Session) -> None:
@@ -130,7 +130,7 @@ def test_quasi_arret(session: Session) -> None:
     assert tour.vitesse_min == pytest.approx(0.0)
     assert tour.duree_quasi_arret == pytest.approx(2.0, abs=0.02)
     assert tour.quasi_arret is True
-    assert "quasi-arrêt" in " ".join(tour.remarques)
+    assert "quasi-arrêt" in " ".join(map(str, tour.remarques))
 
 
 def test_un_incident_ne_disqualifie_pas_un_tour_chronometre(session: Session) -> None:

@@ -307,11 +307,8 @@ def analyser(
     session = Session.ouvrir(chemin)
     numeros = [t.numero for t in session.tours_valides if t.chrono][:maximum_tours]
     if len(numeros) < TOURS_MINIMUM:
-        raise ErreurTelemetrie(
-            f"Cette session ne contient que {len(numeros)} tour(s) valide(s). "
-            f"Il en faut au moins {TOURS_MINIMUM} pour parler de régularité : "
-            "avec moins, une dispersion ne veut rien dire.\n"
-            "Choisis une session plus longue, ou roule quelques tours de plus."
+        raise ErreurTelemetrie.de(
+            "serveur.erreur.regularite_peu_de_tours", n=len(numeros), minimum=TOURS_MINIMUM
         )
 
     tours = [charger(chemin, n) for n in numeros]

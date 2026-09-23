@@ -74,6 +74,7 @@ import numpy as np
 
 from .donnees_tour import DonneesTour, charger
 from .errors import ErreurTelemetrie
+from .textes import Message
 
 #: Pas de l'axe de distance, en mètres.
 #:
@@ -114,7 +115,7 @@ class Comparaison:
         return None if a is None or b is None else a - b
 
     @property
-    def avertissements(self) -> tuple[str, ...]:
+    def avertissements(self) -> tuple[Message, ...]:
         """Ce qui doit être dit avant de lire la courbe.
 
         Un tour où la voiture s'est arrêtée casse la comparaison par distance :
@@ -127,18 +128,26 @@ class Comparaison:
         messages = []
         if self.reference.info.voiture != self.compare.info.voiture:
             messages.append(
-                "Les deux tours ne sont pas dans la même voiture "
-                f"({self.reference.info.voiture} contre {self.compare.info.voiture}). "
-                "Le delta mesure alors surtout un écart de matériel, pas de pilotage."
+                Message(
+                    "serveur.avert.voitures",
+                    {"ref": self.reference.info.voiture, "cmp": self.compare.info.voiture},
+                )
             )
-        for role, donnees in (("de référence", self.reference), ("comparé", self.compare)):
+        for cle, donnees in (
+            ("serveur.avert.arret_reference", self.reference),
+            ("serveur.avert.arret_compare", self.compare),
+        ):
             tour = donnees.tour
             if tour.quasi_arret:
                 messages.append(
-                    f"Le tour {role} ({tour.numero}) s'est quasiment arrêté "
-                    f"({tour.vitesse_min:.0f} km/h pendant {tour.duree_quasi_arret:.1f} s). "
-                    "Le delta fera un saut vertical à cet endroit : la distance "
-                    "n'avance plus alors que le temps continue."
+                    Message(
+                        cle,
+                        {
+                            "n": tour.numero,
+                            "vitesse": f"{tour.vitesse_min:.0f}",
+                            "duree": f"{tour.duree_quasi_arret:.1f}",
+                        },
+                    )
                 )
         return tuple(messages)
 
@@ -181,20 +190,17 @@ def comparer(
     # Le tracé, pas le circuit : deux variantes du même circuit n'ont ni la
     # même longueur ni les mêmes virages, les superposer n'aurait aucun sens.
     if reference.info.trace != compare.info.trace:
-        raise ErreurTelemetrie(
-            "Ces deux tours ne sont pas sur le même circuit :\n"
-            f"  référence : {reference.info.trace}\n"
-            f"  comparé   : {compare.info.trace}\n"
-            "Comparer deux tracés différents n'a pas de sens. Attention : deux\n"
-            "variantes du même circuit portent le même nom dans le jeu, mais\n"
-            "n'ont ni la même longueur ni les mêmes virages."
+        raise ErreurTelemetrie.de(
+            "serveur.erreur.circuits_differents",
+            ref=reference.info.trace,
+            cmp=compare.info.trace,
         )
 
     # Les deux tours ne couvrent jamais exactement la même longueur : le dernier
     # échantillon ne tombe pas au même endroit. On s'arrête au plus court.
     fin = min(reference.longueur, compare.longueur)
     if fin <= pas:
-        raise ErreurTelemetrie("Ces tours sont trop courts pour être comparés.")
+        raise ErreurTelemetrie.de("serveur.erreur.tours_trop_courts")
 
     distance = np.arange(0.0, fin, pas)
 

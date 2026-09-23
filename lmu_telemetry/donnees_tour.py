@@ -56,6 +56,7 @@ from pathlib import Path
 import numpy as np
 
 from .errors import ErreurTelemetrie
+from .textes import Message
 from .reader import SURFACES_HORS_PISTE, FichierSession, InfoSession
 from .session import Session, Tour
 
@@ -124,8 +125,10 @@ CANAL_BRAQUAGE = "Steering Pos"
 class TourIntrouvable(ErreurTelemetrie):
     def __init__(self, numero: int, disponibles: list[int]) -> None:
         super().__init__(
-            f"Le tour {numero} n'existe pas dans cette session.\n"
-            f"Tours disponibles : {', '.join(map(str, disponibles)) or 'aucun'}"
+            Message(
+                "serveur.erreur.tour_introuvable",
+                {"numero": numero, "disponibles": ", ".join(map(str, disponibles)) or "—"},
+            )
         )
 
 
@@ -157,9 +160,10 @@ class DonneesTour:
 
     def canal(self, nom: str) -> np.ndarray:
         if nom not in self.canaux:
-            raise ErreurTelemetrie(
-                f"« {nom} » n'a pas été chargé pour ce tour.\n"
-                f"Chargés : {', '.join(sorted(self.canaux))}"
+            raise ErreurTelemetrie.de(
+                "serveur.erreur.canal_non_charge",
+                nom=nom,
+                charges=", ".join(sorted(self.canaux)),
             )
         return self.canaux[nom]
 
@@ -217,9 +221,7 @@ def charger(
         raise TourIntrouvable(numero, sorted(tours))
     tour = tours[numero]
     if tour.fin is None:
-        raise ErreurTelemetrie(
-            f"Le tour {numero} n'a pas été bouclé : il n'y a rien à comparer."
-        )
+        raise ErreurTelemetrie.de("serveur.erreur.tour_non_boucle", numero=numero)
 
     with FichierSession(chemin) as fichier:
         grille = _grille(tour)
@@ -339,9 +341,8 @@ def _distance_sur(fichier: FichierSession, tour: Tour, grille: np.ndarray) -> np
     # au franchissement suivant, `Lap Dist` est déjà retombé à zéro.
     dedans = (temps >= tour.debut) & (temps < tour.fin)
     if dedans.sum() < 2:
-        raise ErreurTelemetrie(
-            f"Le tour {tour.numero} est trop court pour être exploité "
-            f"({dedans.sum()} échantillon(s) de distance)."
+        raise ErreurTelemetrie.de(
+            "serveur.erreur.tour_trop_court", numero=tour.numero, n=int(dedans.sum())
         )
 
     distance = _interpoler(grille, temps[dedans], valeurs[dedans], extrapoler=True)
@@ -362,10 +363,7 @@ def _plus_proche(cible: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
 def _canal_sur(fichier: FichierSession, nom: str, grille: np.ndarray) -> np.ndarray:
     valeurs = fichier.canal(nom)
     if valeurs.ndim != 1:
-        raise ErreurTelemetrie(
-            f"« {nom} » est un canal par roue ; il faut choisir une roue avant "
-            "de le ramener sur la grille du tour."
-        )
+        raise ErreurTelemetrie.de("serveur.erreur.canal_par_roue", nom=nom)
     temps = fichier.temps_canal(nom)
     if nom in CANAUX_DISCONTINUS:
         return _plus_proche(grille, temps, valeurs)

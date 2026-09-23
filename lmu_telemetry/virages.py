@@ -57,6 +57,7 @@ import numpy as np
 
 from .donnees_tour import DonneesTour
 from .errors import ErreurTelemetrie
+from .textes import Message
 from .piste import construire
 
 #: Rayon (m) en dessous duquel on parle de virage.
@@ -114,6 +115,10 @@ SEUIL_GAZ = 15.0
 #: « coasting », révélateur chez les débutants d'après le brief.
 SEUIL_COASTING_FREIN = 3.0
 SEUIL_COASTING_GAZ = 5.0
+
+#: Remarque « pris sans freiner » : la page l'affiche comme une étiquette dans
+#: la case du virage, et non comme une remarque, d'où une clé nommée.
+SANS_FREINER = "serveur.virage.sans_freiner"
 
 
 @dataclass(frozen=True)
@@ -244,11 +249,9 @@ class DefinitionCircuit:
                 ),
             )
         except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError, AttributeError) as erreur:
-            detail = f"champ manquant : {erreur}" if isinstance(erreur, KeyError) else str(erreur)
-            raise ErreurTelemetrie(
-                f"Le fichier de virages de ce circuit est illisible :\n  {chemin}\n"
-                f"({detail})\n"
-                "Corrige-le, ou supprime-le pour qu'il soit regénéré."
+            detail = f"{type(erreur).__name__}: {erreur}"
+            raise ErreurTelemetrie.de(
+                "serveur.erreur.virages_illisible", chemin=str(chemin), detail=detail
             ) from erreur
 
 
@@ -406,14 +409,11 @@ def detecter(
 ) -> DefinitionCircuit:
     """Découpe un circuit en virages à partir de la courbure de sa piste."""
     if not tours:
-        raise ErreurTelemetrie("Il faut au moins un tour pour découper le circuit.")
+        raise ErreurTelemetrie.de("serveur.erreur.decoupage_sans_tour")
 
     fin = min(t.longueur for t in tours)
     if fin < LONGUEUR_TOUR_MINIMALE:
-        raise ErreurTelemetrie(
-            "Les tours fournis sont trop courts pour découper le circuit "
-            f"({fin:.0f} m). Choisis une session où tu as bouclé un tour entier."
-        )
+        raise ErreurTelemetrie.de("serveur.erreur.decoupage_tours_courts", longueur=f"{fin:.0f}")
     distance = np.arange(0.0, fin, pas)
     geometrie = construire(tours, distance)
     signee = courbure_signee(geometrie.axe, pas)
@@ -484,7 +484,7 @@ class MetriquesVirage:
     temps_coasting: float
     """Temps sans frein ni gaz : la voiture roule sur son erre."""
 
-    remarques: tuple[str, ...] = field(default_factory=tuple)
+    remarques: tuple[Message, ...] = field(default_factory=tuple)
 
 
 def mesurer(
@@ -555,11 +555,12 @@ def _mesurer_un(
     zone = (distance >= debut_zone) & (distance <= fin_zone)
     dans = (distance >= virage.debut) & (distance <= virage.fin)
     if not zone.any() or not dans.any():
-        raise ErreurTelemetrie(
-            f"Le virage {virage.numero} tombe hors du tour "
-            f"({virage.debut:.0f}–{virage.fin:.0f} m pour un tour de "
-            f"{tour.longueur:.0f} m). Le fichier de virages ne correspond "
-            "peut-être pas à ce circuit."
+        raise ErreurTelemetrie.de(
+            "serveur.erreur.virage_hors_tour",
+            numero=virage.numero,
+            debut=f"{virage.debut:.0f}",
+            fin=f"{virage.fin:.0f}",
+            longueur=f"{tour.longueur:.0f}",
         )
 
     d = distance[zone]
@@ -567,7 +568,7 @@ def _mesurer_un(
     frein = v["Brake Pos"][zone]
     gaz = v["Throttle Pos"][zone]
     vitesse = v["Ground Speed"][zone]
-    remarques: list[str] = []
+    remarques: list[Message] = []
 
     # --- freinage ----------------------------------------------------
     freine = frein > SEUIL_FREIN
@@ -577,12 +578,12 @@ def _mesurer_un(
         vitesse_entree = float(vitesse[premier])
         distance_freinage = virage.debut - debut_freinage
         if distance_freinage < 0:
-            remarques.append("freinage commencé dans le virage")
+            remarques.append(Message("serveur.virage.freinage_dans_virage"))
     else:
         debut_freinage = vitesse_entree = distance_freinage = None
         # Ce n'est pas une anomalie : à Monza, la sortie de la première chicane
         # et la Curva Grande se passent sans jamais toucher le frein.
-        remarques.append("pris sans freiner")
+        remarques.append(Message(SANS_FREINER))
 
     # Le temps se déduit de l'axe de distance : on somme la durée des tronçons
     # où la pédale est enfoncée, plutôt que de compter des échantillons.
@@ -607,7 +608,7 @@ def _mesurer_un(
         vitesse_remise = float(vitesse[apres][indice])
     else:
         remise_gaz = vitesse_remise = None
-        remarques.append("pas de remise des gaz avant la fin de la zone")
+        remarques.append(Message("serveur.virage.pas_de_remise_gaz"))
 
     # --- sortie et coasting ------------------------------------------
     vitesse_sortie = float(v["Ground Speed"][dans][-1])

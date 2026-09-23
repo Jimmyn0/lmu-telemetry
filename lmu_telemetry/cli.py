@@ -128,7 +128,7 @@ def cmd_tours(args: argparse.Namespace) -> int:
             f"{(f'{s2:.3f}' if s2 else '—'):>9}"
             f"{(f'{s3:.3f}' if s3 else '—'):>9}"
             f"{tour.vitesse_min:>7.0f}  {marque:<3}"
-            + " ; ".join(tour.remarques)
+            + " ; ".join(map(str, tour.remarques))
         )
 
     print("-" * max(len(entete), 88))

@@ -8,8 +8,9 @@
 1. les outils de construction (PyInstaller), installés s'ils manquent ;
 2. les tests — on ne distribue pas une version qui ne les passe pas ;
 3. PyInstaller, selon la recette `telemetrie-lmu.spec` ;
-4. l'archive `dist/Telemetrie-LMU-<version>.zip`, qui contient le .exe et le
-   mode d'emploi `LISEZ-MOI.txt` : c'est elle qu'on envoie.
+4. l'archive `dist/Telemetrie-LMU-<version>.zip`, qui contient le .exe et ses
+   modes d'emploi, `LISEZ-MOI.txt` et `README.txt` (en anglais) : c'est elle
+   qu'on envoie.
 
 Un double-clic sur ce fichier le lance avec le Python de Windows, qui n'a pas
 les bibliothèques du projet : il plantait à la première ligne, et la fenêtre
@@ -99,12 +100,15 @@ def construire() -> None:
         raise Echec(f"PyInstaller n'a pas produit {exe}")
 
     etape("4/4  Archive à partager")
-    lisez_moi = RACINE / "LISEZ-MOI.txt"
+    # Les deux modes d'emploi : en français et en anglais.
+    guides = [RACINE / "LISEZ-MOI.txt", RACINE / "README.txt"]
     archive = DIST / f"{NOM}-{__version__}.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zip_:
         zip_.write(exe, exe.name)
-        zip_.write(lisez_moi, lisez_moi.name)
-    shutil.copyfile(lisez_moi, DIST / lisez_moi.name)
+        for guide in guides:
+            zip_.write(guide, guide.name)
+    for guide in guides:
+        shutil.copyfile(guide, DIST / guide.name)
 
     mo = 1024 * 1024
     print(f"Le .exe      : {exe}  ({exe.stat().st_size / mo:.0f} Mo)")

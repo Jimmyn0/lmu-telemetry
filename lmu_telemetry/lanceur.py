@@ -12,6 +12,10 @@ Pour quelqu'un qui n'a jamais ouvert un terminal, tout doit se régler seul :
 
 La fenêtre noire reste ouverte tant que l'outil tourne : c'est elle qui fait
 tourner le serveur local, la fermer arrête l'outil. Elle le dit.
+
+Elle parle la langue choisie dans l'interface (bouton FR | EN, enregistré dans
+les réglages), et à défaut celle de Windows. Ses phrases sont les clés
+`console.*` des mêmes fichiers de traduction que la page.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ import webbrowser
 
 from . import __version__
 from .errors import ErreurTelemetrie
+from .textes import Message, langue_preferee, traduire
 
 #: Premier port essayé, puis les suivants s'il est pris par un autre programme.
 PORT = 8770
@@ -40,26 +45,28 @@ def outil_deja_ouvert(port: int) -> bool:
         return False
 
 
-def _pause() -> None:
+def _pause(langue: str) -> None:
     try:
-        input("\nAppuie sur Entrée pour fermer cette fenêtre.")
+        input("\n" + traduire("console.pause", langue))
     except (EOFError, KeyboardInterrupt):
         pass
 
 
-def lancer(ouvrir_navigateur: bool = True) -> int:
+def lancer(langue: str, ouvrir_navigateur: bool = True) -> int:
     from .web.serveur import PortOccupe, creer_serveur
 
-    print(f"Télémétrie LMU {__version__}")
+    def dire(cle: str, **valeurs: object) -> None:
+        print(traduire(cle, langue, valeurs))
+
+    dire("console.titre", version=__version__)
     print("=" * 40)
 
     serveur = None
     for port in range(PORT, PORT + PORTS_ESSAYES):
         if outil_deja_ouvert(port):
-            adresse = f"http://127.0.0.1:{port}/"
-            print("L'outil est déjà ouvert : j'affiche sa page dans le navigateur.")
+            dire("console.deja_ouvert")
             if ouvrir_navigateur:
-                webbrowser.open(adresse)
+                webbrowser.open(f"http://127.0.0.1:{port}/")
             return 0
         try:
             serveur = creer_serveur(port)
@@ -68,15 +75,13 @@ def lancer(ouvrir_navigateur: bool = True) -> int:
             continue
     if serveur is None:
         raise ErreurTelemetrie(
-            f"Aucun port libre entre {PORT} et {PORT + PORTS_ESSAYES - 1}.\n"
-            "Ferme les programmes qui pourraient les utiliser, puis relance l'outil."
+            Message("console.aucun_port", {"debut": PORT, "fin": PORT + PORTS_ESSAYES - 1})
         )
 
     adresse = f"http://127.0.0.1:{serveur.server_address[1]}/"
-    print(f"L'outil est ouvert dans ton navigateur : {adresse}")
+    dire("console.ouvert", adresse=adresse)
     print()
-    print("Laisse cette fenêtre ouverte pendant que tu t'en sers :")
-    print("c'est elle qui fait tourner l'outil. Ferme-la pour l'arrêter.")
+    dire("console.laisser_ouvert")
     if ouvrir_navigateur:
         threading.Timer(0.5, lambda: webbrowser.open(adresse)).start()
     try:
@@ -94,20 +99,20 @@ def main() -> int:
             flux.reconfigure(encoding="utf-8", errors="replace")
         except (AttributeError, ValueError):
             pass
+    langue = langue_preferee()
     try:
         # `--sans-navigateur` : pour tester le .exe sans ouvrir de fenêtre.
-        return lancer(ouvrir_navigateur="--sans-navigateur" not in sys.argv)
+        return lancer(langue, ouvrir_navigateur="--sans-navigateur" not in sys.argv)
     except KeyboardInterrupt:
         return 0
     except ErreurTelemetrie as erreur:
-        print(f"\n{erreur}")
-        _pause()
+        print("\n" + (erreur.message.dans(langue) if erreur.message else str(erreur)))
+        _pause(langue)
         return 1
     except Exception:  # noqa: BLE001
-        print("\nL'outil a rencontré un problème inattendu et doit s'arrêter.")
-        print("Signale-le à qui t'a donné l'outil, avec le texte ci-dessous :\n")
+        print("\n" + traduire("console.inattendu", langue))
         traceback.print_exc()
-        _pause()
+        _pause(langue)
         return 1
 
 

@@ -6,6 +6,22 @@ correction, celui du milieu pour un ajout.
 
 ---
 
+## 1.1.0 — 23/09/2026
+
+**L'outil existe en anglais.**
+
+* Bouton **FR | EN** en haut à droite : toute l'interface change de langue,
+  sans perdre l'écran en cours ni le zoom. Le choix est retenu d'un lancement à
+  l'autre. Au premier lancement, l'outil prend la langue du navigateur.
+* Tout est traduit : écrans, graphiques, remarques sur les tours, remarques par
+  virage, avertissements, messages d'erreur, noms de pays, et la fenêtre noire
+  du `.exe`, qui suit la langue choisie (ou celle de Windows).
+* Mode d'emploi en anglais, `README.txt`, à côté de `LISEZ-MOI.txt`.
+* Un test vérifie que les deux langues ont exactement les mêmes phrases : un
+  oubli empêche de construire le `.exe`.
+
+---
+
 ## 1.0.0 — 23/09/2026
 
 Première version distribuée, en `.exe` autonome.

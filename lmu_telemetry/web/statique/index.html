@@ -22,10 +22,11 @@
       <path d="M5 20 L10 20 L13 11 L17 23 L20 15 L25 15" fill="none" stroke="#fff"
             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <h1>Télémétrie <span class="discret">Le Mans Ultimate</span></h1>
+    <h1><span data-t="entete.titre">Télémétrie</span> <span class="discret">Le Mans Ultimate</span></h1>
   </div>
   <nav id="fil"></nav>
   <span id="version" class="version"></span>
+  <div id="choix-langue" class="choix-langue" role="group" aria-label="Langue / Language"></div>
 </header>
 
 <main>
@@ -33,14 +34,14 @@
   <!-- Écran 1 : la liste des sessions -->
   <section id="ecran-sessions">
     <div class="barre">
-      <label for="circuit" class="discret">Circuit</label>
-      <select id="circuit"><option value="">Tous</option></select>
-      <label for="tri" class="discret">Trier par</label>
+      <label for="circuit" class="discret" data-t="sessions.filtre_circuit">Circuit</label>
+      <select id="circuit"><option value=""></option></select>
+      <label for="tri" class="discret" data-t="sessions.trier_par">Trier par</label>
       <select id="tri">
-        <option value="date">Les plus récentes</option>
-        <option value="chrono">Meilleur chrono</option>
+        <option value="date" data-t="sessions.tri_date">Les plus récentes</option>
+        <option value="chrono" data-t="sessions.tri_chrono">Meilleur chrono</option>
       </select>
-      <label><input type="checkbox" id="avec-tours" checked> Masquer les sessions sans tour chronométré</label>
+      <label><input type="checkbox" id="avec-tours" checked> <span data-t="sessions.masquer_vides">Masquer les sessions sans tour chronométré</span></label>
     </div>
     <div id="liste-sessions" class="tableau"></div>
     <div id="pied-liste" class="barre-zoom"></div>
@@ -51,28 +52,16 @@
        tout seul ou qu'on veut en changer. -->
   <section id="ecran-dossier" hidden>
     <div class="carte-dossier">
-      <h2>Où sont tes sessions ?</h2>
+      <h2 data-t="dossier.titre">Où sont tes sessions ?</h2>
       <p id="message-dossier" class="message-dossier"></p>
       <div class="saisie-dossier">
         <input id="saisie-dossier" type="text" spellcheck="false" autocomplete="off"
                placeholder="D:\SteamLibrary\steamapps\common\Le Mans Ultimate\UserData\Telemetry">
-        <button id="valider-dossier" type="button" class="principal">Utiliser ce dossier</button>
-        <button id="annuler-dossier" type="button" hidden>Annuler</button>
+        <button id="valider-dossier" type="button" class="principal" data-t="dossier.valider">Utiliser ce dossier</button>
+        <button id="annuler-dossier" type="button" hidden data-t="dossier.annuler">Annuler</button>
       </div>
       <p id="erreur-dossier" class="erreur-dossier" hidden></p>
-      <div class="aide">
-        <strong>Pour trouver ce dossier</strong>
-        <ol>
-          <li>Dans Steam, fais un clic droit sur <strong>Le Mans Ultimate</strong>,
-            puis <strong>Gérer › Parcourir les fichiers locaux</strong>.</li>
-          <li>Dans la fenêtre qui s'ouvre, entre dans <strong>UserData</strong>,
-            puis dans <strong>Telemetry</strong>.</li>
-          <li>Clique dans la barre d'adresse en haut de la fenêtre, copie le
-            chemin (Ctrl+C) et colle-le ci-dessus (Ctrl+V).</li>
-        </ol>
-        <p>Le dossier <strong>Telemetry</strong> n'apparaît qu'après ta première
-          session : si tu ne l'as pas encore, roule quelques tours et reviens.</p>
-      </div>
+      <div class="aide" data-t-html="dossier.aide"></div>
     </div>
   </section>
 
@@ -89,12 +78,12 @@
     <div id="note-regularite" class="discret"></div>
     <div class="colonnes-regularite">
       <div class="bloc-chronos">
-        <h2>Chronos de la session</h2>
+        <h2 data-t="regularite.titre_chronos">Chronos de la session</h2>
         <canvas id="graphe-chronos"></canvas>
       </div>
       <div id="tendance" class="aide"></div>
     </div>
-    <h2 class="titre-classement">Où tu es le moins constant</h2>
+    <h2 class="titre-classement" data-t="regularite.titre_classement">Où tu es le moins constant</h2>
     <div id="classement-virages" class="tableau"></div>
   </section>
 
@@ -105,15 +94,14 @@
     <div class="colonnes">
       <div class="principal">
         <div class="barre-zoom">
-          <button id="reset-zoom" type="button">Voir le tour entier</button>
+          <button id="reset-zoom" type="button" data-t="comparaison.voir_tour_entier">Voir le tour entier</button>
           <span id="etendue"></span>
-          <span class="discret">Glisser sur un graphique ou molette pour zoomer ·
-            double-clic pour revenir</span>
+          <span class="discret" data-t="comparaison.aide_zoom">Glisser sur un graphique ou molette pour zoomer · double-clic pour revenir</span>
         </div>
         <div id="graphiques"></div>
 
         <section id="bloc-virages" hidden>
-          <h2>Virage par virage</h2>
+          <h2 data-t="virages.titre">Virage par virage</h2>
           <div id="entete-virages" class="discret"></div>
           <div id="table-virages" class="tableau"></div>
         </section>
@@ -122,7 +110,7 @@
         <div id="lecture" class="lecture"></div>
         <div class="bloc-piste">
           <div class="entete-piste">
-            <strong>Vue de la route</strong>
+            <strong data-t="piste.titre">Vue de la route</strong>
             <select id="fenetre-piste">
               <option value="40">40 m</option>
               <option value="80" selected>80 m</option>

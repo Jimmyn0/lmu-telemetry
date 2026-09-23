@@ -217,7 +217,7 @@ def test_virage_sans_freinage(session_test: Path, tour) -> None:
     assert m.debut_freinage is None
     assert m.distance_freinage is None
     assert m.duree_freinage == pytest.approx(0.0)
-    assert "pris sans freiner" in m.remarques
+    assert "pris sans freiner" in map(str, m.remarques)
 
 
 def test_zone_danalyse_ne_deborde_pas_sur_le_virage_precedent(tour) -> None:

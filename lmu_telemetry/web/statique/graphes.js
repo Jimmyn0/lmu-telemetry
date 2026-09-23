@@ -8,6 +8,8 @@
 // même curseur. C'est ce qui permet de lire d'un coup ce que faisaient les
 // pédales à l'endroit précis où le delta décroche.
 
+import { t, locale } from "/i18n.js";
+
 const MARGE = { gauche: 62, droite: 14, haut: 16, bas: 6 };
 const MARGE_BAS_DERNIER = 26; // le dernier graphique porte l'axe des distances
 
@@ -284,7 +286,7 @@ export class Graphe {
     ctx.fillStyle = COULEURS.axe;
     ctx.textBaseline = "top";
 
-    const libelle = "mètres depuis la ligne";
+    const libelle = t("graphe.axe_distance");
     // Le libellé occupe le bord droit : on n'y écrit pas de graduation, sinon
     // les deux se chevauchent dans une colonne étroite.
     const reserve = this.zone.x1 - ctx.measureText(libelle).width - 8;
@@ -350,7 +352,7 @@ export class Graphe {
 
 function formater(v, decimales) {
   if (decimales !== undefined) return v.toFixed(decimales);
-  if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString("fr-FR");
+  if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString(locale());
   if (Math.abs(v) >= 10) return v.toFixed(0);
   if (Math.abs(v) >= 1) return v.toFixed(1);
   return v.toFixed(2);

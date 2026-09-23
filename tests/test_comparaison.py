@@ -160,8 +160,8 @@ def test_axe_commun_limite_au_plus_court(session_test: Path) -> None:
 def test_avertissement_si_arret(session_test: Path) -> None:
     """Un tour arrêté rend la comparaison par distance discontinue : il faut le dire."""
     c = comparer_fichiers(session_test, 1, session_test, 3)
-    assert any("arrêté" in a for a in c.avertissements)
-    assert any("saut vertical" in a for a in c.avertissements)
+    assert any("arrêté" in str(a) for a in c.avertissements)
+    assert any("saut vertical" in str(a) for a in c.avertissements)
 
 
 def test_pas_davertissement_sans_incident(session_test: Path) -> None:

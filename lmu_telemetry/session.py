@@ -49,6 +49,7 @@ from pathlib import Path
 import numpy as np
 
 from .reader import SURFACES_HORS_PISTE, FichierSession, InfoSession
+from .textes import Message
 
 #: Vitesse (km/h) en dessous de laquelle on considère que la voiture s'est
 #: quasiment arrêtée en piste : tête-à-queue, sortie, ou arrêt volontaire.
@@ -132,7 +133,7 @@ class Tour:
     duree_quasi_arret: float
     """Temps passé sous SEUIL_QUASI_ARRET, en secondes."""
 
-    remarques: tuple[str, ...] = field(default_factory=tuple)
+    remarques: tuple[Message, ...] = field(default_factory=tuple)
     """Ce qui a été observé sur ce tour. Descriptif, jamais un jugement."""
 
     @property
@@ -298,27 +299,34 @@ def _construire_tours(fichier: FichierSession) -> list[Tour]:
 def _assembler_tour(**champs) -> Tour:
     """Crée le tour puis y attache les remarques observées."""
     tour = Tour(**champs, remarques=())
-    remarques: list[str] = []
+    remarques: list[Message] = []
 
     if not tour.complet:
-        remarques.append("tour non bouclé (fin de session)")
+        remarques.append(Message("serveur.tour.non_boucle"))
     if tour.stands:
-        remarques.append("passage par les stands")
+        remarques.append(Message("serveur.tour.stands"))
     if tour.complet and not tour.chronometre and not tour.stands:
-        remarques.append("invalidé par le jeu (limites de piste)")
+        remarques.append(Message("serveur.tour.invalide"))
     if not tour.coherent:
         remarques.append(
-            f"durée mesurée {tour.ecart_chrono:.0f} s de plus que le chrono "
-            "— tour non comparable (départ de course)"
+            Message("serveur.tour.incoherent", {"ecart": f"{tour.ecart_chrono:.0f}"})
         )
     if tour.duree_hors_piste >= DUREE_SORTIE_SIGNALEE:
-        remarques.append(f"hors piste {tour.duree_hors_piste:.1f} s")
+        remarques.append(
+            Message("serveur.tour.hors_piste", {"duree": f"{tour.duree_hors_piste:.1f}"})
+        )
     if tour.contacts:
-        remarques.append(f"{tour.contacts} choc{'s' if tour.contacts > 1 else ''}")
+        cle = "serveur.tour.chocs.un" if tour.contacts == 1 else "serveur.tour.chocs.plusieurs"
+        remarques.append(Message(cle, {"n": tour.contacts}))
     if tour.quasi_arret and not tour.stands:
         remarques.append(
-            f"quasi-arrêt en piste ({tour.vitesse_min:.0f} km/h "
-            f"pendant {tour.duree_quasi_arret:.1f} s)"
+            Message(
+                "serveur.tour.quasi_arret",
+                {
+                    "vitesse": f"{tour.vitesse_min:.0f}",
+                    "duree": f"{tour.duree_quasi_arret:.1f}",
+                },
+            )
         )
 
     # `remarques` est figé dans le dataclass : on reconstruit l'objet.

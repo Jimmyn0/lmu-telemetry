@@ -9,10 +9,25 @@ import { Pile, COULEURS, POLICE } from "/graphes.js";
 import { VuePiste } from "/piste.js";
 import { dessinerChronos } from "/chronos.js";
 import { drapeau, libelleVoiture, definirLogosDisponibles, echapper } from "/emblemes.js";
+import {
+  t, tp, traduire, langue, definirLangue, langueParDefaut, locale, traduirePage,
+  LANGUES_DISPONIBLES,
+} from "/i18n.js";
+
+// Remarque « pris sans freiner » : affichée en étiquette dans la case du
+// virage plutôt qu'en remarque. Même clé que virages.SANS_FREINER côté serveur.
+const SANS_FREINER = "serveur.virage.sans_freiner";
+
+/** Message d'erreur d'une réponse du serveur, dans la langue de la page. */
+function messageErreur(charge) {
+  return charge.message ? traduire(charge.message) : charge.erreur || t("erreur.inconnue");
+}
 
 const $ = (s) => document.querySelector(s);
 
 const etat = {
+  // Écran affiché : sert à tout redessiner dans la nouvelle langue.
+  ecran: "sessions",
   sessions: [],
   session: null,
   comparaison: null,
@@ -46,29 +61,29 @@ function signe(v, decimales = 3) {
 // change de sens en son milieu : elle a droit à son propre symbole plutôt qu'à
 // une flèche qui devrait choisir un camp.
 const FLECHES = {
-  gauche: ["↰", "vers la gauche"],
-  droite: ["↱", "vers la droite"],
-  chicane: ["⇄", "chicane : la piste change de sens"],
+  gauche: ["↰", "sens.gauche"],
+  droite: ["↱", "sens.droite"],
+  chicane: ["⇄", "sens.chicane"],
 };
 
 function fleche(sens) {
   const f = FLECHES[sens];
-  return f ? ` <span class="sens" title="${f[1]}">${f[0]}</span>` : "";
+  return f ? ` <span class="sens" title="${t(f[1])}">${f[0]}</span>` : "";
 }
 
 // Type de session en étiquette colorée. La liste des sessions donne le code
 // (P, Q, R), l'écran d'une session le nom anglais lu dans le fichier.
-const TYPES = { P: "Essais", Q: "Qualifs", R: "Course" };
+const TYPES = { P: "type.P", Q: "type.Q", R: "type.R" };
 const CODES_TYPE = { practice: "P", qualifying: "Q", qualify: "Q", race: "R" };
 
 function codeType(type) {
-  const t = String(type || "");
-  return TYPES[t] ? t : CODES_TYPE[t.toLowerCase()] || null;
+  const brut = String(type || "");
+  return TYPES[brut] ? brut : CODES_TYPE[brut.toLowerCase()] || null;
 }
 
 function nomType(type) {
   const code = codeType(type);
-  return code ? TYPES[code] : String(type || "?");
+  return code ? t(TYPES[code]) : String(type || "?");
 }
 
 function etiquetteType(type) {
@@ -79,18 +94,11 @@ function etiquetteType(type) {
 function dateCourte(iso) {
   if (!iso) return "?";
   const d = new Date(iso);
-  return d.toLocaleString("fr-FR", {
+  return d.toLocaleString(locale(), {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
 }
-
-// Quand la fenêtre de l'outil est fermée, le serveur s'arrête mais la page
-// reste affichée : sans ce message, le moindre clic échouerait sur un
-// « Failed to fetch » incompréhensible.
-const HORS_LIGNE =
-  "L'outil ne répond plus : sa fenêtre a sans doute été fermée.\n"
-  + "Relance Télémétrie LMU, puis recharge cette page (touche F5).";
 
 async function api(route, params = {}, options = {}) {
   const url = new URL(route, location.origin);
@@ -99,17 +107,22 @@ async function api(route, params = {}, options = {}) {
   try {
     reponse = await fetch(url, options);
   } catch {
-    throw new Error(HORS_LIGNE);
+    // La fenêtre de l'outil a été fermée : le serveur s'est arrêté mais la
+    // page reste affichée. Sans ce message, le moindre clic échouerait sur un
+    // « Failed to fetch » incompréhensible.
+    throw new Error(t("erreur.hors_ligne"));
   }
   let charge;
   try {
     charge = await reponse.json();
   } catch {
-    throw new Error(`Réponse inattendue de l'outil (code ${reponse.status}).`);
+    throw new Error(t("erreur.reponse_inattendue", { code: reponse.status }));
   }
   if (!reponse.ok || charge.erreur) {
-    const e = new Error(charge.erreur || "Erreur inconnue");
+    const e = new Error(messageErreur(charge));
     e.code = charge.code;
+    // Le message lui-même, pour pouvoir le réécrire si la langue change.
+    e.brut = charge.message || charge.erreur;
     throw e;
   }
   return charge;
@@ -134,6 +147,7 @@ function erreur(message) {
 }
 
 function ecran(nom) {
+  etat.ecran = nom;
   for (const id of ["dossier", "sessions", "session", "comparaison", "regularite"]) {
     $(`#ecran-${id}`).hidden = id !== nom;
   }
@@ -165,16 +179,16 @@ function filAriane(nom) {
     }
   };
   if (nom === "dossier") {
-    ajouter("Choix du dossier", null);
+    ajouter(t("fil.dossier"), null);
     return;
   }
-  ajouter("Sessions", nom === "sessions" ? null : () => ecran("sessions"));
+  ajouter(t("fil.sessions"), nom === "sessions" ? null : () => ecran("sessions"));
   if (nom !== "sessions" && etat.session) {
     const titre = `${etat.session.circuit} — ${dateCourte(etat.session.date)}`;
     ajouter(titre, nom === "session" ? null : () => ecran("session"));
   }
-  if (nom === "comparaison") ajouter("Comparaison", null);
-  if (nom === "regularite") ajouter("Régularité", null);
+  if (nom === "comparaison") ajouter(t("fil.comparaison"), null);
+  if (nom === "regularite") ajouter(t("fil.regularite"), null);
 }
 
 // ---------------------------------------------------------------------
@@ -196,7 +210,7 @@ async function chargerSessions() {
   try {
     etat.sessions = await api("/api/sessions");
   } catch (e) {
-    if (e.code === "dossier_introuvable") return choisirDossier(e.message, false);
+    if (e.code === "dossier_introuvable") return choisirDossier(e.brut, false);
     throw e;
   }
   etat.limite = PAR_PAQUET;
@@ -219,23 +233,28 @@ async function afficherSource() {
   try {
     const etatDossier = await api("/api/dossier");
     cible.innerHTML =
-      `Sessions lues dans <span class="chemin">${echapper(etatDossier.dossier)}</span>`
+      t("source.lues_dans", {
+        chemin: `<span class="chemin">${echapper(etatDossier.dossier)}</span>`,
+      })
       + (etatDossier.impose
         ? ""
-        : ` · <button type="button" class="lien" id="changer-dossier">changer de dossier</button>`);
+        : ` · <button type="button" class="lien" id="changer-dossier">${t("source.changer")}</button>`);
     const bouton = $("#changer-dossier");
     if (bouton) {
       bouton.onclick = () =>
-        choisirDossier("Indique un autre dossier de télémétrie.", true, etatDossier.dossier);
+        choisirDossier({ cle: "dossier.autre" }, true, etatDossier.dossier);
     }
   } catch {
     cible.textContent = "";
   }
 }
 
+// `message` est un message à traduire (clé et valeurs) : on le garde tel quel
+// pour pouvoir le réécrire si la langue change pendant que l'écran est ouvert.
 function choisirDossier(message, annulable, valeur = "") {
   ecran("dossier");
-  $("#message-dossier").textContent = message;
+  etat.messageDossier = message;
+  $("#message-dossier").textContent = traduire(message);
   $("#saisie-dossier").value = valeur;
   $("#erreur-dossier").hidden = true;
   $("#annuler-dossier").hidden = !annulable;
@@ -304,9 +323,9 @@ function remplirCircuits() {
   const choix = $("#circuit");
   const garde = choix.value;
   choix.innerHTML =
-    `<option value="">Tous (${etat.sessions.length})</option>` +
+    `<option value="">${t("sessions.tous", { n: etat.sessions.length })}</option>` +
     [...nombres.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0], "fr"))
+      .sort((a, b) => a[0].localeCompare(b[0], langue()))
       .map(([nom, n]) => `<option value="${echapper(nom)}">${echapper(nom)} (${n})</option>`)
       .join("");
   choix.value = garde;
@@ -374,7 +393,7 @@ async function enrichir(sessions) {
   try {
     const reponse = await fetch(url);
     const resumes = await reponse.json();
-    if (resumes.erreur) throw new Error(resumes.erreur);
+    if (resumes.erreur) throw new Error(messageErreur(resumes));
     const parId = new Map(resumes.map((r) => [r.id, r]));
     for (const s of manquantes) Object.assign(s, parId.get(s.id) || { valides: 0 });
   } catch (e) {
@@ -391,8 +410,10 @@ function afficherSessions() {
 
   const table = document.createElement("table");
   table.innerHTML = `<thead><tr>
-    <th>Date</th><th>Circuit</th><th>Type</th><th>Voiture</th>
-    <th class="nombre">Tours</th><th class="nombre">Meilleur</th><th></th>
+    <th>${t("sessions.col.date")}</th><th>${t("sessions.col.circuit")}</th>
+    <th>${t("sessions.col.type")}</th><th>${t("sessions.col.voiture")}</th>
+    <th class="nombre">${t("sessions.col.tours")}</th>
+    <th class="nombre">${t("sessions.col.meilleur")}</th><th></th>
   </tr></thead>`;
   const corps = document.createElement("tbody");
 
@@ -407,8 +428,8 @@ function afficherSessions() {
       <td class="discret voiture">${libelleVoiture(s.voiture)}</td>
       <td class="nombre">${analysee ? s.valides : "…"}</td>
       <td class="nombre">${s.meilleur ? chrono(s.meilleur) : analysee ? "—" : "…"}</td>
-      <td class="remarque">${s.journal ? "⚠ non refermée" : ""}${
-        s.indisponible ? "⚠ illisible" : ""
+      <td class="remarque">${s.journal ? t("sessions.non_refermee") : ""}${
+        s.indisponible ? t("sessions.illisible") : ""
       }</td>`;
     tr.onclick = () => ouvrirSession(s.id);
     corps.append(tr);
@@ -418,24 +439,29 @@ function afficherSessions() {
   const cible = $("#liste-sessions");
   cible.innerHTML = "";
   if (!affichees.length) {
-    cible.innerHTML = `<div class="vide">Aucune session ne correspond.</div>`;
+    cible.innerHTML = `<div class="vide">${t("sessions.aucune")}</div>`;
   } else {
     cible.append(table);
   }
 
   const reste = filtrees.length - affichees.length;
-  const total = `<span class="discret">${affichees.length} affichées sur ${filtrees.length}
-       ${etat.sessions.length !== filtrees.length ? ` (${etat.sessions.length} au total)` : ""}</span>`;
+  const total = `<span class="discret">${t("sessions.affichees_sur", {
+    n: affichees.length,
+    sur: filtrees.length,
+  })}${
+    etat.sessions.length !== filtrees.length
+      ? t("sessions.au_total", { n: etat.sessions.length })
+      : ""
+  }</span>`;
   const avancement = etat.chargement
-    ? `<span class="discret">Lecture des chronos… ${etat.attente} session(s)
-       restante(s). Le classement se précise au fur et à mesure.</span>`
+    ? `<span class="discret">${tp("sessions.lecture_chronos", etat.attente)}</span>`
     : "";
   $("#pied-liste").innerHTML = reste
-    ? `<button id="charger-plus" type="button">Charger ${Math.min(
-        PAR_PAQUET,
-        reste
-      )} sessions de plus</button>${total}${avancement}`
-    : `<span class="discret">${affichees.length} session(s) affichée(s).</span>${avancement}`;
+    ? `<button id="charger-plus" type="button">${tp(
+        "sessions.charger_plus",
+        Math.min(PAR_PAQUET, reste)
+      )}</button>${total}${avancement}`
+    : `<span class="discret">${tp("sessions.affichees", affichees.length)}</span>${avancement}`;
   if (reste) {
     $("#charger-plus").onclick = () => {
       etat.limite += PAR_PAQUET;
@@ -466,59 +492,60 @@ async function ouvrirSession(chemin) {
 
 function afficherSession() {
   const s = etat.session;
-  const valides = s.tours.filter((t) => t.valide && t.chrono !== null);
+  const valides = s.tours.filter((tour) => tour.valide && tour.chrono !== null);
   const meilleur = valides.length
     ? valides.reduce((a, b) => (a.chrono <= b.chrono ? a : b))
     : null;
 
   $("#entete-session").innerHTML = `
     <div class="resume">
-      <div><span class="discret">Circuit</span><br>${drapeau(s.pays)}${echapper(s.circuit)}</div>
-      <div><span class="discret">Session</span><br>${etiquetteType(s.type)} ${dateCourte(s.date)}</div>
-      <div class="voiture"><span class="discret">Voiture</span><br>${libelleVoiture(s.voiture)}
+      <div><span class="discret">${t("session.circuit")}</span><br>${drapeau(s.pays)}${echapper(s.circuit)}</div>
+      <div><span class="discret">${t("session.session")}</span><br>${etiquetteType(s.type)} ${dateCourte(s.date)}</div>
+      <div class="voiture"><span class="discret">${t("session.voiture")}</span><br>${libelleVoiture(s.voiture)}
         <span class="discret">[${echapper(s.categorie)}]</span>
         <br><span class="discret engagement">${echapper(s.voiture.engagement)}</span></div>
-      <div><span class="discret">Météo</span><br>${echapper(s.meteo)}</div>
-      <div class="tuile-record"><span class="discret">Meilleur tour</span><br>
+      <div><span class="discret">${t("session.meteo")}</span><br>${echapper(s.meteo)}</div>
+      <div class="tuile-record"><span class="discret">${t("session.meilleur_tour")}</span><br>
         <span class="gros record">${meilleur ? chrono(meilleur.chrono) : "—"}</span></div>
-      ${s.journal ? `<div class="remarque">⚠ session non refermée par le jeu, la fin peut manquer</div>` : ""}
+      ${s.journal ? `<div class="remarque">${t("session.non_refermee")}</div>` : ""}
     </div>`;
 
   // Meilleur temps de chaque secteur parmi les tours valides, en violet comme
   // sur les écrans de chrono en course.
   const meilleursSecteurs = [0, 1, 2].map((i) =>
-    Math.min(...valides.map((t) => t.secteurs[i] ?? Infinity))
+    Math.min(...valides.map((tour) => tour.secteurs[i] ?? Infinity))
   );
 
   const table = document.createElement("table");
   table.innerHTML = `<thead><tr>
-    <th></th><th class="nombre">Tour</th><th class="nombre">Chrono</th>
+    <th></th><th class="nombre">${t("session.col.tour")}</th>
+    <th class="nombre">${t("session.col.chrono")}</th>
     <th class="nombre">S1</th><th class="nombre">S2</th><th class="nombre">S3</th>
-    <th class="nombre">v. min</th><th>Remarques</th>
+    <th class="nombre">${t("session.col.vmin")}</th><th>${t("session.col.remarques")}</th>
   </tr></thead>`;
   const corps = document.createElement("tbody");
 
-  for (const t of s.tours) {
+  for (const tour of s.tours) {
     const tr = document.createElement("tr");
-    if (!t.valide) tr.className = "invalide";
-    else if (meilleur && t.numero === meilleur.numero) tr.className = "meilleur";
-    const marque = !t.valide ? "✗" : meilleur && t.numero === meilleur.numero ? "★" : "✓";
+    if (!tour.valide) tr.className = "invalide";
+    else if (meilleur && tour.numero === meilleur.numero) tr.className = "meilleur";
+    const marque = !tour.valide ? "✗" : meilleur && tour.numero === meilleur.numero ? "★" : "✓";
     const sect = (i) => {
-      if (t.secteurs[i] === null) return "—";
-      const texte = t.secteurs[i].toFixed(3);
-      return t.valide && t.secteurs[i] === meilleursSecteurs[i]
+      if (tour.secteurs[i] === null) return "—";
+      const texte = tour.secteurs[i].toFixed(3);
+      return tour.valide && tour.secteurs[i] === meilleursSecteurs[i]
         ? `<span class="record">${texte}</span>`
         : texte;
     };
     tr.innerHTML = `
       <td class="marque">${marque}</td>
-      <td class="nombre">${t.numero}</td>
-      <td class="nombre chrono-tour">${chrono(t.chrono)}</td>
+      <td class="nombre">${tour.numero}</td>
+      <td class="nombre chrono-tour">${chrono(tour.chrono)}</td>
       <td class="nombre">${sect(0)}</td>
       <td class="nombre">${sect(1)}</td>
       <td class="nombre">${sect(2)}</td>
-      <td class="nombre">${t.vitesse_min.toFixed(0)}</td>
-      <td class="remarque">${echapper(t.remarques.join(" ; "))}</td>`;
+      <td class="nombre">${tour.vitesse_min.toFixed(0)}</td>
+      <td class="remarque">${echapper(tour.remarques.map(traduire).join(" ; "))}</td>`;
     corps.append(tr);
   }
   table.append(corps);
@@ -529,17 +556,18 @@ function afficherSession() {
   const options = (selection) =>
     s.tours
       .map(
-        (t) =>
-          `<option value="${t.numero}" ${t.numero === selection ? "selected" : ""}
-            ${t.valide ? "" : "disabled"}>
-            Tour ${t.numero} — ${chrono(t.chrono)}${t.valide ? "" : " (écarté)"}
+        (tour) =>
+          `<option value="${tour.numero}" ${tour.numero === selection ? "selected" : ""}
+            ${tour.valide ? "" : "disabled"}>
+            ${t("tour.n", { n: tour.numero })} — ${chrono(tour.chrono)}${
+              tour.valide ? "" : ` ${t("session.ecarte")}`
+            }
           </option>`
       )
       .join("");
 
   if (!meilleur) {
-    $("#choix-tours").innerHTML = `<span class="discret">
-      Aucun tour valide dans cette session : il n'y a rien à comparer.</span>`;
+    $("#choix-tours").innerHTML = `<span class="discret">${t("session.rien_a_comparer")}</span>`;
     return;
   }
 
@@ -557,18 +585,18 @@ function afficherSession() {
     .map(
       (x) =>
         `<option value="${x.id}" ${x.id === s.id ? "selected" : ""}>
-          ${x.id === s.id ? "cette session" : dateCourte(x.date)}
+          ${x.id === s.id ? t("session.cette_session") : dateCourte(x.date)}
           — ${echapper(nomType(x.type))}
         </option>`
     )
     .join("");
 
   $("#choix-tours").innerHTML = `
-    <label>Référence <select id="sel-ref">${options(meilleur.numero)}</select></label>
-    <label>Comparé à <select id="sel-session-cmp">${sessionsCmp}</select>
+    <label>${t("session.reference")} <select id="sel-ref">${options(meilleur.numero)}</select></label>
+    <label>${t("session.compare_a")} <select id="sel-session-cmp">${sessionsCmp}</select>
       <select id="sel-cmp"></select></label>
-    <button id="lancer" class="principal">Comparer</button>
-    <button id="voir-regularite" type="button">Régularité de la session</button>
+    <button id="lancer" class="principal">${t("session.comparer")}</button>
+    <button id="voir-regularite" type="button">${t("session.voir_regularite")}</button>
     <span id="etat-cmp" class="discret"></span>`;
 
   $("#sel-session-cmp").onchange = () => remplirToursCompares(meilleur.numero);
@@ -594,7 +622,7 @@ async function remplirToursCompares(tourReference) {
   select.innerHTML = `<option>…</option>`;
   select.disabled = true;
   $("#lancer").disabled = true;
-  etatCmp.textContent = memeSession ? "" : "lecture de la session…";
+  etatCmp.textContent = memeSession ? "" : t("session.lecture");
 
   let tours;
   try {
@@ -608,19 +636,23 @@ async function remplirToursCompares(tourReference) {
   }
 
   const valides = tours.filter(
-    (t) => t.valide && t.chrono !== null && !(memeSession && t.numero === tourReference)
+    (tour) =>
+      tour.valide && tour.chrono !== null && !(memeSession && tour.numero === tourReference)
   );
   if (!valides.length) {
-    select.innerHTML = `<option>aucun tour valide</option>`;
-    etatCmp.textContent = "Cette session ne contient aucun autre tour valide.";
+    select.innerHTML = `<option>${t("session.aucun_valide_court")}</option>`;
+    etatCmp.textContent = t("session.aucun_autre_valide");
     return;
   }
   select.innerHTML = valides
-    .map((t) => `<option value="${t.numero}">Tour ${t.numero} — ${chrono(t.chrono)}</option>`)
+    .map(
+      (tour) =>
+        `<option value="${tour.numero}">${t("tour.n", { n: tour.numero })} — ${chrono(tour.chrono)}</option>`
+    )
     .join("");
   select.disabled = false;
   $("#lancer").disabled = false;
-  etatCmp.textContent = memeSession ? "" : `${valides.length} tour(s) valide(s).`;
+  etatCmp.textContent = memeSession ? "" : tp("session.tours_valides", valides.length);
 }
 
 // ---------------------------------------------------------------------
@@ -628,7 +660,7 @@ async function remplirToursCompares(tourReference) {
 // ---------------------------------------------------------------------
 
 async function ouvrirRegularite(chemin) {
-  $("#note-regularite").textContent = "Analyse de tous les tours de la session…";
+  $("#note-regularite").textContent = t("regularite.analyse");
   ecran("regularite");
   try {
     etat.regularite = await api("/api/regularite", { chemin });
@@ -643,30 +675,23 @@ function afficherRegularite() {
   const r = etat.regularite;
 
   $("#resume-regularite").innerHTML = `
-    <div class="tuile-accent"><span class="discret">Tours valides</span><br>
+    <div class="tuile-accent"><span class="discret">${t("regularite.tours_valides")}</span><br>
       <span class="gros">${r.tours.length}</span></div>
-    <div class="tuile-record"><span class="discret">Meilleur</span><br>
+    <div class="tuile-record"><span class="discret">${t("regularite.meilleur")}</span><br>
       <span class="gros record">${chrono(r.meilleur)}</span></div>
-    <div class="tuile-cmp"><span class="discret">Médian</span><br>${chrono(r.median)}
+    <div class="tuile-cmp"><span class="discret">${t("regularite.median")}</span><br>${chrono(r.median)}
       <span class="discret">(+${r.ecart_meilleur_median.toFixed(3)} s)</span></div>
-    <div><span class="discret">Écart-type</span><br>${r.ecart_type.toFixed(3)} s</div>
-    <div class="tuile-gain"><span class="discret">Tour idéal</span><br>
+    <div><span class="discret">${t("regularite.ecart_type")}</span><br>${r.ecart_type.toFixed(3)} s</div>
+    <div class="tuile-gain"><span class="discret">${t("regularite.tour_ideal")}</span><br>
       <span class="gros mieux">${chrono(r.tour_ideal)}</span>
       <span class="discret">−${r.marge_de_regularite.toFixed(3)} s</span></div>`;
 
   $("#note-regularite").innerHTML =
-    `Le <strong>tour idéal</strong> enchaîne tes meilleurs passages dans chaque `
-    + `virage : <strong>${r.marge_de_regularite.toFixed(3)} s</strong> sous ton `
-    + `meilleur tour, sans rien améliorer, juste en répétant ce que tu as déjà fait.`
-    + (r.course
-        ? ` <span class="moins">⚠ Session de course : trafic, stratégie et `
-          + `drapeaux pèsent sur les chronos sans rien dire de ton pilotage.</span>`
-        : "")
+    t("regularite.note_ideal", { marge: r.marge_de_regularite.toFixed(3) })
+    + (r.course ? ` <span class="moins">${t("regularite.note_course")}</span>` : "")
     + (r.fiable
         ? ""
-        : ` <span class="moins">⚠ Seulement ${r.tours.length} tours : les `
-          + `dispersions ci-dessous sont indicatives. Il en faudrait au moins `
-          + `cinq pour s'y fier.</span>`);
+        : ` <span class="moins">${t("regularite.note_peu_de_tours", { n: r.tours.length })}</span>`);
 
   dessinerChronos(
     $("#graphe-chronos"),
@@ -674,17 +699,14 @@ function afficherRegularite() {
     COULEURS
   );
 
-  const sens = r.tendance < 0 ? "tu accélères" : "tu ralentis";
+  const derive = r.tendance < 0 ? "regularite.derive_accelere" : "regularite.derive_ralentit";
   $("#tendance").innerHTML = `
-    <strong>Au fil de la session</strong>
+    <strong>${t("regularite.au_fil")}</strong>
     <p>${Math.abs(r.tendance) < 0.01
-        ? "Tes chronos ne dérivent pas : la droite ajustée est plate."
-        : `<strong>${signe(r.tendance)} s par tour</strong> — en moyenne, ${sens}
-           au fil de la session.`}</p>
-    <p>Première moitié ${chrono(r.moitie_debut)}, seconde ${chrono(r.moitie_fin)}
-       <span class="discret">(médianes)</span>.</p>
-    <p class="discret">C'est une description, pas une explication : usure des
-       pneus, baisse de carburant et apprentissage s'y mélangent.</p>`;
+        ? t("regularite.pas_de_derive")
+        : t(derive, { valeur: signe(r.tendance) })}</p>
+    <p>${t("regularite.moities", { debut: chrono(r.moitie_debut), fin: chrono(r.moitie_fin) })}</p>
+    <p class="discret">${t("regularite.description")}</p>`;
 
   afficherClassement();
 }
@@ -695,12 +717,12 @@ function afficherClassement() {
 
   const table = document.createElement("table");
   table.innerHTML = `<thead><tr>
-    <th class="rang"></th><th>Virage</th>
-    <th class="nombre">Passage habituel</th>
-    <th class="nombre">Dispersion</th>
-    <th class="nombre">À gagner</th>
-    <th class="nombre">Point de freinage</th>
-    <th class="nombre">Vitesse mini</th>
+    <th class="rang"></th><th>${t("regularite.col.virage")}</th>
+    <th class="nombre">${t("regularite.col.passage")}</th>
+    <th class="nombre">${t("regularite.col.dispersion")}</th>
+    <th class="nombre">${t("regularite.col.a_gagner")}</th>
+    <th class="nombre">${t("regularite.col.freinage")}</th>
+    <th class="nombre">${t("regularite.col.vitesse_mini")}</th>
     <th></th></tr></thead>`;
   const corps = document.createElement("tbody");
 
@@ -720,7 +742,7 @@ function afficherClassement() {
       <td class="nombre">±${v.dispersion_vitesse_min.toFixed(1)} km/h</td>
       <td class="remarque">${
         v.passage_aberrant
-          ? `un passage isolé pèse lourd (tour ${v.tour_le_plus_lent}) — incident, pas irrégularité`
+          ? t("regularite.passage_isole", { n: v.tour_le_plus_lent })
           : ""
       }</td>`;
     corps.append(tr);
@@ -747,37 +769,43 @@ async function lancerComparaison(ref, tourRef, cmp, tourCmp) {
   afficherComparaison();
 }
 
-function afficherComparaison() {
+function afficherComparaison(garderZoom = false) {
   const c = etat.comparaison;
-  const t = c.traces;
+  const traces = c.traces;
 
   $("#resume-comparaison").innerHTML = `
-    <div class="tuile-ref"><span class="discret">Référence</span><br>
-      <span class="tour-ref">Tour ${c.reference.numero}</span> — ${chrono(c.reference.chrono)}</div>
-    <div class="tuile-cmp"><span class="discret">Comparé</span><br>
-      <span class="tour-cmp">Tour ${c.compare.numero}</span> — ${chrono(c.compare.chrono)}</div>
-    <div class="${c.ecart_final > 0 ? "tuile-perte" : "tuile-gain"}"><span class="discret">Écart final</span><br>
+    <div class="tuile-ref"><span class="discret">${t("comparaison.reference")}</span><br>
+      <span class="tour-ref">${t("tour.n", { n: c.reference.numero })}</span> — ${chrono(c.reference.chrono)}</div>
+    <div class="tuile-cmp"><span class="discret">${t("comparaison.compare")}</span><br>
+      <span class="tour-cmp">${t("tour.n", { n: c.compare.numero })}</span> — ${chrono(c.compare.chrono)}</div>
+    <div class="${c.ecart_final > 0 ? "tuile-perte" : "tuile-gain"}"><span class="discret">${t("comparaison.ecart_final")}</span><br>
       <span class="gros" style="color:${c.ecart_final > 0 ? "var(--perte)" : "var(--gain)"}">
         ${signe(c.ecart_final)} s</span></div>
-    <div class="remarque">${c.coherent ? "" : "⚠ le delta ne retombe pas sur la différence des chronos"}</div>`;
+    <div class="remarque">${c.coherent ? "" : t("comparaison.incoherent")}</div>`;
 
   const avertir = $("#avertissements");
-  avertir.innerHTML = c.avertissements.map((a) => `<p>⚠ ${echapper(a)}</p>`).join("");
+  avertir.innerHTML = c.avertissements
+    .map((a) => `<p>⚠ ${echapper(traduire(a))}</p>`)
+    .join("");
   avertir.hidden = !c.avertissements.length;
 
   if (etat.pile) etat.pile.detruire();
+  // Une nouvelle pile repart du tour entier. Après un changement de langue, on
+  // garde le zoom en cours, pour ne pas ramener au début.
+  const zoom =
+    garderZoom && etat.pile && etat.pile.zoome ? [etat.pile.i0, etat.pile.i1] : null;
   const pile = new Pile($("#graphiques"), c.distance, majLecture, majEtendue);
   etat.pile = pile;
   $("#reset-zoom").onclick = () => pile.reinitialiser();
 
   const paire = (nom) => [
-    { valeurs: t[nom].reference, couleur: COULEURS.reference },
-    { valeurs: t[nom].compare, couleur: COULEURS.compare },
+    { valeurs: traces[nom].reference, couleur: COULEURS.reference },
+    { valeurs: traces[nom].compare, couleur: COULEURS.compare },
   ];
 
   pile.ajouter(
     {
-      titre: "Delta cumulé — le tour comparé perd du temps quand la courbe monte",
+      titre: t("graphe.delta"),
       unite: "s",
       series: [{ valeurs: c.delta, couleur: COULEURS.texte, epaisseur: 1.6 }],
       zero: true,
@@ -785,10 +813,10 @@ function afficherComparaison() {
     },
     170
   );
-  pile.ajouter({ titre: "Vitesse", unite: "km/h", series: paire("Ground Speed") }, 150);
+  pile.ajouter({ titre: t("graphe.vitesse"), unite: "km/h", series: paire("Ground Speed") }, 150);
   pile.ajouter(
     {
-      titre: "Frein",
+      titre: t("graphe.frein"),
       unite: "%",
       series: paire("Brake Pos"),
       min: 0,
@@ -798,7 +826,7 @@ function afficherComparaison() {
   );
   pile.ajouter(
     {
-      titre: "Accélérateur",
+      titre: t("graphe.accelerateur"),
       unite: "%",
       series: paire("Throttle Pos"),
       min: 0,
@@ -810,24 +838,25 @@ function afficherComparaison() {
   // n'est pas comparable d'une voiture à l'autre. On affiche des degrés dès
   // que le débattement du volant est connu, et on retombe sur le pourcentage
   // sinon — voir donnees_tour._ajouter_volant.
-  const volant = t[CANAL_VOLANT] ? CANAL_VOLANT : "Steering Pos";
+  const volant = traces[CANAL_VOLANT] ? CANAL_VOLANT : "Steering Pos";
   pile.ajouter(
     {
-      titre: "Angle volant",
+      titre: t("graphe.volant"),
       unite: volant === CANAL_VOLANT ? "°" : "%",
       series: paire(volant),
     },
     110
   );
-  if (t["Gear"]) {
+  if (traces["Gear"]) {
     pile.ajouter(
-      { titre: "Rapport", series: paire("Gear"), escalier: true, decimales: 0, entier: true },
+      { titre: t("graphe.rapport"), series: paire("Gear"), escalier: true, decimales: 0, entier: true },
       // Plus haut que les autres : ce graphique porte l'axe des distances, qui
       // lui prend 20 px, et son échelle entière compte sept graduations.
       145
     );
   }
   pile.terminer();
+  if (zoom) pile.zoomer(zoom[0], zoom[1]);
 
   preparerVuePiste();
   preparerCarte();
@@ -845,10 +874,13 @@ function majEtendue(i0, i1) {
   const entier = i0 === 0 && i1 === total;
   $("#reset-zoom").disabled = entier;
   $("#etendue").textContent = entier
-    ? `Tour entier — ${Math.round(d1)} m`
-    : `Affiché : ${Math.round(d0)} → ${Math.round(d1)} m  (${Math.round(d1 - d0)} m sur ${Math.round(
-        c.distance.pas * total
-      )})`;
+    ? t("comparaison.tour_entier", { longueur: Math.round(d1) })
+    : t("comparaison.affiche", {
+        debut: Math.round(d0),
+        fin: Math.round(d1),
+        longueur: Math.round(d1 - d0),
+        total: Math.round(c.distance.pas * total),
+      });
 }
 
 function preparerVuePiste() {
@@ -858,10 +890,7 @@ function preparerVuePiste() {
   etat.vuePiste.regler(+$("#fenetre-piste").value);
 
   const p = c.piste;
-  $("#note-piste").textContent =
-    `Largeur mesurée ${p.largeur.toFixed(1)} m en moyenne. Chaque bord est en `
-    + `trait plein là où un des deux tours l'a longé, en pointillé ailleurs — il y `
-    + `est estimé à partir de ses mesures d'avant et d'après.`;
+  $("#note-piste").textContent = t("piste.note", { largeur: p.largeur.toFixed(1) });
 }
 
 // Libellés courts : la colonne fait moins de cent pixels, « Accélérateur » et
@@ -872,14 +901,14 @@ function preparerVuePiste() {
 // on n'en affiche qu'un, sinon la même information apparaîtrait deux fois.
 function lignesLecture(traces) {
   const volant = traces[CANAL_VOLANT]
-    ? ["Volant", CANAL_VOLANT, "°", 0]
-    : ["Volant", "Steering Pos", "%", 1];
+    ? ["lecture.volant", CANAL_VOLANT, "°", 0]
+    : ["lecture.volant", "Steering Pos", "%", 1];
   return [
-    ["Vitesse", "Ground Speed", "km/h", 0],
-    ["Frein", "Brake Pos", "%", 0],
-    ["Gaz", "Throttle Pos", "%", 0],
+    ["lecture.vitesse", "Ground Speed", "km/h", 0],
+    ["lecture.frein", "Brake Pos", "%", 0],
+    ["lecture.gaz", "Throttle Pos", "%", 0],
     volant,
-    ["Rapport", "Gear", "", 0],
+    ["lecture.rapport", "Gear", "", 0],
   ];
 }
 
@@ -900,7 +929,7 @@ function majLecture(indice) {
       // L'unité va dans le libellé, pas dans la cellule d'écart : répétée à
       // droite, elle élargissait la colonne et faisait replier les valeurs.
       return `<tr>
-        <td class="discret">${titre}<span class="unite">${unite}</span></td>
+        <td class="discret">${t(titre)}<span class="unite">${unite}</span></td>
         <td class="nombre tour-ref">${a === null ? "—" : a.toFixed(dec)}</td>
         <td class="nombre tour-cmp">${b === null ? "—" : b.toFixed(dec)}</td>
         <td class="nombre discret">${ecart === null ? "" : signe(ecart, dec)}</td>
@@ -913,14 +942,14 @@ function majLecture(indice) {
   // faire bouger tout ce qui est en dessous.
   const titre = survol
     ? `<strong>${Math.round(c.distance.debut + indice * c.distance.pas)} m</strong>`
-      + `<span class="discret"> · delta ${signe(c.delta[indice])} s</span>`
-    : `<span class="discret">Passe la souris sur un graphique</span>`;
+      + `<span class="discret"> · ${t("lecture.delta", { valeur: signe(c.delta[indice]) })}</span>`
+    : `<span class="discret">${t("lecture.survol")}</span>`;
 
   $("#lecture").innerHTML = `
     <div class="titre-lecture">${titre}</div>
     <table><thead><tr>
-      <th></th><th class="nombre tour-ref">réf.</th>
-      <th class="nombre tour-cmp">comp.</th><th class="nombre"></th>
+      <th></th><th class="nombre tour-ref">${t("lecture.ref")}</th>
+      <th class="nombre tour-cmp">${t("lecture.comp")}</th><th class="nombre"></th>
     </tr></thead><tbody>${corps}</tbody></table>`;
 
   dessinerCarte(indice);
@@ -937,21 +966,21 @@ function majLecture(indice) {
 // tard n'est pas mieux en soi, ça dépend de ce qu'on fait ensuite. L'outil
 // montre l'écart, il ne le juge pas.
 const COLONNES_VIRAGE = [
-  { cle: "distance_freinage", titre: "Freinage avant", unite: "m", dec: 0, sens: 0 },
-  { cle: "vitesse_entree", titre: "V. entrée", unite: "km/h", dec: 0, sens: 0 },
-  { cle: "duree_freinage", titre: "Durée frein", unite: "s", dec: 2, sens: 0 },
-  { cle: "frein_max", titre: "Frein max", unite: "%", dec: 0, sens: 0 },
-  { cle: "vitesse_min", titre: "V. mini", unite: "km/h", dec: 0, sens: 1 },
-  { cle: "remise_gaz", titre: "Remise gaz", unite: "m", dec: 0, sens: 0 },
-  { cle: "vitesse_sortie", titre: "V. sortie", unite: "km/h", dec: 0, sens: 1 },
-  { cle: "temps_coasting", titre: "Sur l'erre", unite: "s", dec: 2, sens: -1 },
+  { cle: "distance_freinage", titre: "virages.col.freinage_avant", unite: "m", dec: 0, sens: 0 },
+  { cle: "vitesse_entree", titre: "virages.col.v_entree", unite: "km/h", dec: 0, sens: 0 },
+  { cle: "duree_freinage", titre: "virages.col.duree_frein", unite: "s", dec: 2, sens: 0 },
+  { cle: "frein_max", titre: "virages.col.frein_max", unite: "%", dec: 0, sens: 0 },
+  { cle: "vitesse_min", titre: "virages.col.v_mini", unite: "km/h", dec: 0, sens: 1 },
+  { cle: "remise_gaz", titre: "virages.col.remise_gaz", unite: "m", dec: 0, sens: 0 },
+  { cle: "vitesse_sortie", titre: "virages.col.v_sortie", unite: "km/h", dec: 0, sens: 1 },
+  { cle: "temps_coasting", titre: "virages.col.coasting", unite: "s", dec: 2, sens: -1 },
 ];
 
 async function chargerVirages() {
   const c = etat.comparaison;
   const bloc = $("#bloc-virages");
   bloc.hidden = false;
-  $("#entete-virages").textContent = "Découpage du circuit en cours…";
+  $("#entete-virages").textContent = t("virages.decoupage_en_cours");
   $("#table-virages").innerHTML = "";
   try {
     etat.virages = await api("/api/virages", {
@@ -975,24 +1004,20 @@ function afficherVirages() {
   const v = etat.virages;
   const c = etat.comparaison;
 
-  $("#entete-virages").innerHTML =
-    `${v.virages.length} virages, détectés sur la courbure de la piste. `
-    + `« Temps perdu » répartit l'écart du tour sur les virages : chaque mètre `
-    + `compte pour un virage et un seul, la colonne totalise donc exactement `
-    + `l'écart final. La frontière est posée au milieu de chaque ligne droite. `
-    + `Sur l'erre, ni frein ni gaz : `
-    + `<strong>${v.coasting_total.reference.toFixed(2)} s</strong> pour la référence `
-    + `contre <strong>${v.coasting_total.compare.toFixed(2)} s</strong> pour le tour comparé. `
-    + `Clique sur une ligne pour zoomer les graphiques dessus. `
-    + `Découpage modifiable : <code>${echapper(v.fichier)}</code>`;
+  $("#entete-virages").innerHTML = t("virages.entete", {
+    n: v.virages.length,
+    ref: v.coasting_total.reference.toFixed(2),
+    cmp: v.coasting_total.compare.toFixed(2),
+    fichier: `<code>${echapper(v.fichier)}</code>`,
+  });
 
   const table = document.createElement("table");
   const entete = document.createElement("thead");
   entete.innerHTML =
-    `<tr><th class="col-virage">Virage</th>`
-    + `<th class="nombre groupe">Temps perdu<br><span class="discret">s</span></th>`
+    `<tr><th class="col-virage">${t("virages.col.virage")}</th>`
+    + `<th class="nombre groupe">${t("virages.col.temps_perdu")}<br><span class="discret">s</span></th>`
     + COLONNES_VIRAGE.map(
-        (col) => `<th class="nombre groupe">${col.titre}<br>
+        (col) => `<th class="nombre groupe">${t(col.titre)}<br>
           <span class="discret">${col.unite}</span></th>`
       ).join("")
     + `</tr>`;
@@ -1002,7 +1027,7 @@ function afficherVirages() {
   for (const ligne of v.virages) {
     const tr = document.createElement("tr");
     tr.className = "cliquable";
-    tr.title = "Zoomer les graphiques sur ce virage";
+    tr.title = t("virages.zoomer");
     // Une seule ligne : le numéro, puis les bornes et le rayon en petit.
     // L'ancienne version empilait le tout sur deux lignes et laissait une
     // grande colonne vide.
@@ -1010,11 +1035,11 @@ function afficherVirages() {
     // « Pris sans freiner » est une propriété du virage, pas un incident : il
     // s'affiche comme une étiquette dans la case, et non comme une ligne de
     // remarque, qui se lirait comme un avertissement.
-    const sansFrein = ligne.remarques.includes("pris sans freiner");
+    const sansFrein = ligne.remarques.some((r) => r.cle === SANS_FREINER);
     let html = `<td class="col-virage"><span class="num-virage">${echapper(ligne.nom)}</span>${fleche(ligne.sens)}
         <span class="discret">${Math.round(ligne.debut)}–${Math.round(ligne.fin)} m
         · r ${Math.round(ligne.rayon_min)} m</span>
-        ${sansFrein ? '<span class="etiquette">sans freiner</span>' : ""}</td>
+        ${sansFrein ? `<span class="etiquette">${t("virages.sans_freiner")}</span>` : ""}</td>
       <td class="nombre groupe">${
         perdu === null || perdu === undefined
           ? "—"
@@ -1040,9 +1065,10 @@ function afficherVirages() {
     tr.onclick = () => zoomerSurVirage(ligne);
     corps.append(tr);
 
-    const autres = [...new Set(ligne.remarques)].filter(
-      (r) => r !== "pris sans freiner"
-    );
+    // Les deux tours peuvent porter la même remarque : on ne l'écrit qu'une fois.
+    const autres = [
+      ...new Set(ligne.remarques.filter((r) => r.cle !== SANS_FREINER).map(traduire)),
+    ];
     if (autres.length) {
       const note = document.createElement("tr");
       note.innerHTML = `<td colspan="${2 + COLONNES_VIRAGE.length}"
@@ -1497,13 +1523,88 @@ $("#saisie-dossier").addEventListener("keydown", (e) => {
   if (e.key === "Enter") validerDossier();
 });
 
+// ---------------------------------------------------------------------
+// Langue
+// ---------------------------------------------------------------------
+
+// Le choix est enregistré par le serveur, dans les réglages de l'utilisateur,
+// et non par le navigateur : le .exe peut changer de port d'un lancement à
+// l'autre, et le navigateur range ses données par port — le choix serait perdu.
+async function changerLangue(code) {
+  if (code === langue()) return;
+  definirLangue(code);
+  afficherChoixLangue();
+  rafraichir();
+  try {
+    await envoyer("/api/langue", { langue: code });
+  } catch {
+    // Pas enregistré : la page reste dans la langue choisie jusqu'à la fermeture.
+  }
+}
+
+function afficherChoixLangue() {
+  $("#choix-langue").innerHTML = LANGUES_DISPONIBLES.map(
+    (code) =>
+      `<button type="button" data-langue="${code}" class="${code === langue() ? "actif" : ""}"
+         aria-pressed="${code === langue()}">${code.toUpperCase()}</button>`
+  ).join("");
+  for (const bouton of $("#choix-langue").querySelectorAll("button")) {
+    bouton.onclick = () => changerLangue(bouton.dataset.langue);
+  }
+}
+
+// Redessine tout ce qui est déjà affiché, dans la nouvelle langue. Les écrans
+// sont reconstruits à partir des données déjà chargées : rien n'est redemandé
+// au serveur, sauf le découpage en virages, en cache de son côté.
+function rafraichir() {
+  traduirePage();
+  // Une erreur déjà affichée resterait dans l'ancienne langue : on la retire,
+  // la prochaine action la redonnera si elle se reproduit.
+  erreur(null);
+  $("#erreur-dossier").hidden = true;
+  if (etat.ecran === "dossier" && etat.messageDossier) {
+    $("#message-dossier").textContent = traduire(etat.messageDossier);
+  }
+  filAriane(etat.ecran);
+  afficherVersion();
+  if (etat.sessions.length) {
+    remplirCircuits();
+    afficherSessions();
+    afficherSource();
+  }
+  if (etat.session) {
+    // Garder le tour de référence et la session comparée déjà choisis.
+    const ref = $("#sel-ref") && $("#sel-ref").value;
+    const cmp = $("#sel-session-cmp") && $("#sel-session-cmp").value;
+    afficherSession();
+    if (ref && $("#sel-ref")) $("#sel-ref").value = ref;
+    if (cmp && $("#sel-session-cmp") && cmp !== $("#sel-session-cmp").value) {
+      $("#sel-session-cmp").value = cmp;
+      $("#sel-session-cmp").onchange();
+    }
+  }
+  if (etat.ecran === "comparaison" && etat.comparaison) afficherComparaison(true);
+  if (etat.ecran === "regularite" && etat.regularite) afficherRegularite();
+}
+
 // Le numéro de version, pour savoir de quoi on parle quand on signale un
 // problème ou qu'on se demande si on a la dernière.
-api("/api/version")
-  .then((v) => {
-    $("#version").textContent = `v${v.version}`;
-    $("#version").title = `Tes découpages, logos et réglages : ${v.donnees}`;
-  })
-  .catch(() => {});
+let version = null;
+
+function afficherVersion() {
+  if (!version) return;
+  $("#version").textContent = `v${version.version}`;
+  $("#version").title = t("version.donnees", { chemin: version.donnees });
+}
+
+try {
+  version = await api("/api/version");
+} catch {
+  version = null;
+}
+definirLangue((version && version.langue) || langueParDefaut());
+traduirePage();
+afficherChoixLangue();
+afficherVersion();
 
 chargerSessions().catch((e) => erreur(e.message));
