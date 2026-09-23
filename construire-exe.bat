@@ -5,7 +5,7 @@ cd /d "%~dp0"
 
 if not exist ".venv\Scripts\python.exe" (
   echo L'environnement Python du projet est absent.
-  echo Fais d'abord l'installation decrite dans le README, section Installation.
+  echo Fais d'abord l'installation decrite dans LISEZ-MOI.md, section Installation.
   pause
   exit /b 1
 )

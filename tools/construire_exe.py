@@ -9,8 +9,8 @@
 2. les tests — on ne distribue pas une version qui ne les passe pas ;
 3. PyInstaller, selon la recette `telemetrie-lmu.spec` ;
 4. l'archive `dist/Telemetrie-LMU-<version>.zip`, qui contient le .exe et ses
-   modes d'emploi, `LISEZ-MOI.txt` et `README.txt` (en anglais) : c'est elle
-   qu'on envoie.
+   modes d'emploi, `distribution/LISEZ-MOI.txt` et `distribution/README.txt`
+   (en anglais) : c'est elle qu'on envoie.
 
 Un double-clic sur ce fichier le lance avec le Python de Windows, qui n'a pas
 les bibliothèques du projet : il plantait à la première ligne, et la fenêtre
@@ -101,7 +101,7 @@ def construire() -> None:
 
     etape("4/4  Archive à partager")
     # Les deux modes d'emploi : en français et en anglais.
-    guides = [RACINE / "LISEZ-MOI.txt", RACINE / "README.txt"]
+    guides = [RACINE / "distribution" / "LISEZ-MOI.txt", RACINE / "distribution" / "README.txt"]
     archive = DIST / f"{NOM}-{__version__}.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zip_:
         zip_.write(exe, exe.name)
@@ -129,7 +129,7 @@ def main() -> int:
     if not dans_le_projet():
         if not PYTHON_PROJET.exists():
             print("L'environnement Python du projet (.venv) est absent.")
-            print("Fais d'abord l'installation décrite dans le README, section Installation.")
+            print("Fais d'abord l'installation décrite dans LISEZ-MOI.md, section Installation.")
             return 1
         # Le Python du projet reprend la main ; c'est lui qui fera la pause.
         return subprocess.run([str(PYTHON_PROJET), __file__, *sys.argv[1:]]).returncode
