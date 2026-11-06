@@ -1,8 +1,8 @@
 # Étape 12 — La mémoire partagée, vérifiée sur le jeu en marche
 
-**Statut : terminée, sauf les deux points listés à la fin.** Mesuré le 2026-11-06, jeu en
-version 1.4200, sur deux sessions de 5 minutes à Monza : Mercedes-AMG LMGT3, puis Ferrari
-499P. Outil : `tools/sonde_live.py`.
+**Statut : terminée.** Mesuré le 2026-11-06, jeu en version 1.4200, sur trois sessions de
+5 minutes à Monza : Mercedes-AMG LMGT3, Ferrari 499P, puis Ferrari 296 LMGT3 Evo pour un tour
+propre. Outil : `tools/sonde_live.py`. Les tableaux portent sur les deux premières.
 
 ---
 
@@ -78,27 +78,32 @@ saute donc en avant. L'estimation se recale à la mise à jour suivante.
 ## Savoir si un tour compte
 
 `mLapInvalidated` n'a jamais bougé, y compris sur les tours que le jeu n'a pas chronométrés.
+Trois autres champs le remplacent :
 
-* `mTrackLimitsSteps` monte après une infraction, quelques secondes plus tard : de 0 à 9 à
-  2 525 m en GT3, de 0 à 8 à 2 423 m en Hypercar, juste après la coupe de la Roggia. Il ne
-  retombe pas à la ligne (constaté en Hypercar) : c'est sa montée pendant le tour qui compte,
-  pas sa valeur. Vu une fois revenir à 0, aux stands.
-* `mLastLapTime` vaut -1 à la ligne pour un tour non chronométré, comme l'absence de
-  `Lap Time` dans le fichier.
+* **`mCountLapFlag`, le bon signal.** Il vaut 2 quand le tour compte, 1 sinon, et il change
+  à l'instant de l'infraction : à 2 150, 2 158, 2 165 et 2 197 m (chicane Roggia), et à
+  999 m (première chicane). Il vaut 1 pendant tout le tour de sortie des stands. Il repasse
+  à 2 à la ligne. Le jeu peut aussi pardonner en cours de tour : deux cas où il est remonté
+  à 2 après 2 et 9 secondes. Seule sa valeur à la ligne fait donc foi.
+* **`mLastLapTime`** vaut -1 à la ligne pour un tour non chronométré. Pour le tour propre, il
+  vaut 115,204, soit le chrono du fichier (115,2037), 0,03 s après la ligne.
+* `mTrackLimitsSteps` compte les points de pénalité, pas les tours : de 0 à 9 à 2 525 m, de 0
+  à 8 à 2 423 m, sans retomber à la ligne, et il ne bouge pas à chaque infraction (aucun
+  changement sur la coupe à 2 150 m de la troisième session).
 
 ## Autres pièges
 
 * L'horloge repart de zéro à chaque session, et la mémoire garde l'ancienne voiture jusqu'au
   chargement. Le suivi en direct doit détecter ce retour en arrière.
-* `mPhysicalSteeringWheelRange` et `mDeltaBest` sont toujours à 0. `mVisualSteeringWheelRange`
-  vaut 719 sur les deux voitures : ce n'est pas leur débattement.
+* `mLapDist` vaut un peu moins de zéro juste après la ligne : le suivi doit le tolérer.
+* `mDeltaBest` reste à 0 tant qu'il n'y a pas de meilleur tour dans la session, puis se remplit.
+* `mPhysicalSteeringWheelRange` est toujours à 0. `mVisualSteeringWheelRange` vaut 719 sur
+  toutes les voitures : ce n'est pas leur débattement.
 * `mTireLoad` et `mGripFract` sont remplis en Hypercar et à 0 en GT3 : aucun détecteur ne doit
   en dépendre.
 
-## Ce qui reste à vérifier
+## Le jeu n'est pas gêné
 
-1. **Un tour propre et chronométré.** Aucune des deux captures n'en contient : on n'a pas vu
-   `mLastLapTime` positif en direct, ni `mTrackLimitsSteps` rester à 0 sur un tour entier.
-2. **Le journal du jeu.** Il n'est lisible qu'à la fermeture du jeu. L'outil ne prend jamais le
-   verrou et ne peut donc pas provoquer `Failed to acquire SharedMemoryLock` ; reste à constater
-   l'absence de cette erreur sur ces sessions. SimHub tournait en même temps.
+Le journal du jeu couvrant les trois sessions de mesure, soit 29 minutes, ne contient aucune
+erreur `Failed to acquire SharedMemoryLock`, avec SimHub ouvert en même temps. La seule
+occurrence relevée date de la veille, avant que cet outil existe.

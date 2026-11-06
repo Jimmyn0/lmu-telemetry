@@ -51,10 +51,10 @@ Présents dans les en-têtes, mais que le jeu ne remplit pas. Ils restent dans l
 tables pour que la sonde les surveille d'une version à l'autre :
 
 * `tour_invalide` : resté faux sur des tours que le jeu n'a pas chronométrés.
-  Se fier à `limites_piste`, qui monte quelques secondes après l'infraction,
-  et à `dernier_tour`, qui vaut -1 ;
+  Se fier à `compte_tour`, qui passe de 2 à 1 à l'instant de l'infraction, lu à
+  la ligne parce que le jeu peut pardonner en cours de tour, et à `dernier_tour`,
+  qui vaut alors -1 ;
 * `debattement_volant` : toujours 0. Le volant reste donc en pourcentage ;
-* `delta_meilleur` : toujours 0 ;
 * `charge` et `part_glissante` : remplis en Hypercar, à 0 en GT3.
 
 --------------------------------------------------------------------------
