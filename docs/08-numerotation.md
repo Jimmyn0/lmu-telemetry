@@ -161,10 +161,14 @@ puis réutilisé tel quel.
   main dans le fichier du circuit vient en complément : « T3 — Curva Grande ».
   Aucun nom n'est posé automatiquement.
 * Chaque virage porte une flèche indiquant son sens, ↰ ou ↱.
-* **La carte du circuit porte les numéros**, dans une pastille posée à
-  l'extérieur du tracé, reliée à son virage par un trait.
+* **La carte du circuit a porté les numéros** jusqu'à la v1, dans une pastille
+  posée à l'extérieur du tracé, reliée à son virage par un trait. La v2 les a
+  retirés pour agrandir le tracé (voir [14-redesign.md](14-redesign.md)) : ils
+  restent dans la liste des virages, sous la carte.
 
 ### Placer les numéros a demandé cinq corrections
+
+Ce placement n'existe plus dans le code depuis la v2. La suite reste pour mémoire.
 
 **1. Calculer la courbure en mètres, pas en pixels.** Première version : la
 dérivée seconde du tracé, en coordonnées écran. Elle marchait sur une carte de

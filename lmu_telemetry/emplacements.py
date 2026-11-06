@@ -63,6 +63,10 @@ def fichier_reglages() -> Path:
     return donnees() / "reglages.json"
 
 
+def fichier_index() -> Path:
+    return donnees() / "index.sqlite"
+
+
 def fichier_parametres() -> Path:
     return donnees() / "parametres.json"
 

@@ -7,18 +7,18 @@ domaine en ce que la page attend.
 from __future__ import annotations
 
 import math
-import threading
-from dataclasses import dataclass, field
+from collections import Counter
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 from .. import emplacements, parametres
-from ..cache import CacheBorne
 from ..domaine import pays
 from ..domaine.circuits import definition_circuit
 from ..domaine.comparaison import comparer_fichiers
-from ..domaine.donnees_tour import charger
+from ..domaine.donnees_tour import CANAL_GAZ_BRUT, bilan, charger
 from ..domaine.piste import construire as construire_piste
 from ..domaine.piste import trajectoires
 from ..domaine.regularite import analyser
@@ -26,7 +26,15 @@ from ..domaine.session import Session
 from ..domaine.virages import DefinitionCircuit, ecarts_par_virage
 from ..errors import ErreurTelemetrie
 from ..sources import catalogue, resultats
-from ..sources.reader import FichierSession, cle_fichier
+from ..sources.memoire_lmu import (
+    CHAMPS_SCORING,
+    CHAMPS_TELEMETRIE,
+    LecteurMemoire,
+    MemoireAbsente,
+    MemoireInattendue,
+    decoder,
+)
+from ..stockage.index import Index, ResumeSession, balayage
 
 #: Extensions acceptées pour un logo de marque déposé par l'utilisateur.
 EXTENSIONS_LOGO = (".svg", ".png", ".webp", ".jpg", ".jpeg", ".gif")
@@ -92,11 +100,13 @@ def _arrondir(valeurs: np.ndarray, decimales: int) -> list[float | None]:
 DECIMALES = {
     "Ground Speed": 1,
     "Throttle Pos": 1,
+    CANAL_GAZ_BRUT: 1,
     "Brake Pos": 1,
     "Steering Pos": 2,
     "Angle Volant": 1,
     "Engine RPM": 0,
     "Gear": 0,
+    "Virtual Energy": 2,
     "GPS Latitude": 7,
     "GPS Longitude": 7,
 }
@@ -107,82 +117,7 @@ DECIMALES = {
 # ----------------------------------------------------------------------
 
 
-def sessions(contexte: Contexte) -> list[dict]:
-    return [
-        {
-            "id": str(f.chemin),
-            "nom": f.chemin.name,
-            "circuit": f.circuit,
-            "pays": _pays(f.circuit),
-            "type": f.code_type,
-            "date": f.enregistre_le.isoformat() if f.enregistre_le else None,
-            "taille": f.taille,
-            "journal": f.journal_present,
-        }
-        for f in catalogue.lister(contexte.dossier)
-    ]
-
-
-#: Tracé de chaque session, indexé comme les résumés.
-#:
-#: LMU propose plusieurs variantes du même circuit — « Monza Curva Grande
-#: Circuit » à côté d'« Autodromo Nazionale Monza », « Bahrain Outer Circuit »
-#: à côté du tracé complet — et elles n'ont ni la même longueur ni les mêmes
-#: virages. Le NOM DU FICHIER ne porte que `TrackName` : les deux Monza
-#: s'appellent pareil sur le disque, et rien ne les distingue sans ouvrir le
-#: fichier.
-#:
-#: Ouvrir les 388 sessions coûte 9,7 s — trop pour une liste censée être
-#: instantanée. On les lit donc en tâche de fond, et la liste se précise
-#: pendant que l'utilisateur la regarde.
-_traces: CacheBorne[tuple[str, int, int], str] = CacheBorne(8192)
-_scan_traces: threading.Thread | None = None
-
-
-def traces_connues(contexte: Contexte) -> dict:
-    """Tracés déjà lus, et combien il en reste. Lance le balayage au besoin."""
-    global _scan_traces
-
-    reperes = catalogue.lister(contexte.dossier)
-    cles = {r.chemin: cle_fichier(r.chemin) for r in reperes}
-    connus = {str(chemin): _traces.get(cle) for chemin, cle in cles.items() if cle}
-    restant = sum(1 for cle in cles.values() if cle and cle not in _traces)
-
-    if restant and (_scan_traces is None or not _scan_traces.is_alive()):
-        _scan_traces = threading.Thread(
-            target=_balayer_traces, args=(list(cles.items()),), daemon=True
-        )
-        _scan_traces.start()
-
-    return {"traces": {c: t for c, t in connus.items() if t}, "restant": restant}
-
-
-def _balayer_traces(fichiers: list) -> None:
-    """Lit le tracé de chaque session, une par une, en tâche de fond.
-
-    Un fichier illisible — session en cours d'enregistrement, format inconnu —
-    est mémorisé comme vide plutôt que retenté sans fin.
-    """
-    for chemin, cle in fichiers:
-        if cle is None or cle in _traces:
-            continue
-        trace = ""
-        try:
-            with FichierSession(chemin) as fichier:
-                trace = fichier.info.trace
-        except Exception:  # noqa: BLE001 — une tâche de fond ne doit pas mourir
-            trace = ""
-        _traces[cle] = trace
-
-
-#: Résumés déjà calculés, indexés par (chemin, date de modification, taille).
-#: Parcourir les 378 sessions du disque prend une douzaine de secondes ; on ne
-#: le refait pas à chaque affichage de la liste. La clé inclut la taille et la
-#: date pour qu'une session réécrite par le jeu soit recalculée.
-_cache_resumes: CacheBorne[tuple[str, int, int], dict] = CacheBorne(8192)
-
-
-def _voiture(contexte: Contexte, engagement: str) -> dict:
+def _voiture(voitures: Mapping[str, resultats.Voiture], engagement: str | None) -> dict:
     """Ce qu'on affiche d'une voiture : l'engagement, et si on le sait le modèle.
 
     Le fichier de télémétrie ne connaît que l'engagement — « Manthey DK
@@ -191,13 +126,19 @@ def _voiture(contexte: Contexte, engagement: str) -> dict:
     S'ils manquent, `modele` et `marque` sont nuls et la page se rabat sur
     l'engagement seul.
     """
-    trouvee = resultats.voiture(engagement, contexte.dossier_resultats)
+    trouvee = voitures.get(engagement or "")
     return {
         "engagement": engagement,
         "modele": trouvee.modele if trouvee else None,
         "marque": trouvee.marque if trouvee else None,
         "classe": trouvee.classe if trouvee else None,
     }
+
+
+def _voitures(contexte: Contexte) -> Mapping[str, resultats.Voiture]:
+    """L'index des voitures, à ne demander qu'une fois par requête : même en cache,
+    il parcourt le dossier des résultats pour vérifier qu'il est à jour."""
+    return resultats.index_voitures(contexte.dossier_resultats)
 
 
 def logos(contexte: Contexte) -> dict[str, Path]:
@@ -231,39 +172,150 @@ def _pays(circuit: str) -> dict | None:
     return {"code": trouve.code, "nom": trouve.nom} if trouve else None
 
 
-def resumes(contexte: Contexte, params: dict[str, list[str]]) -> list[dict]:
-    """Nombre de tours et meilleur chrono, pour les sessions DEMANDÉES.
+def _lire_index(contexte: Contexte) -> tuple[list, dict[str, ResumeSession], int]:
+    """Sessions du disque, ce que l'index en sait, et combien restent à lire.
 
-    Chaque résumé oblige à ouvrir le fichier : analyser les 378 sessions du
-    disque prend une douzaine de secondes, ce qui est insupportable à chaque
-    ouverture de la liste. Le navigateur ne demande donc que les sessions qu'il
-    affiche réellement, une dizaine à la fois.
+    Le nom de chaque fichier suffit à dresser la liste, tout de suite. Le reste
+    vient de l'index, qui se complète en tâche de fond : la page se précise
+    pendant qu'on la regarde.
     """
-    trouves = []
-    for brut in params.get("chemin", []):
-        chemin = Path(brut)
-        cle = cle_fichier(chemin)
-        if cle is None:
+    reperes = catalogue.lister(contexte.dossier)
+    index = Index()
+    connues = index.lignes()
+    a_lire = balayage.a_lire(reperes, connues)
+    balayage.relancer(a_lire, index)
+    return reperes, connues, len(a_lire)
+
+
+def sessions(contexte: Contexte) -> dict:
+    reperes, connues, restant = _lire_index(contexte)
+    voitures = _voitures(contexte)
+    drapeaux: dict[str, dict | None] = {}
+
+    def ligne(repere) -> dict:
+        connue = connues.get(str(repere.chemin))
+        drapeau = drapeaux.get(repere.circuit, False)
+        if drapeau is False:
+            drapeau = drapeaux[repere.circuit] = _pays(repere.circuit)
+        base = {
+            "id": str(repere.chemin),
+            "nom": repere.chemin.name,
+            "circuit": repere.circuit,
+            "pays": drapeau,
+            "type": repere.code_type,
+            "date": repere.enregistre_le.isoformat() if repere.enregistre_le else None,
+            "taille": repere.taille,
+            "journal": repere.journal_present,
+        }
+        if connue is None:
+            return base
+        return {
+            **base,
+            "trace": connue.trace,
+            "tours": connue.tours,
+            "valides": connue.valides,
+            "meilleur": connue.meilleur,
+            "voiture": _voiture(voitures, connue.voiture),
+            "categorie": connue.categorie,
+            "indisponible": connue.illisible,
+        }
+
+    return {"sessions": [ligne(r) for r in reperes], "restant": restant}
+
+
+def circuits(contexte: Contexte) -> dict:
+    """Les records : pour chaque tracé, le meilleur tour de chaque voiture.
+
+    Les variantes d'un circuit restent séparées : leurs chronos ne se comparent
+    pas. La page les regroupe sous le nom du circuit.
+    """
+    reperes, connues, restant = _lire_index(contexte)
+    voitures = _voitures(contexte)
+    contours = Index().contours()
+
+    par_trace: dict[str, list] = {}
+    noms: dict[str, str] = {}
+    pilotes: Counter = Counter()
+    for repere in reperes:
+        connue = connues.get(str(repere.chemin))
+        if connue is None or connue.trace is None:
             continue
-        resume = _cache_resumes.obtenir(cle, lambda: _resumer(contexte, chemin))
-        trouves.append({"id": str(chemin), **resume})
-    return trouves
+        par_trace.setdefault(connue.trace, []).append((repere, connue))
+        noms[connue.trace] = repere.circuit
+        pilotes[connue.pilote] += 1
 
+    def trace(nom: str, lignes: list) -> dict:
+        records: dict[tuple[str, str], dict] = {}
+        meilleurs: dict[tuple[str, str], dict] = {}
+        for repere, connue in lignes:
+            if connue.meilleur is None:
+                continue
+            voiture = _voiture(voitures, connue.voiture)
+            classe = voiture["classe"] or connue.categorie or "?"
+            record = {
+                "classe": classe,
+                "voiture": voiture,
+                "session": connue.chemin,
+                "type": repere.code_type,
+                "date": repere.enregistre_le.isoformat() if repere.enregistre_le else None,
+                "tour": connue.tour_meilleur,
+                "chrono": connue.meilleur,
+                "secteurs": [connue.s1, connue.s2, connue.s3],
+            }
+            for table, cle in (
+                (records, (classe, voiture["modele"] or connue.voiture)),
+                (meilleurs, (classe, repere.code_type)),
+            ):
+                if cle not in table or connue.meilleur < table[cle]["chrono"]:
+                    table[cle] = record
+        return {
+            "trace": nom,
+            "sessions": len(lignes),
+            "tours": sum(connue.tours for _, connue in lignes),
+            "voitures": len({c.voiture for _, c in lignes if c.voiture}),
+            "longueur": max((c.longueur or 0.0 for _, c in lignes), default=None),
+            "contour": contours.get(nom),
+            "records": sorted(records.values(), key=lambda r: r["chrono"]),
+            # Le meilleur de chaque catégorie en essais, qualifs et course.
+            "meilleurs": list(meilleurs.values()),
+        }
 
-def _resumer(contexte: Contexte, chemin: Path) -> dict:
-    try:
-        session_lue = Session.ouvrir(chemin)
-    except ErreurTelemetrie as erreur:
-        return {"tours": 0, "valides": 0, "meilleur": None, "indisponible": str(erreur)}
-    meilleur = session_lue.meilleur_tour
+    groupes: dict[str, list] = {}
+    for nom, lignes in par_trace.items():
+        groupes.setdefault(noms[nom], []).append(trace(nom, lignes))
     return {
-        "tours": len(session_lue.tours),
-        "valides": len(session_lue.tours_valides),
-        "meilleur": meilleur.chrono if meilleur else None,
-        "trace": session_lue.info.trace,
-        "voiture": _voiture(contexte, session_lue.info.voiture),
-        "indisponible": None,
+        "pilote": pilotes.most_common(1)[0][0] if pilotes else None,
+        "restant": restant,
+        "circuits": [
+            {
+                "circuit": circuit,
+                "pays": _pays(circuit),
+                # Le tracé le plus roulé d'abord : c'est celui qu'on affiche.
+                "traces": sorted(traces, key=lambda x: -x["sessions"]),
+            }
+            for circuit, traces in sorted(groupes.items())
+        ],
     }
+
+
+def jeu() -> dict:
+    """Le jeu tourne-t-il, et sa mémoire partagée est-elle accessible ?"""
+    try:
+        with LecteurMemoire() as memoire:
+            lecture = memoire.lire()
+            etat: dict = {"detecte": True, "version": memoire.version_jeu(), "en_piste": False}
+            if lecture is not None:
+                telemetrie = decoder(lecture.telemetrie, CHAMPS_TELEMETRIE)
+                scoring = decoder(lecture.scoring, CHAMPS_SCORING)
+                etat.update(
+                    en_piste=bool(scoring["en_piste"]),
+                    circuit=telemetrie["circuit"],
+                    modele=telemetrie["modele"],
+                )
+            return etat
+    except (MemoireAbsente, MemoireInattendue, OSError) as erreur:
+        probleme = isinstance(erreur, MemoireInattendue)
+        return {"detecte": False, "format_inconnu": probleme}
 
 
 # ----------------------------------------------------------------------
@@ -275,6 +327,8 @@ def session(contexte: Contexte, chemin: str) -> dict:
     lue = Session.ouvrir(chemin)
     return {
         "id": str(lue.chemin),
+        "duree": lue.duree,
+        "longueur": lue.longueur,
         # Le tracé plutôt que le circuit : c'est lui qui décrit ce qu'on a
         # roulé. « Monza Curva Grande Circuit » n'a pas les mêmes virages que
         # « Autodromo Nazionale Monza », alors que les deux portent le même
@@ -282,7 +336,7 @@ def session(contexte: Contexte, chemin: str) -> dict:
         "circuit": lue.info.trace,
         "pays": _pays(lue.info.trace),
         "type": lue.info.type_session,
-        "voiture": _voiture(contexte, lue.info.voiture),
+        "voiture": _voiture(_voitures(contexte), lue.info.voiture),
         "categorie": lue.info.categorie,
         "pilote": lue.info.pilote,
         "meteo": lue.info.meteo,
@@ -311,12 +365,15 @@ def session(contexte: Contexte, chemin: str) -> dict:
 
 
 def comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
+    # Sans tour comparé, le tour se compare à lui-même : la page n'en montre alors
+    # que la référence.
     resultat = comparer_fichiers(
         params["ref"][0],
         int(params["tour_ref"][0]),
         params.get("cmp", params["ref"])[0],
-        int(params["tour_cmp"][0]),
+        int(params.get("tour_cmp", params["tour_ref"])[0]),
     )
+    voitures = _voitures(contexte)
 
     traces = {
         nom: {
@@ -330,13 +387,21 @@ def comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
     def resume(donnees) -> dict:
         return {
             "session": donnees.chemin.name,
+            "chemin": str(donnees.chemin),
             "circuit": donnees.info.trace,
-            "voiture": _voiture(contexte, donnees.info.voiture),
+            "pays": _pays(donnees.info.trace),
+            "type": donnees.info.code_type,
+            "pilote": donnees.info.pilote,
+            "categorie": donnees.info.categorie,
+            "voiture": _voiture(voitures, donnees.info.voiture),
             "debattement_volant": donnees.info.debattement_volant,
             "numero": donnees.tour.numero,
             "chrono": donnees.tour.chrono,
+            "secteurs": list(donnees.tour.secteurs),
             "longueur": round(donnees.longueur, 1),
             "remarques": [r.json() for r in donnees.tour.remarques],
+            "temps": _arrondir(donnees.temps_a_distance(resultat.distance), 3),
+            **asdict(bilan(donnees)),
         }
 
     return {

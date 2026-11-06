@@ -77,6 +77,8 @@ CANAUX_PAR_DEFAUT = (
     "Brake Pos",
     "Steering Pos",
     "Engine RPM",
+    "Fuel Level",
+    "Virtual Energy",
     "GPS Latitude",
     "GPS Longitude",
     # Position latérale dans la piste et bord de piste : servent à reconstruire
@@ -226,6 +228,50 @@ class DonneesTour:
             )
             for nom, valeurs in retenus.items()
         }
+
+
+@dataclass(frozen=True)
+class BilanTour:
+    """Ce qu'on retient d'un tour en quelques chiffres."""
+
+    vitesse_max: float | None
+    """En km/h."""
+
+    vitesse_moyenne: float | None
+    """Distance sur durée, en km/h : c'est la moyenne le long de la piste."""
+
+    carburant: float | None
+    """Carburant consommé sur le tour, en litres."""
+
+    energie: float | None
+    """Énergie virtuelle consommée sur le tour, en points de pourcentage."""
+
+    fin_s1: float | None
+    """Distance de la fin du secteur 1, en mètres."""
+
+    fin_s2: float | None
+    """Distance de la fin du secteur 2, en mètres."""
+
+
+def bilan(donnees: DonneesTour) -> BilanTour:
+    def baisse(nom: str) -> float | None:
+        valeurs = donnees.canaux.get(nom)
+        return None if valeurs is None or not valeurs.size else float(valeurs[0] - valeurs[-1])
+
+    def distance_a(instant: float | None) -> float | None:
+        if instant is None:
+            return None
+        return float(np.interp(instant, donnees.temps, donnees.distance))
+
+    vitesse = donnees.canaux.get("Ground Speed")
+    return BilanTour(
+        vitesse_max=None if vitesse is None else float(vitesse.max()),
+        vitesse_moyenne=donnees.longueur / donnees.duree * 3.6 if donnees.duree else None,
+        carburant=baisse("Fuel Level"),
+        energie=baisse("Virtual Energy"),
+        fin_s1=distance_a(donnees.tour.cumul_s1),
+        fin_s2=distance_a(donnees.tour.cumul_s2),
+    )
 
 
 # ----------------------------------------------------------------------

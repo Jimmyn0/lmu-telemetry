@@ -18,13 +18,16 @@ diagnosis — only measured facts.
 * **Session list** — every session you have driven, with car, track, session
   type and best lap. Filter by track, sort by date or by best lap time. Track
   layout variants (Monza and Monza Curva Grande, for example) are kept apart.
+* **Lap times** — your best lap in every car on every track, class by class,
+  with its sectors, one click away from its telemetry.
 * **Laps of a session** — lap times, sectors, validity. Best lap and best
   sectors in purple, as on a race timing screen. Notes on each lap: pit lane
   visit, off track, contacts, near stop.
 * **Lap comparison** — any two laps, even from different sessions:
   cumulative delta, speed, brake, throttle, steering angle in degrees, gear.
-  One shared cursor across all charts, zoom, a track map coloured where time is
-  lost or gained, and a close-up road view with both racing lines.
+  One shared cursor across all charts, zoom, lap playback, a track map coloured
+  by time lost or gained, speed, pedals or sector, and a close-up road view with
+  both racing lines.
 * **Corner by corner** — corners numbered T1, T2… like official track maps.
   For each one: time lost or gained, braking point, entry speed, braking time
   and pressure, minimum speed, back on throttle, exit speed, and time spent
@@ -33,15 +36,16 @@ diagnosis — only measured facts.
   every corner, strung together), drift over the session, and the corners where
   you are least consistent.
 * **Car model, brand logo and track flag.**
-* **French and English** — a FR | EN button switches the whole interface.
+* **French and English** — switch the whole interface in the settings.
 
 ## Getting started
 
 1. [Download](https://github.com/Jimmyn0/lmu-telemetry/releases/latest) the
    `.zip`, unzip it, and double-click `Telemetrie-LMU.exe`. Nothing to install.
-2. A black window opens, then the tool appears in your browser. Keep the black
-   window open while you use the tool: closing it stops the tool.
-3. Pick a session, then two laps, and hit **Compare**.
+2. The tool opens in its own window. Closing it stops the tool.
+3. Pick a session, then two laps, and hit **Compare**. The very first start reads
+   all your sessions in the background, which can take a minute or two; after
+   that, only new sessions are read.
 
 On the first launch, Windows may show *"Windows protected your PC"*: click
 **More info**, then **Run anyway**. Some antivirus programs also flag it by
@@ -75,7 +79,7 @@ from time to time if you care about your history.
 New versions are published on the
 [Releases](https://github.com/Jimmyn0/lmu-telemetry/releases) page. Replace the
 old `.exe` with the new one: your settings and corner maps are kept. The version
-number is shown at the top right of the tool; see
+number is shown in the settings (the gear at the top right); see
 [NOTES-DE-VERSION.md](NOTES-DE-VERSION.md) for what changed (in French).
 
 ## Manufacturer logos
@@ -105,8 +109,10 @@ The code, its comments and the technical documentation are in **French**.
 ```bash
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m lmu_telemetry web
+.venv\Scripts\python.exe -m lmu_telemetry.lanceur
 ```
+
+`python -m lmu_telemetry web` opens the same page in your browser instead.
 
 **Tests** — they run without the game, on a synthetic session built by
 `tests/fixtures/construire.py`:
@@ -138,7 +144,9 @@ sentence is missing in one of the two languages. See
 | `lmu_telemetry/sources/memoire_lmu.py` | reads the game's live shared memory, read-only and without its lock |
 | `lmu_telemetry/domaine/circuits.py` | finds or detects the corner map of a track |
 | `lmu_telemetry/parametres.py` | the adjustable thresholds and their settings file |
+| `lmu_telemetry/stockage/index.py` | remembers what each session contains, so the list is instant |
 | `lmu_telemetry/web/` | local server and web interface, charts drawn by hand on canvas |
+| `lmu_telemetry/fenetre.py` | the frameless application window (pywebview) |
 | `lmu_telemetry/lanceur.py` | what happens when the `.exe` is double-clicked |
 | `docs/` | how everything was found and measured, step by step (in French) |
 

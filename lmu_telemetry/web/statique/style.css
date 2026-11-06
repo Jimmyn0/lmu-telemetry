@@ -1,570 +1,1084 @@
-/* Fond sombre : c'est la convention en télémétrie, et les courbes claires sur
-   fond sombre se lisent plus longtemps sans fatigue. La priorité reste la
-   lisibilité des graphiques : la couleur sert à repérer, pas à décorer.
+/* Identité visuelle de l'outil, relevée sur les maquettes du dossier InterfaceDesign.
 
    Chaque couleur a un rôle, et un seul :
-     bleu    tour de référence          orange  tour comparé
-     vert    gain, tour idéal           rouge   perte
-     violet  meilleur de la session (comme sur les écrans de chrono en course)
-     indigo → rose  l'accent de l'interface (boutons, onglet actif), jamais
-                    une donnée.
+     violet    tour de référence, meilleurs temps (comme sur les écrans de chrono)
+     orange    tour comparé
+     vert      GT3, gain, ce qui est actif
+     rouge     Hypercar, course, perte
+     cyan      l'accent de l'interface, jamais une donnée
 
-   Les graphiques lisent ces mêmes variables (graphes.js) : changer une couleur
-   ici la change partout. Elles doivent rester en #rrggbb, les graphiques y
-   ajoutent leur transparence. */
+   Les graphiques lisent ces mêmes variables (graphes.js) : changer une couleur ici la
+   change partout. Elles doivent rester en #rrggbb, les graphiques y ajoutent leur
+   transparence. */
 
 :root {
-  --fond: #0a0d14;
-  --fond-bloc: #111623;
-  --fond-releve: #171d2c;
-  --survol: #1c2335;
-  --bord: #232b3d;
-  --bord-fort: #33405a;
-  --texte: #e4e9f2;
-  --discret: #8792a8;
+  --fond-barre: #192633;
+  --fond-carte: #171e2e;
+  --fond-carte-verre: rgba(23, 30, 46, 0.78);
+  --fond-sombre: #121a24;
+  --fond-graphe: #16212d;
+  --fond-tuile: #171f2b;
+  --survol: rgba(255, 255, 255, 0.05);
 
-  --reference: #4da6ff;
-  --compare: #ff9d3d;
-  --perte: #ff5f6d;
-  --gain: #3ddc84;
-  --record: #b57bff;
+  --bord: rgba(138, 163, 186, 0.2);
+  --bord-fort: #3b4c5a;
+  --bord-carte: #24344a;
 
-  --accent: #7c6cff;
-  --accent-2: #e052a0;
-  --degrade: linear-gradient(135deg, var(--accent), var(--accent-2));
+  --texte: #eef2f6;
+  --discret: #93a2b1;
+  --pale: #66778a;
 
-  /* Graphiques et vue de la route. */
-  --grille: #1f2738;
-  --axe: #7d889e;
+  --violet: #a25ee8;
+  --orange: #ee8a35;
+  --vert: #22c55e;
+  --rouge: #e5294f;
+  --jaune: #e7be16;
+  --bleu: #2c8ed6;
+  --cyan: #28c8f0;
+
+  --reference: #a25ee8;
+  --compare: #ee8a35;
+  --perte: #ef4465;
+  --gain: #22c55e;
+  --record: #a25ee8;
+  --accent: #28c8f0;
+
+  /* Graphiques et carte. */
+  --grille: #26323e;
+  --axe: #8a99a8;
   --curseur: #ffffff;
-  --route: #1a2031;
-  --bord-route: #5d6a82;
-  --bord-route-estime: #3b4660;
-  --trace-neutre: #4a5470;
+  --route: #1a2531;
+  --bord-route: #5f7d96;
+  --bord-route-estime: #3c4f60;
+  --trace-neutre: #5f7d96;
+  --interieur-circuit: #121921;
+  --secteur-1: #2898d0;
+  --secteur-2: #c8a818;
+  --secteur-3: #9f55d0;
 
-  --rayon: 10px;
-  --ombre: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.25);
+  --largeur-laterale: 308px;
+  --police: Bahnschrift, "DIN Alternate", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { height: 100%; margin: 0; }
 
 body {
-  margin: 0;
+  display: grid;
+  grid-template-rows: 76px minmax(0, 1fr);
+  overflow: hidden;
   color: var(--texte);
-  font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  /* Deux halos très discrets aux couleurs de l'accent, fixés à l'écran. */
-  background:
-    radial-gradient(1100px 520px at 8% -8%, rgba(124, 108, 255, 0.11), transparent 70%),
-    radial-gradient(900px 480px at 100% -5%, rgba(224, 82, 160, 0.07), transparent 70%),
-    var(--fond);
-  background-attachment: fixed;
-  min-height: 100vh;
+  background: var(--fond-barre);
+  font: 500 13px/1.35 var(--police);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
 }
 
-::selection { background: rgba(124, 108, 255, 0.45); }
+h1, h2, h3, h4, p { margin: 0; }
+code { font: 11.5px ui-monospace, Consolas, monospace; word-break: break-all; user-select: text; }
+.espace { flex: 1 1 auto; }
 
-/* Barres de défilement assorties au thème, au lieu du gris clair du système. */
+::selection { background: rgba(40, 200, 240, 0.35); }
 * { scrollbar-width: thin; scrollbar-color: var(--bord-fort) transparent; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
 
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+svg.icone { width: 20px; height: 20px; flex: none; }
 
-/* ---- en-tête ---- */
+/* Ce qui est en capitales étroites, comme sur les écrans de chrono. */
+#onglets button, .barre-onglets button, .entete-laterale h2, .entete-records h3, .titre-section {
+  font-stretch: 75%;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 
-header {
+/* ---- barre de titre ---- */
+
+#barre-titre {
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 10px 24px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: rgba(10, 13, 20, 0.78);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--bord);
+  padding: 0 16px 0 18px;
+  background: linear-gradient(90deg, #152029, var(--fond-barre) 40%, var(--fond-barre) 70%, #1b2029);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
-/* Un filet dégradé sous l'en-tête : la seule touche purement décorative. */
-header::after {
+.embleme {
+  width: 44px; height: 44px; flex: none;
+  margin-right: calc(var(--largeur-laterale) - 18px - 44px - 4px);
+  border-radius: 10px;
+}
+.bouton-barre {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; padding: 0;
+  background: none; border: none; border-radius: 6px;
+  color: var(--texte);
+  cursor: pointer;
+}
+.bouton-barre:hover { background: rgba(255, 255, 255, 0.08); }
+.bouton-barre.fermer:hover { background: var(--rouge); color: #fff; }
+#bascule-laterale svg { width: 24px; height: 24px; }
+
+#onglets { display: flex; gap: 26px; margin-left: 18px; }
+#onglets button {
+  position: relative;
+  padding: 6px 0;
+  background: none; border: none;
+  color: #a4b0bb;
+  font-family: var(--police);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+#onglets button:hover { color: var(--texte); }
+#onglets button.actif { color: #fff; }
+#onglets button.charge { color: var(--vert); }
+#onglets button.actif::after {
   content: "";
-  position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
-  background: var(--degrade);
-  opacity: 0.7;
+  position: absolute; left: 0; right: 0; bottom: -4px; height: 3px;
+  background: currentColor;
 }
 
-.marque-appli { display: flex; align-items: center; gap: 10px; }
-.marque-appli svg {
-  width: 30px; height: 30px; flex: none;
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(124, 108, 255, 0.35);
+#controles-fenetre { display: flex; align-items: center; gap: 8px; margin-left: 10px; }
+#controles-fenetre .separateur { width: 1px; height: 30px; margin-right: 6px; background: rgba(255, 255, 255, 0.14); }
+
+/* Un filet clair autour de la fenêtre : sans bordure, elle se confondrait avec ce qui
+   est derrière. */
+body.fenetre-native::after {
+  content: "";
+  position: fixed; inset: 0; z-index: 49;
+  border: 1px solid #374955;
+  pointer-events: none;
+}
+body.fenetre-agrandie::after { display: none; }
+
+/* ---- bords de la fenêtre ---- */
+
+#poignees > div { position: fixed; z-index: 50; }
+#poignees [data-bord="n"] { top: 0; left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+#poignees [data-bord="s"] { bottom: 0; left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+#poignees [data-bord="e"] { right: 0; top: 10px; bottom: 10px; width: 5px; cursor: ew-resize; }
+#poignees [data-bord="o"] { left: 0; top: 10px; bottom: 10px; width: 5px; cursor: ew-resize; }
+#poignees [data-bord="no"] { top: 0; left: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+#poignees [data-bord="ne"] { top: 0; right: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+#poignees [data-bord="so"] { bottom: 0; left: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+#poignees [data-bord="se"] { bottom: 0; right: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+body.fenetre-agrandie #poignees { display: none; }
+
+/* ---- structure ---- */
+
+#corps {
+  display: grid;
+  grid-template-columns: var(--largeur-laterale) minmax(0, 1fr);
+  min-height: 0;
+}
+body.sans-laterale #corps, body.laterale-repliee #corps { grid-template-columns: minmax(0, 1fr); }
+body.sans-laterale #laterale, body.laterale-repliee #laterale { display: none; }
+
+#laterale {
+  display: flex; flex-direction: column;
+  min-height: 0;
+  padding: 26px 12px 0;
+  background: linear-gradient(180deg, #1c2c37 0%, #1e2a34 32%, #1f252d 62%, #17252f 84%, #112129 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
 }
 
-h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: 0.01em; line-height: 1.15; }
-h1 .discret {
-  display: block; font-size: 11px; font-weight: 500;
-  letter-spacing: 0.08em; text-transform: uppercase;
-}
-.discret { color: var(--discret); font-weight: 400; }
-
-/* Fil d'Ariane en pastilles : l'écran courant est mis en avant. */
-nav#fil { display: flex; gap: 6px; align-items: center; font-size: 13px; flex-wrap: wrap; }
-nav#fil button, nav#fil span.actuel {
-  border: 1px solid var(--bord);
-  border-radius: 999px;
-  padding: 3px 12px;
-  font: inherit;
-}
-nav#fil button {
-  background: var(--fond-bloc); color: var(--discret); cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-nav#fil button:hover { color: var(--texte); border-color: var(--bord-fort); background: var(--survol); }
-nav#fil span.actuel {
-  color: var(--texte);
-  border-color: transparent;
+/* Le fond relevé sur les maquettes : ardoise en haut, gris chaud au milieu, sarcelle
+   en bas, avec une lueur orangée sur la droite. */
+#contenu {
+  position: relative;
+  min-height: 0;
   background:
-    linear-gradient(var(--fond-releve), var(--fond-releve)) padding-box,
-    var(--degrade) border-box;
+    radial-gradient(520px 340px at 100% 64%, rgba(120, 76, 40, 0.16), transparent 72%),
+    linear-gradient(180deg, #2b3c46 0%, #2e3c45 16%, #36383e 46%, #293338 62%, #1b2a30 80%, #17333c 100%);
 }
-nav#fil span.separateur { color: var(--bord-fort); }
-
-main { padding: 20px 24px 48px; max-width: 1680px; margin: 0 auto; }
-
-main > section:not([hidden]) { animation: apparaitre 0.22s ease-out; }
-@keyframes apparaitre {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
+#contenu > section {
+  height: 100%;
+  overflow: auto;
+  padding: 26px 16px 16px;
 }
+#ecran-telemetrie { padding: 26px 30px 18px !important; }
+#ecran-resultats:not([hidden]) { display: flex; flex-direction: column; }
+#vue-session { flex: 1 1 auto; min-height: 0; }
 
-.barre {
-  display: flex; gap: 16px; align-items: center;
-  margin: 0 0 14px; flex-wrap: wrap;
-}
-.barre label { color: var(--discret); font-size: 13px; }
+/* ---- cartes, boutons, champs ---- */
 
-/* ---- champs et boutons ---- */
-
-input[type="search"], select {
-  background-color: var(--fond-releve);
+.carte {
+  background: var(--fond-carte-verre);
   border: 1px solid var(--bord);
-  color: var(--texte);
-  padding: 6px 10px;
-  border-radius: 8px;
-  font: inherit;
-  transition: border-color 0.15s;
+  border-radius: 12px;
 }
-select {
-  appearance: none;
-  padding-right: 30px;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238792a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 11px center;
-}
-select:hover, input[type="search"]:hover { border-color: var(--bord-fort); }
-select option { background: var(--fond-bloc); }
-input[type="search"] { min-width: 260px; }
-input[type="checkbox"] { accent-color: var(--accent); width: 15px; height: 15px; vertical-align: -3px; }
 
-button {
-  background: var(--fond-releve);
-  border: 1px solid var(--bord);
-  color: var(--texte);
-  padding: 6px 14px;
-  border-radius: 8px;
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s, box-shadow 0.15s;
-}
-button:hover:not(:disabled) { border-color: var(--bord-fort); background: var(--survol); }
-button:active:not(:disabled) { transform: translateY(1px); }
+button { font: inherit; color: inherit; }
 button:disabled { opacity: 0.4; cursor: default; }
 
-/* L'action principale d'un écran : une seule par écran. */
-button.principal {
-  background: var(--degrade);
-  border-color: transparent;
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 4px 16px rgba(124, 108, 255, 0.3);
-}
-button.principal:hover:not(:disabled) {
-  background: var(--degrade);
-  border-color: transparent;
-  box-shadow: 0 6px 22px rgba(224, 82, 160, 0.35);
-  filter: brightness(1.08);
-}
-
-/* ---- cartes ---- */
-
-.tableau, .resume, .lecture, .aide, .bloc-piste, .bloc-chronos, #carte, #graphiques {
-  background: var(--fond-bloc);
+select {
+  appearance: none;
+  height: 32px;
+  padding: 0 26px 0 10px;
+  background-color: var(--fond-sombre);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2393a2b1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
   border: 1px solid var(--bord);
-  border-radius: var(--rayon);
-  box-shadow: var(--ombre);
+  border-radius: 8px;
+  color: var(--texte);
+  font: 600 12.5px var(--police);
+  cursor: pointer;
+}
+select:hover { border-color: var(--bord-fort); }
+select option { background: var(--fond-carte); color: var(--texte); }
+
+button.principal, .pilule, .bouton-carre { cursor: pointer; }
+
+button.principal {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 14px;
+  background: rgba(34, 197, 94, 0.16);
+  border: 1.5px solid var(--vert);
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+}
+button.principal:hover:not(:disabled) { background: rgba(34, 197, 94, 0.3); }
+button.principal svg { width: 17px; height: 17px; color: var(--vert); }
+
+.pilule {
+  height: 26px; padding: 0 9px;
+  background: var(--fond-sombre);
+  border: 1px solid #24344a;
+  border-radius: 7px;
+  color: #c7d0d9;
+  font: 700 10px var(--police);
+  text-transform: uppercase;
+}
+.pilule:hover { border-color: var(--bord-fort); color: #fff; }
+.pilule.claire { border: 1.5px solid #cfd6dd; color: #e8ecf0; background: rgba(255, 255, 255, 0.06); }
+
+.bouton-carre {
+  display: grid; place-items: center;
+  width: 46px; height: 46px; padding: 0;
+  background: var(--fond-sombre);
+  border: 1px solid #24344a;
+  border-radius: 10px;
+  color: #d6dde4;
+}
+.bouton-carre:hover:not(:disabled) { border-color: var(--bord-fort); color: #fff; }
+.bouton-carre svg { width: 22px; height: 22px; }
+.bouton-carre.vert { background: rgba(34, 197, 94, 0.16); border: 1.5px solid var(--vert); color: var(--vert); }
+.bouton-carre.bleu { background: rgba(44, 142, 214, 0.14); border: 1.5px solid var(--bleu); color: #5fb4ee; }
+.bouton-carre.allume { border: 1.5px solid var(--cyan); background: rgba(40, 200, 240, 0.12); color: #fff; }
+.bouton-carre.petit { width: 32px; height: 32px; border-radius: 8px; }
+.bouton-carre.petit svg { width: 17px; height: 17px; }
+
+.badge {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  height: 21px; padding: 0 8px;
+  border: 1.75px solid var(--couleur, var(--discret));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--couleur, var(--discret)) 20%, transparent);
+  color: var(--couleur, var(--discret));
+  font: 700 10.5px/1 var(--police);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge svg { width: 13px; height: 13px; }
+.type-P { --couleur: #d9dee4; }
+.type-Q { --couleur: var(--violet); }
+.type-R { --couleur: var(--rouge); }
+.type-autre { --couleur: var(--discret); }
+.classe-GT3 { --couleur: var(--vert); }
+.classe-GTE { --couleur: var(--orange); }
+.classe-HYPER { --couleur: var(--rouge); }
+.classe-LMP2 { --couleur: var(--bleu); }
+.classe-LMP3 { --couleur: var(--cyan); }
+.classe-autre { --couleur: var(--discret); }
+.badge.type-P { background: rgba(255, 255, 255, 0.14); color: #eef2f6; }
+.badge.compteur { --couleur: #5d6f80; color: #cbd4dc; }
+.badge.compteur-blanc {
+  height: 19px; padding: 0 7px; border-radius: 7px;
+  --couleur: #dfe4e9; background: rgba(255, 255, 255, 0.04); color: #eef2f6;
+}
+.badge.alerte { --couleur: var(--jaune); }
+
+.pastille-temps {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1.5px solid var(--couleur, var(--violet));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--couleur, var(--violet)) 22%, transparent);
+  color: color-mix(in srgb, var(--couleur, var(--violet)) 70%, #fff);
+  font-weight: 700;
+}
+.pastille-temps.record { --couleur: var(--violet); }
+.pastille-temps.bleu { --couleur: var(--bleu); }
+.pastille-temps.vert { --couleur: var(--vert); }
+.temps-record {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1.5px solid var(--violet);
+  border-radius: 6px;
+  background: rgba(162, 94, 232, 0.24);
+  color: #d1a9f8;
+  font-weight: 700;
+}
+
+.mieux { color: var(--gain); }
+.moins { color: var(--perte); }
+.neutre { color: var(--discret); }
+.discret { color: var(--discret); }
+.note { color: var(--discret); font-size: 12px; line-height: 1.45; }
+.note code { color: var(--texte); }
+.titre-section {
+  margin: 0 0 8px;
+  color: #a8b5c1;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.roue {
+  display: inline-block; width: 14px; height: 14px; flex: none;
+  border: 2px solid var(--bord-fort); border-top-color: var(--cyan); border-radius: 50%;
+  animation: tourner 0.9s linear infinite;
+}
+@keyframes tourner { to { transform: rotate(360deg); } }
+
+/* ---- états vides ---- */
+
+.etat-vide {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px;
+  min-height: 300px; height: 100%;
+  padding: 40px;
+  text-align: center;
+}
+.etat-vide .etat-icone {
+  display: grid; place-items: center;
+  width: 58px; height: 58px; margin-bottom: 6px;
+  background: var(--fond-carte-verre);
+  border: 1px solid var(--bord);
+  border-radius: 14px;
+  color: var(--discret);
+}
+.etat-vide .etat-icone svg { width: 28px; height: 28px; }
+.etat-vide .roue { width: 24px; height: 24px; }
+.etat-vide h2 { font-size: 19px; font-weight: 700; }
+.etat-vide p { max-width: 520px; color: var(--discret); white-space: pre-line; }
+.etat-vide button { margin-top: 10px; }
+
+/* ---- colonne de gauche ---- */
+
+.entete-laterale {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 0 12px;
+}
+.entete-laterale h2 { font-size: 16px; line-height: 1; letter-spacing: 0.01em; }
+
+.filtres {
+  display: flex; flex-direction: column; gap: 9px;
+  margin-bottom: 12px; padding: 10px;
+  background: var(--fond-carte);
+  border: 1px solid var(--bord-carte);
+  border-radius: 10px;
+  color: var(--discret);
+  font-size: 12px;
+}
+.filtres select { width: 100%; margin-top: 4px; }
+.case { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.case input { width: 15px; height: 15px; margin: 0; accent-color: var(--vert); }
+.avancement { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+.liste-laterale {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex; flex-direction: column; gap: 9px;
+  overflow-y: auto;
+  margin: 0 -8px 0 0; padding: 1px 8px 34px 0;
+  /* Les cartes s'effacent vers le bas ; le survol les rend toutes lisibles. */
+  mask-image: linear-gradient(180deg, #000 56%, rgba(0, 0, 0, 0.3) 84%, rgba(0, 0, 0, 0.1) 100%);
+  scrollbar-width: none;
+}
+.liste-laterale:hover {
+  mask-image: linear-gradient(180deg, #000 92%, rgba(0, 0, 0, 0.5) 100%);
+  scrollbar-width: thin;
+}
+
+.carte-session {
+  --couleur-type: #dfe4e9;
+  display: flex; flex-direction: column; flex: none;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--fond-carte);
+  border: 1px solid var(--bord-carte);
+  border-radius: 14px;
+  color: var(--texte);
+  text-align: left;
+  cursor: pointer;
+}
+.carte-session:hover { border-color: var(--bord-fort); }
+.carte-session.type-Q { --couleur-type: var(--violet); }
+.carte-session.type-R { --couleur-type: var(--rouge); }
+.carte-session.actif {
+  border: 1.5px solid var(--couleur-type);
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--couleur-type) 34%, transparent),
+      color-mix(in srgb, var(--couleur-type) 14%, transparent) 60%, color-mix(in srgb, var(--couleur-type) 26%, transparent)),
+    var(--fond-carte);
+}
+.ligne-titre { display: flex; align-items: center; gap: 7px; min-height: 22px; }
+.ligne-titre .nom {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13.5px; font-weight: 700;
+}
+.pays {
+  min-height: 15px;
+  color: var(--pale);
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.filet {
+  display: block; height: 2px; margin: 2px 0 6px;
+  background: rgba(34, 197, 94, 0.55);
+}
+.filet i { display: block; height: 100%; background: var(--couleur-type); }
+.date {
+  display: flex; align-items: center; gap: 6px;
+  color: #9eabb7;
+  font-size: 11.5px; font-weight: 600;
+}
+.date svg { width: 13px; height: 13px; color: var(--pale); }
+.bas { display: flex; align-items: center; gap: 5px; min-height: 22px; margin-top: 6px; }
+.temps-carte { color: #cfa6f6; font-size: 12.5px; font-weight: 700; }
+
+/* ---- entête d'une session ---- */
+
+.entete-session {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 76px;
+  padding: 10px 12px;
+}
+.grand-drapeau { display: flex; flex: none; }
+.grand-drapeau .drapeau { width: 78px; height: 52px; margin: 0; border-radius: 5px; vertical-align: 0; }
+.titres { margin-left: 8px; min-width: 0; }
+.titres h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 26px; font-weight: 700; line-height: 1.15; }
+.titres p { color: var(--discret); font-size: 11.5px; font-weight: 600; margin-top: 3px; }
+.tuile {
+  display: flex; flex-direction: column; justify-content: center;
+  height: 52px; min-width: 92px; padding: 0 12px;
+  background: var(--fond-tuile);
+  border: 1px solid #243040;
+  border-radius: 10px;
+}
+.tuile small { color: #a8b5c1; font-size: 11px; font-weight: 600; }
+.tuile b { font-size: 13.5px; font-weight: 700; }
+.tuile-type {
+  min-width: 102px;
+  border: 1.5px solid var(--couleur);
+  background: color-mix(in srgb, var(--couleur) 30%, var(--fond-tuile));
+}
+.tuile-type b { color: var(--couleur); text-transform: uppercase; }
+.tuile-type.type-P b { color: #fff; }
+
+.bandeau {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px; padding: 7px 12px;
+  background: rgba(231, 190, 22, 0.1);
+  border: 1px solid rgba(231, 190, 22, 0.4);
+  border-radius: 10px;
+  color: #ecd97a;
+  font-size: 12.5px;
+}
+.bandeau svg { width: 16px; height: 16px; }
+
+.barre-onglets {
+  display: flex; align-items: center; gap: 26px;
+  height: 48px; margin: 8px 0;
+  padding: 0 12px;
+  background: rgba(23, 30, 40, 0.62);
+  border: 1px solid rgba(138, 163, 186, 0.12);
+  border-radius: 12px;
+}
+.barre-onglets button {
+  position: relative;
+  padding: 4px 0;
+  background: none; border: none;
+  color: #a4b0bb;
+  font-family: var(--police);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.barre-onglets button:hover { color: #fff; }
+.barre-onglets button.actif { color: #fff; }
+.barre-onglets button.actif::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -3px; height: 2.5px;
+  background: #fff;
 }
 
 /* ---- tableaux ---- */
 
-.tableau { overflow: hidden; }
-
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--bord); }
+table { width: 100%; border-collapse: collapse; }
 th {
-  color: var(--discret); font-weight: 600; font-size: 11px;
-  text-transform: uppercase; letter-spacing: 0.06em;
-  background: var(--fond-releve);
+  padding: 8px 12px;
+  color: #a8b5c1;
+  font-size: 11.5px; font-weight: 700;
+  text-align: left; text-transform: uppercase;
+  white-space: nowrap;
 }
-tbody tr { transition: background 0.12s; }
-tbody tr:last-child td { border-bottom: none; }
+td { padding: 8px 12px; font-size: 12.5px; font-weight: 600; }
+tbody tr { border-top: 1px solid rgba(255, 255, 255, 0.035); }
+tbody tr:hover { background: var(--survol); }
 tbody tr.cliquable { cursor: pointer; }
-/* Au survol, un liseré d'accent à gauche montre la ligne qu'on va ouvrir. */
-tbody tr.cliquable:hover { background: var(--survol); box-shadow: inset 3px 0 0 var(--accent); }
-tbody tr:not(.cliquable):hover { background: rgba(255, 255, 255, 0.02); }
-td.nombre, th.nombre { text-align: right; }
-tr.invalide td { color: var(--discret); opacity: 0.75; }
+.nombre { text-align: right; }
+.centre { text-align: center; }
+.remarque { color: var(--discret); font-size: 11.5px; font-weight: 500; }
+tr.invalide td { color: var(--pale); }
 
-/* Meilleur tour et meilleurs secteurs de la session, en violet. */
-tr.meilleur { background: rgba(181, 123, 255, 0.08); box-shadow: inset 3px 0 0 var(--record); }
-/* Seul le chrono du meilleur tour passe en violet : ses secteurs ne le sont
-   que s'ils sont eux-mêmes les meilleurs de la session. */
-tr.meilleur td { font-weight: 600; }
-tr.meilleur td.chrono-tour { color: var(--record); }
-.record { color: var(--record); font-weight: 600; }
+.tableau { overflow: auto; }
 
-.marque { display: inline-block; width: 14px; font-weight: 700; }
-tr td.marque { color: var(--gain); }
-tr.invalide td.marque { color: var(--perte); opacity: 0.8; }
-tr.meilleur td.marque { color: var(--record); }
-.remarque { color: var(--discret); font-size: 12px; }
-
-/* Type de session : une étiquette colorée se repère plus vite qu'un mot. */
-.type {
-  display: inline-block;
-  padding: 1px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 600;
-  border: 1px solid currentColor;
-  line-height: 1.5;
+:where(.groupe-classe, .groupe-records) { --couleur: var(--discret); }
+.groupe-classe {
+  border: 1.5px solid color-mix(in srgb, var(--couleur) 62%, transparent);
+  border-radius: 12px;
+  background: rgba(23, 34, 42, 0.62);
+  overflow: hidden;
 }
-.type-P { color: #38c9d9; background: rgba(56, 201, 217, 0.10); }
-.type-Q { color: #f5b93d; background: rgba(245, 185, 61, 0.10); }
-.type-R { color: #ff6b81; background: rgba(255, 107, 129, 0.10); }
-.type-autre { color: var(--discret); background: rgba(135, 146, 168, 0.10); }
-
-/* ---- résumés en tuiles ---- */
-
-.resume {
-  display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch;
-  padding: 10px; margin-bottom: 14px;
+.groupe-entete {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 46px; padding: 6px 12px;
+  background: color-mix(in srgb, var(--couleur) 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--couleur) 45%, transparent);
 }
-.resume > div:not(.remarque) {
-  background: var(--fond-releve);
-  border: 1px solid var(--bord);
-  border-top: 2px solid var(--bord-fort);
-  border-radius: 8px;
-  padding: 8px 14px 9px;
-  min-width: 120px;
+.groupe-voiture { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.groupe-voiture strong { font-size: 13px; white-space: nowrap; }
+.groupe-voiture small { color: var(--discret); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.defilement-table { overflow: auto; }
+
+.table-tours th { border-bottom: 1px solid color-mix(in srgb, var(--couleur) 35%, transparent); }
+.table-tours td { height: 45px; padding: 4px 12px; }
+.numero-tour {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px;
+  background: var(--vert);
+  color: #fff;
+  font-size: 12.5px; font-weight: 700;
 }
-.resume > div > .discret:first-child {
-  font-size: 10.5px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.07em;
+tr.invalide .numero-tour { background: #3a4754; color: #9aa7b4; }
+.choix-tour-cellule { width: 74px; white-space: nowrap; text-align: center; }
+.pastille-choix {
+  width: 22px; height: 22px; margin: 0 3px; padding: 0;
+  background: none;
+  border: 2px solid var(--couleur-choix);
+  border-radius: 50%;
+  cursor: pointer;
 }
-.resume > .remarque { align-self: center; }
-.resume > .remarque:empty { display: none; }
-/* Chaque tuile porte la couleur de ce qu'elle résume. */
-.resume > div.tuile-ref { border-top-color: var(--reference); }
-.resume > div.tuile-cmp { border-top-color: var(--compare); }
-.resume > div.tuile-record { border-top-color: var(--record); }
-.resume > div.tuile-gain { border-top-color: var(--gain); }
-.resume > div.tuile-perte { border-top-color: var(--perte); }
-.resume > div.tuile-accent { border-top-color: var(--accent); }
+.pastille-choix.ref { --couleur-choix: var(--reference); }
+.pastille-choix.cmp { --couleur-choix: var(--compare); }
+.pastille-choix.actif { background: radial-gradient(circle, var(--couleur-choix) 46%, transparent 52%); }
+.pastille-choix:hover { background-color: color-mix(in srgb, var(--couleur-choix) 25%, transparent); }
 
-.tour-ref { color: var(--reference); font-weight: 600; }
-.tour-cmp { color: var(--compare); font-weight: 600; }
-.gros { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+/* ---- régularité ---- */
 
-/* ---- comparaison ---- */
-
-.colonnes { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; }
-@media (max-width: 1100px) { .colonnes { grid-template-columns: 1fr; } }
-
-.principal { min-width: 0; }
-
-.barre-zoom {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin-bottom: 10px; font-size: 12.5px;
+.grille-stats {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px;
+  margin-bottom: 10px;
 }
-.barre-zoom button { padding: 5px 12px; }
-#etendue { font-variant-numeric: tabular-nums; font-weight: 600; }
-
-/* Les graphiques empilés partagent une seule carte : la couleur de fond des
-   courbes est celle de la carte, les deux se confondent. */
-#graphiques { padding: 8px 6px 4px; }
-.graphe { position: relative; margin-bottom: 4px; }
-.graphe canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.graphe .calque { cursor: crosshair; }
-
-aside#cote { display: flex; flex-direction: column; gap: 14px; }
-
-.lecture {
-  padding: 10px 12px;
-  font-variant-numeric: tabular-nums; font-size: 13px;
+.carte-stat { padding: 10px 12px; }
+.carte-stat h4 {
+  display: flex; align-items: center; gap: 6px;
+  color: #b58cf0;
+  font-size: 12px; font-stretch: 87%; font-weight: 700; text-transform: uppercase;
 }
-/* Mise en page figée : sans `table-layout: fixed` et sans `nowrap`, les
-   colonnes se redimensionnent selon les valeurs affichées et la case change de
-   hauteur au survol, poussant toute la colonne de droite vers le bas. */
-.lecture table { font-size: 13px; width: 100%; table-layout: fixed; }
-.lecture th, .lecture td { white-space: nowrap; overflow: hidden; }
-/* Avec `table-layout: fixed`, ce sont les largeurs de la première ligne qui
-   font loi : sans cette règle les quatre colonnes se partageaient l'espace à
-   parts égales et le libellé le plus long était rogné. */
-.lecture th:first-child, .lecture td:first-child { width: 42%; }
-.titre-lecture {
-  margin-bottom: 2px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; min-height: 20px;
+.carte-stat h4 svg { width: 15px; height: 15px; }
+.stat-valeur { display: flex; align-items: center; gap: 8px; min-height: 30px; margin-top: 8px; font-size: 13px; font-weight: 700; }
+.stat-valeur.grand { font-size: 24px; }
+.stat-valeur small { color: var(--discret); font-size: 11.5px; }
+
+.colonnes-regularite {
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px;
+  margin: 10px 0 14px;
 }
-.unite { color: var(--discret); opacity: 0.65; margin-left: 3px; font-size: 11px; }
-.lecture th, .lecture td { padding: 3px 6px; border: none; background: none; }
-.lecture th { text-transform: none; letter-spacing: 0; }
-
-#carte { width: 100%; height: auto; aspect-ratio: 1; }
-
-.aide { padding: 12px 14px; font-size: 12.5px; color: var(--discret); }
+.bloc-chronos { padding: 12px 14px; }
+#graphe-chronos { display: block; width: 100%; height: 250px; }
+.aide { padding: 12px 14px; color: var(--discret); font-size: 12.5px; line-height: 1.45; }
 .aide strong { color: var(--texte); }
 .aide p { margin: 6px 0; }
 
-#troncons table { font-size: 12.5px; }
-
-#erreur {
-  margin-top: 16px; padding: 12px 14px 12px 16px;
-  border: 1px solid rgba(255, 95, 109, 0.45); border-left: 3px solid var(--perte);
-  border-radius: var(--rayon);
-  background: rgba(255, 95, 109, 0.08); white-space: pre-wrap;
-}
-
-.vide { padding: 28px; color: var(--discret); text-align: center; }
-
-#avertissements {
-  border: 1px solid rgba(245, 185, 61, 0.35); border-left: 3px solid #f5b93d;
-  background: rgba(245, 185, 61, 0.07); border-radius: var(--rayon);
-  padding: 8px 14px; margin-bottom: 14px; font-size: 13px;
-}
-#avertissements p { margin: 4px 0; }
-
-/* ---- vue rapprochée de la route ---- */
-
-.bloc-piste { padding: 10px 12px 8px; }
-.entete-piste {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 6px; font-size: 13px;
-}
-.entete-piste select { padding: 2px 26px 2px 8px; font-size: 12px; background-position: right 9px center; }
-#vue-piste {
-  width: 100%; max-width: 340px; height: auto; aspect-ratio: 4 / 5;
-  display: block; margin: 0 auto;
-}
-#note-piste { font-size: 11.5px; margin-top: 4px; }
-
-/* ---- tableau par virage ---- */
-
-#bloc-virages { margin-top: 24px; }
-#bloc-virages h2, .bloc-chronos h2, .titre-classement {
-  font-size: 15px; margin: 0 0 6px; font-weight: 700;
-  display: flex; align-items: center; gap: 8px;
-}
-/* Petit repère coloré devant les titres de partie. */
-#bloc-virages h2::before, .bloc-chronos h2::before, .titre-classement::before {
-  content: ""; width: 4px; height: 15px; border-radius: 2px; background: var(--degrade);
-}
-#entete-virages { font-size: 12.5px; margin-bottom: 10px; }
-/* Le tableau par virage est large : sur un écran étroit il doit défiler
-   horizontalement, pas être rogné par le `overflow: hidden` de .tableau. */
-#table-virages { overflow-x: auto; }
-#table-virages table { font-size: 12.5px; min-width: 860px; }
-/* La colonne de gauche tenait sur deux lignes et occupait une largeur inutile :
-   tout tient désormais sur une ligne, et elle ne prend que la place du texte. */
-.col-virage { width: 1%; white-space: nowrap; }
-.col-virage .discret { font-size: 11px; margin-left: 6px; }
-.etiquette {
-  display: inline-block; margin-left: 6px; padding: 1px 7px;
-  border: 1px solid var(--bord-fort); border-radius: 999px;
-  font-size: 10.5px; color: var(--discret);
-}
-#table-virages th { white-space: nowrap; }
-#table-virages td { white-space: nowrap; padding: 6px 10px; }
-#table-virages .ecart { font-size: 11.5px; }
-.mieux { color: var(--gain); }
-.moins { color: var(--perte); }
-.neutre { color: var(--discret); }
-.groupe { border-left: 1px solid var(--bord); }
-
-/* Numéro de virage en pastille, comme sur la carte. */
-.num-virage {
-  display: inline-block; min-width: 30px; padding: 1px 6px;
-  border-radius: 6px; text-align: center;
-  font-weight: 700; font-size: 11.5px;
-  background: rgba(124, 108, 255, 0.14); color: #b9b1ff;
-  border: 1px solid rgba(124, 108, 255, 0.35);
-}
-
-/* ---- page régularité ---- */
-
-.colonnes-regularite {
-  display: grid; grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 16px; margin-bottom: 22px;
-}
-@media (max-width: 1100px) { .colonnes-regularite { grid-template-columns: 1fr; } }
-
-.bloc-chronos { padding: 12px 14px; }
-.titre-classement { margin-top: 4px; margin-bottom: 10px; }
-#graphe-chronos { width: 100%; height: 260px; display: block; }
-
-#note-regularite { margin-bottom: 14px; font-size: 12.5px; }
-
-#classement-virages { overflow-x: auto; }
-#classement-virages table { font-size: 12.5px; min-width: 780px; }
-#classement-virages td, #classement-virages th { white-space: nowrap; }
-
-/* Barre proportionnelle à la dispersion : on compare les virages d'un coup
-   d'œil, sans lire les chiffres un à un. */
 .barre-dispersion {
-  display: inline-block; vertical-align: middle; height: 8px;
+  display: inline-block; vertical-align: middle; height: 7px; min-width: 2px;
+  margin-left: 8px;
   background: linear-gradient(90deg, var(--compare), var(--perte));
-  border-radius: 4px; margin-left: 8px;
-  min-width: 2px;
+  border-radius: 3px;
 }
-.rang { color: var(--discret); width: 1%; text-align: center; }
-/* Les trois virages les moins constants : une pastille du rouge à l'ambre. */
-.rang-1, .rang-2, .rang-3 { font-weight: 700; }
-td.rang-1, td.rang-2, td.rang-3 { color: #fff; }
+#classement-virages td { white-space: nowrap; }
+.rang { width: 1%; color: var(--discret); text-align: center; }
 td.rang-1 span, td.rang-2 span, td.rang-3 span {
   display: inline-block; width: 22px; height: 22px; line-height: 22px;
-  border-radius: 50%; text-align: center; font-size: 11.5px;
+  border-radius: 50%; color: #fff; font-size: 11.5px; font-weight: 700; text-align: center;
 }
 td.rang-1 span { background: var(--perte); }
-td.rang-2 span { background: #ff7f50; }
-td.rang-3 span { background: #f5b93d; color: #1a1300; }
+td.rang-2 span { background: var(--orange); }
+td.rang-3 span { background: var(--jaune); color: #1a1300; }
 
-/* --- Drapeaux, marques et modèles ------------------------------------ */
+.num-virage {
+  display: inline-block; min-width: 30px; padding: 2px 6px;
+  background: rgba(162, 94, 232, 0.16);
+  border: 1px solid rgba(162, 94, 232, 0.42);
+  border-radius: 6px;
+  color: #cba7f5;
+  font-size: 11.5px; font-weight: 700;
+  text-align: center;
+}
+.sens { color: var(--discret); cursor: help; }
+.etiquette {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  border: 1px solid var(--bord-fort); border-radius: 6px;
+  color: var(--discret);
+  font-size: 10.5px;
+}
 
-/* Le drapeau se cale sur la hauteur des majuscules du texte voisin, sinon il
-   dépasse au-dessus de la ligne. */
+/* ---- télémétrie ---- */
+
+#tele-vide { height: 100%; }
+
+.tele-haut { display: flex; align-items: flex-start; gap: 22px; margin-bottom: 14px; }
+
+.carte-tour {
+  --couleur: var(--reference);
+  position: relative;
+  display: flex; flex-direction: column;
+  width: 352px; min-height: 76px;
+  padding: 7px 12px 7px 16px;
+  border: 1.5px solid color-mix(in srgb, var(--couleur) 70%, transparent);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--couleur) 34%, transparent), transparent 46%),
+    var(--fond-carte-verre);
+  overflow: hidden;
+}
+.carte-tour.cmp { --couleur: var(--compare); }
+.carte-tour::before {
+  content: "";
+  position: absolute; left: 0; top: 18%; bottom: 18%; width: 3px;
+  background: var(--couleur);
+}
+.carte-tour.inactive {
+  border-style: dashed;
+  background: var(--fond-carte-verre);
+}
+.carte-tour-etat {
+  display: flex; align-items: center; gap: 5px;
+  min-height: 20px;
+  color: var(--couleur);
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+}
+.carte-tour-etat i { width: 5px; height: 5px; margin-right: 3px; border-radius: 50%; background: var(--couleur); }
+.carte-tour-etat .badge { height: 17px; padding: 0 6px; font-size: 9.5px; }
+.fermer-carte {
+  display: grid; place-items: center;
+  width: 20px; height: 20px; padding: 0; margin-left: 3px;
+  background: none; border: none; border-radius: 4px;
+  color: #c7d0d9;
+  cursor: pointer;
+}
+.fermer-carte:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.fermer-carte svg { width: 15px; height: 15px; }
+.carte-tour-corps { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.carte-tour-qui { flex: 1 1 auto; min-width: 0; }
+.carte-tour-qui strong {
+  display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: color-mix(in srgb, var(--couleur) 78%, #fff);
+  font-size: 13px; font-weight: 700;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+/* L'écurie, comme sur les maquettes ; un clic ouvre la liste des sessions du tracé. */
+.choix-session {
+  position: relative;
+  display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #9eabb7;
+  font-size: 10.5px; font-weight: 600;
+  cursor: pointer;
+}
+.choix-session:hover { color: #fff; }
+.choix-session select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.choix-tour { flex: none; width: 176px; height: 30px; }
+.carte-tour-vide { display: flex; align-items: center; gap: 12px; margin-top: 6px; color: var(--discret); font-size: 12px; }
+
+.outils { position: relative; display: flex; gap: 8px; margin-left: auto; }
+#panneau-canaux { position: absolute; top: 54px; right: 0; width: 220px; }
+
+.panneau {
+  z-index: 30;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px;
+  background: var(--fond-carte);
+  border: 1px solid var(--bord-fort);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+#reglages { position: fixed; top: 70px; right: 16px; width: 330px; }
+#reglages h3 { font-size: 15px; }
+.reglage { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--discret); font-size: 12.5px; }
+.reglage.colonne { flex-direction: column; align-items: flex-start; gap: 3px; }
+.reglage code { color: var(--texte); }
+button.lien {
+  padding: 0; background: none; border: none;
+  color: var(--cyan); font-size: 12px; text-decoration: underline; cursor: pointer;
+}
+.choix-langue { display: inline-flex; gap: 2px; padding: 2px; background: var(--fond-sombre); border: 1px solid var(--bord); border-radius: 8px; }
+.choix-langue button {
+  padding: 3px 10px; background: none; border: none; border-radius: 6px;
+  color: var(--discret); font-size: 11.5px; font-weight: 700; cursor: pointer;
+}
+.choix-langue button.actif { background: rgba(34, 197, 94, 0.2); color: var(--vert); }
+
+.transport {
+  display: grid;
+  grid-template-columns: 178px minmax(0, 1fr) 326px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.transport-lecture { display: flex; align-items: center; gap: 12px; }
+.transport-lecture .bouton-carre { width: 40px; height: 32px; border-radius: 8px; }
+.transport-lecture svg { width: 15px; height: 15px; }
+.valeur-temps { font-size: 12.5px; font-weight: 700; }
+.transport-droite { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-right: 2px; }
+.transport-droite select { width: 66px; height: 30px; }
+
+.frise { position: relative; height: 26px; cursor: pointer; }
+.frise-barre { position: absolute; left: 0; right: 0; top: 5px; display: flex; height: 4px; }
+.frise-barre i { display: block; height: 100%; }
+.secteur-1 { background: var(--secteur-1); color: var(--secteur-1); }
+.secteur-2 { background: var(--secteur-2); color: var(--secteur-2); }
+.secteur-3 { background: var(--secteur-3); color: var(--secteur-3); }
+.frise-noms { position: absolute; left: 0; right: 0; top: 13px; display: flex; }
+.frise-noms span { font-size: 9.5px; font-weight: 700; text-align: center; }
+.frise-noms span:nth-child(1) { color: var(--secteur-1); }
+.frise-noms span:nth-child(2) { color: var(--secteur-2); }
+.frise-noms span:nth-child(3) { color: var(--secteur-3); }
+.frise-curseur {
+  position: absolute; top: 0; left: 0; width: 14px; height: 14px; margin-left: -7px;
+  background: #fff; border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+#avertissements {
+  margin-bottom: 10px; padding: 7px 12px;
+  background: rgba(231, 190, 22, 0.08);
+  border: 1px solid rgba(231, 190, 22, 0.35);
+  border-radius: 10px;
+  color: #ecd97a;
+  font-size: 12.5px;
+}
+#avertissements p { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+#avertissements svg { width: 16px; height: 16px; }
+
+.tele-corps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: 38px;
+  align-items: start;
+}
+.tele-gauche, #graphiques { min-width: 0; }
+
+.rangee-canal {
+  display: grid;
+  grid-template-columns: 178px minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.legende {
+  display: flex; flex-direction: column; justify-content: center;
+  min-width: 0; padding: 2px 10px 2px 12px;
+  background: rgba(20, 28, 38, 0.32);
+  border-radius: 4px;
+}
+.legende-titre {
+  margin-bottom: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+}
+.legende-ligne {
+  display: flex; align-items: center; gap: 7px;
+  height: 16px;
+  color: #a8b5c1;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+}
+.legende-ligne i { width: 16px; height: 0; border-top: 2px solid var(--reference); flex: none; }
+.legende-ligne.cmp i { border-top: 2px dashed var(--compare); }
+.legende-ligne.delta i { border-top-color: var(--texte); }
+.legende-ligne span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legende-ligne b { color: var(--reference); font-size: 11px; font-weight: 700; }
+.legende-ligne.cmp b { color: var(--compare); }
+.legende-ligne.delta b { color: var(--texte); }
+.legende-stats { display: flex; gap: 12px; margin-top: 6px; }
+.legende-stats span { display: flex; flex-direction: column; min-width: 34px; }
+.legende-stats small { color: var(--pale); font-size: 8.5px; font-weight: 700; }
+.legende-stats b { font-size: 11px; font-weight: 700; }
+.legende-stats b.accent { color: var(--reference); }
+.legende-note { margin-top: 4px; color: var(--pale); font-size: 10px; line-height: 1.25; }
+
+.graphe {
+  position: relative;
+  min-width: 0;
+  background: var(--fond-graphe);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.graphe canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.graphe .calque { cursor: crosshair; }
+
+.tele-cote { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tele-cote > :not(.bloc-carte) { margin-right: 16px; }
+.bloc-carte { padding: 10px 12px; }
+.titre-carte {
+  display: flex; align-items: center; gap: 2px;
+  font-size: 12.5px; font-weight: 700;
+}
+.toile-carte { position: relative; height: 196px; margin: 4px 0 6px; }
+.toile-carte canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.modes-carte { display: flex; gap: 4px; }
+.modes-carte button {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  height: 24px; padding: 0 3px;
+  background: var(--fond-sombre);
+  border: 1px solid #24344a;
+  border-radius: 7px;
+  color: #c7d0d9;
+  font-size: 10px; font-weight: 700;
+  cursor: pointer;
+}
+.modes-carte button i {
+  width: 11px; height: 11px; flex: none;
+  border: 1.5px solid #4c5e70; border-radius: 50%;
+}
+.modes-carte button.actif { border-color: var(--cyan); color: #fff; }
+.modes-carte button.actif i { border-color: var(--cyan); background: radial-gradient(circle, var(--cyan) 45%, transparent 52%); }
+
+#bloc-chronos { padding: 10px 12px; }
+.duo-chronos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.duo-chronos small { display: block; font-size: 9.5px; font-weight: 700; text-transform: uppercase; }
+small.ref { color: var(--reference); }
+small.cmp { color: var(--compare); }
+.duo-chronos b { display: block; margin-top: 3px; font-size: 19px; font-weight: 700; }
+.ecart-chronos { display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; }
+.ecart-chronos small { color: var(--pale); font-size: 9.5px; font-weight: 700; text-transform: uppercase; }
+.ecart-chronos b { font-size: 15px; font-weight: 700; }
+b.ref, .secteur b.ref { color: var(--reference); }
+b.cmp { color: var(--compare); }
+
+.tele-cote .titre-section { margin: 4px 0 -2px; font-size: 11.5px; font-stretch: 100%; }
+.grille-secteurs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.grille-deux { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.grille-deux:empty { display: none; }
+.secteur, .stat-duo { display: flex; flex-direction: column; padding: 8px 10px; }
+.secteur small, .stat-duo small { color: var(--pale); font-size: 9.5px; font-weight: 700; text-transform: uppercase; }
+.secteur b { margin-top: 3px; font-size: 13.5px; font-weight: 700; }
+.secteur em { margin-top: 3px; font-size: 10.5px; font-style: normal; font-weight: 700; color: var(--compare); }
+.secteur em.mieux { color: var(--gain); }
+.stat-duo b { margin-top: 3px; font-size: 14px; font-weight: 700; }
+
+.bloc-route { padding: 10px 12px; }
+.titre-route { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 12.5px; }
+.titre-route select { height: 24px; font-size: 11px; }
+#vue-piste { display: block; width: 100%; height: 220px; }
+#note-piste { margin-top: 4px; font-size: 10.5px; line-height: 1.3; }
+
+#bloc-virages { margin-top: 18px; }
+#entete-virages { margin-bottom: 8px; font-size: 11.5px; }
+#table-virages td { white-space: nowrap; padding: 6px 10px; }
+#table-virages th { padding: 8px 10px 6px; }
+#table-virages th small { display: block; color: var(--pale); font-size: 9.5px; text-transform: none; }
+.col-virage .discret { margin-left: 4px; font-size: 10.5px; font-weight: 500; }
+.valeur-ref { color: #c9a4f4; }
+.ecart { display: block; font-size: 10.5px; }
+
+/* ---- temps au tour ---- */
+
+.carte-circuit {
+  position: relative;
+  display: flex; flex-direction: column; flex: none; gap: 4px;
+  width: 100%;
+  padding: 10px 12px 12px;
+  background: linear-gradient(120deg, #1b2636, #141c28);
+  border: 1px solid var(--bord-carte);
+  border-radius: 14px;
+  color: var(--texte);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+}
+.carte-circuit:hover { border-color: var(--bord-fort); }
+.carte-circuit.actif { border: 2px solid var(--violet); }
+.carte-circuit > * { position: relative; }
+.contour {
+  position: absolute !important;
+  right: -6px; top: -4px;
+  width: 62%; height: 86%;
+  opacity: 0.32;
+}
+.contour polygon { fill: rgba(95, 125, 150, 0.16); stroke: #7fa3c2; stroke-width: 2.2; stroke-linejoin: round; }
+.carte-circuit .sous { color: #b6c1cc; font-size: 11px; font-weight: 600; }
+.carte-circuit .sous i { margin-left: 10px; font-style: normal; }
+.ligne-classe {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 30px; padding: 0 10px 0 8px;
+  background: rgba(16, 22, 32, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+.ligne-classe b { color: #c49cf4; font-size: 15px; font-weight: 700; }
+
+.entete-temps { padding: 12px 14px; }
+.entete-temps-haut { display: flex; align-items: center; gap: 10px; }
+.entete-temps-haut .grand-drapeau .drapeau { width: 50px; height: 34px; }
+.comparer-classe small, .choix-trace small { display: block; margin-bottom: 4px; color: #a8b5c1; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.comparer-classe > div { display: flex; gap: 5px; }
+.comparer-classe button { padding: 0; background: none; border: none; opacity: 0.6; cursor: pointer; }
+.comparer-classe button:hover, .comparer-classe button.actif { opacity: 1; }
+.tuiles-temps { display: grid; grid-template-columns: 1.55fr 1.55fr 1fr 0.9fr 1fr; gap: 8px; margin-top: 10px; }
+.carte-record, .tuile-totale {
+  min-height: 86px;
+  background: linear-gradient(180deg, #1a2433, #111a26);
+  border: 1px solid rgba(138, 163, 186, 0.3);
+  border-radius: 12px;
+}
+.carte-record { display: flex; flex-direction: column; justify-content: space-between; padding: 9px 12px; }
+.carte-record .ligne { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; }
+.carte-record .bas { margin: 0; }
+.temps-violet { color: #b47cf0; font-size: 19px; font-weight: 700; }
+.tuile-totale { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.tuile-totale small { color: #c7d0d9; font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+.tuile-totale b { font-size: 22px; font-weight: 700; }
+
+.entete-records { display: flex; align-items: center; margin: 14px 2px 8px; }
+.entete-records h3 { font-size: 15px; line-height: 1; }
+.entete-records small { color: var(--discret); font-size: 11px; font-weight: 600; }
+
+.groupe-records {
+  margin-bottom: 12px;
+  background: rgba(20, 28, 38, 0.72);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.groupe-records-entete {
+  display: flex; align-items: center;
+  padding: 10px 14px 8px;
+  border-bottom: 1.5px solid var(--couleur);
+}
+.groupe-records-entete small { display: block; margin-top: 4px; color: var(--discret); font-size: 10.5px; font-weight: 600; }
+.groupe-records-entete b { color: var(--couleur); font-size: 19px; font-weight: 700; }
+.groupe-records th { padding: 10px 16px; background: rgba(8, 24, 38, 0.45); }
+.groupe-records td { height: 58px; padding: 6px 16px; }
+.voiture-date { display: flex; align-items: center; gap: 10px; height: 58px; }
+.voiture-date strong { display: block; font-size: 12.5px; }
+.voiture-date small { color: var(--discret); font-size: 11.5px; font-weight: 600; }
+.ecart-record { display: block; margin-top: 2px; color: var(--discret); font-size: 10.5px; }
+.actions-record { white-space: nowrap; }
+.actions-record .bouton-carre { display: inline-grid; margin: 0 2px; }
+
+/* ---- overlay ---- */
+
+.jeu-detecte { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.jeu-detecte strong { display: block; font-size: 15px; }
+.jeu-detecte small { color: var(--discret); font-size: 12px; }
+.voyant { width: 11px; height: 11px; border-radius: 50%; background: var(--vert); box-shadow: 0 0 10px var(--vert); }
+#ecran-overlay .etat-vide { height: auto; min-height: 240px; }
+#ecran-overlay .titre-section { margin-top: 18px; }
+.scene-overlay {
+  display: grid; place-items: center;
+  height: 190px; margin-bottom: 8px;
+  background: linear-gradient(180deg, #3b4a5a 0%, #2a3540 52%, #1d2428 52%, #151a1d 100%);
+  border-radius: 12px;
+}
+.message-overlay {
+  display: grid; grid-template-columns: auto auto; gap: 2px 18px; align-items: baseline;
+  padding: 10px 18px;
+  background: rgba(14, 20, 30, 0.86);
+  border: 1.5px solid rgba(162, 94, 232, 0.7);
+  border-radius: 12px;
+}
+.message-overlay .virage { font-size: 16px; font-weight: 700; }
+.message-overlay b { font-size: 21px; font-weight: 700; text-align: right; }
+.message-overlay .conseil {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 7px;
+  color: #dfe4e9;
+  font-size: 15px;
+}
+.message-overlay .conseil svg { width: 16px; height: 16px; color: var(--violet); }
+
+/* ---- dossier ---- */
+
+.carte-dossier { max-width: 760px; margin: 24px auto; padding: 22px 24px; }
+.carte-dossier h2 { margin-bottom: 8px; font-size: 19px; }
+.message-dossier { margin: 0 0 16px; color: var(--discret); white-space: pre-wrap; }
+.saisie-dossier { display: flex; flex-wrap: wrap; gap: 10px; }
+.saisie-dossier input {
+  flex: 1 1 380px; min-width: 0; height: 32px; padding: 0 12px;
+  background: var(--fond-sombre);
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  color: var(--texte);
+  font: 12.5px ui-monospace, Consolas, monospace;
+  user-select: text;
+}
+.saisie-dossier input:focus { border-color: var(--cyan); outline: none; }
+#annuler-dossier { height: 32px; padding: 0 12px; background: var(--fond-sombre); border: 1px solid var(--bord); border-radius: 8px; cursor: pointer; }
+.erreur-dossier {
+  margin: 12px 0 0; padding: 10px 12px;
+  background: rgba(239, 68, 101, 0.1);
+  border-left: 3px solid var(--perte);
+  border-radius: 6px;
+  white-space: pre-wrap;
+}
+.carte-dossier .aide { margin-top: 14px; padding: 0; }
+.carte-dossier ol { margin: 6px 0; padding-left: 20px; }
+.carte-dossier li { margin: 4px 0; }
+
+/* ---- message d'erreur ---- */
+
+#erreur {
+  position: fixed; left: 50%; bottom: 18px; z-index: 40;
+  transform: translateX(-50%);
+  display: flex; align-items: flex-start; gap: 12px;
+  max-width: 720px;
+  padding: 11px 12px 11px 16px;
+  background: #2a1620;
+  border: 1.5px solid var(--perte);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  white-space: pre-wrap;
+  user-select: text;
+}
+#erreur-fermer { padding: 0 4px; background: none; border: none; color: var(--texte); font-size: 18px; line-height: 1; cursor: pointer; }
+
+/* ---- drapeaux, marques ---- */
+
 .drapeau {
-  height: 0.85em;
-  width: calc(0.85em * 1.5);
-  vertical-align: -0.08em;
-  margin-right: 7px;
+  flex: none;
+  width: 21px; height: 14px;
+  margin-right: 3px;
   border-radius: 2px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-/* Pastille de marque : les initiales sur fond coloré, faute de pouvoir
-   afficher un logo déposé (voir emblemes.js). */
+/* Pastille de marque : les initiales sur fond coloré, faute de pouvoir afficher un
+   logo déposé (voir emblemes.js). */
 .pastille {
-  display: inline-block;
-  min-width: 20px;
-  padding: 1px 4px;
-  margin-right: 6px;
-  border-radius: 4px;
+  display: inline-grid; place-items: center; flex: none;
+  min-width: 26px; height: 22px; padding: 0 4px;
+  border-radius: 5px;
   color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-align: center;
-  vertical-align: 1px;
+  font-size: 10px; font-weight: 700;
 }
 
 /* Logo sur fond transparent. Les logos noirs ou trop sombres sont éclaircis à
-   l'affichage (voir emblemes.js), sinon ils disparaîtraient sur le fond sombre.
-   La largeur est fixe, sinon le nom du modèle commencerait plus ou moins loin
-   selon que le logo est rond ou allongé. */
-.logo {
-  height: 18px;
-  width: 40px;
-  margin-right: 7px;
-  vertical-align: -4px;
-  object-fit: contain;
-}
-
-.voiture .modele { color: var(--texte); }
-
-/* L'engagement — l'écurie et le numéro — reste lisible mais s'efface derrière
-   le modèle, qui est ce qu'on cherche des yeux. */
-.voiture .engagement { font-size: 11px; }
-
-/* Sens du virage : discret, il complète le nom sans le concurrencer. */
-.sens {
-  color: var(--discret);
-  font-size: 13px;
-  cursor: help;
-}
-
-/* Les libellés « Circuit » et « Trier par » doivent coller à leur menu, alors
-   que la barre espace ses éléments de 16 px. */
-.barre label[for] { margin-right: -10px; }
-
-/* Le nom d'un circuit peut être long — « Autodromo Nazionale Monza (80) » —
-   sans que le menu ait à occuper toute la barre. */
-#circuit { max-width: 320px; }
-
-#pied-liste { margin-top: 12px; }
-
-/* ---- version, source des sessions ---- */
-
-.version {
-  margin-left: auto;
-  font-size: 11.5px; color: var(--discret);
-  font-variant-numeric: tabular-nums; cursor: help;
-}
-.source { margin-top: 18px; font-size: 12px; color: var(--discret); }
-.source .chemin { color: var(--texte); font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
-button.lien {
-  background: none; border: none; padding: 0; font: inherit;
-  color: var(--accent); text-decoration: underline; cursor: pointer;
-}
-button.lien:hover:not(:disabled) { background: none; color: var(--accent-2); }
-
-/* ---- choix de la langue ---- */
-
-.choix-langue {
-  display: inline-flex; padding: 2px; gap: 2px;
-  background: var(--fond-bloc); border: 1px solid var(--bord); border-radius: 999px;
-}
-.choix-langue button {
-  border: none; background: none; color: var(--discret);
-  padding: 2px 10px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
-}
-.choix-langue button:hover:not(:disabled) { background: var(--survol); color: var(--texte); border: none; }
-.choix-langue button.actif,
-.choix-langue button.actif:hover:not(:disabled) { background: var(--degrade); color: #fff; }
-
-/* ---- choix du dossier de télémétrie ---- */
-
-.carte-dossier {
-  max-width: 760px; margin: 24px auto;
-  background: var(--fond-bloc); border: 1px solid var(--bord);
-  border-radius: var(--rayon); box-shadow: var(--ombre);
-  padding: 22px 24px;
-}
-.carte-dossier h2 { margin: 0 0 8px; font-size: 18px; }
-.message-dossier { white-space: pre-wrap; color: var(--discret); margin: 0 0 16px; }
-.saisie-dossier { display: flex; gap: 10px; flex-wrap: wrap; }
-.saisie-dossier input {
-  flex: 1 1 380px; min-width: 0;
-  background: var(--fond-releve); border: 1px solid var(--bord); color: var(--texte);
-  padding: 8px 12px; border-radius: 8px;
-  font: 13px ui-monospace, Consolas, monospace;
-}
-.saisie-dossier input:focus { border-color: var(--accent); outline: none; }
-.erreur-dossier {
-  white-space: pre-wrap; margin: 12px 0 0; padding: 10px 12px;
-  border-left: 3px solid var(--perte); background: rgba(255, 95, 109, 0.08);
-  border-radius: 6px;
-}
-.carte-dossier .aide { margin-top: 18px; }
-.carte-dossier ol { margin: 6px 0; padding-left: 20px; }
-.carte-dossier li { margin: 4px 0; }
-
-/* Le résumé est vide le temps que l'analyse arrive : pas de carte vide. */
-.resume:empty { display: none; }
+   l'affichage (voir emblemes.js). La largeur est fixe, sinon le nom du modèle
+   commencerait plus ou moins loin selon que le logo est rond ou allongé. */
+.logo { flex: none; width: 34px; height: 22px; object-fit: contain; }

@@ -201,6 +201,9 @@ def _hote_accepte(entete: str | None) -> bool:
 class Gestionnaire(BaseHTTPRequestHandler):
     contexte = Contexte()
 
+    #: La fenêtre de l'application, quand l'outil en a une.
+    fenetre = None
+
     # Les journaux ligne par ligne d'http.server polluent le terminal sans rien
     # apprendre : on ne garde que les erreurs.
     def log_message(self, format: str, *args) -> None:  # noqa: A002
@@ -216,8 +219,10 @@ class Gestionnaire(BaseHTTPRequestHandler):
             _verifier_chemins(self.contexte, params)
             if url.path == "/api/sessions":
                 self._json(reponses.sessions(self.contexte))
-            elif url.path == "/api/resumes":
-                self._json(reponses.resumes(self.contexte, params))
+            elif url.path == "/api/circuits":
+                self._json(reponses.circuits(self.contexte))
+            elif url.path == "/api/jeu":
+                self._json(reponses.jeu())
             elif url.path == "/api/session":
                 self._json(reponses.session(self.contexte, params["chemin"][0]))
             elif url.path == "/api/comparaison":
@@ -226,8 +231,6 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 self._json(reponses.virages(self.contexte, params))
             elif url.path == "/api/regularite":
                 self._json(reponses.regularite(self.contexte, params))
-            elif url.path == "/api/traces":
-                self._json(reponses.traces_connues(self.contexte))
             elif url.path == "/api/logos":
                 self._json(sorted(reponses.logos(self.contexte)))
             elif url.path == "/api/version":
@@ -261,6 +264,11 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 self._json(_choisir_dossier(self.contexte, charge))
             elif url.path == "/api/langue":
                 self._json(_choisir_langue(charge))
+            elif url.path == "/api/premier-plan":
+                # Un second lancement de l'outil : il ramène cette fenêtre-ci.
+                if self.fenetre is not None:
+                    self.fenetre.premier_plan()
+                self._json({"fenetre": self.fenetre is not None})
             else:
                 self.send_error(404, "Route inconnue")
         except Exception as erreur:  # noqa: BLE001

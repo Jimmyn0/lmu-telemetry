@@ -193,19 +193,26 @@ def test_la_fenetre_suit_la_langue_choisie(monkeypatch) -> None:
     assert textes.langue_preferee() == "fr"
 
 
-def test_la_fenetre_parle_anglais(monkeypatch, capsys) -> None:
+def test_un_second_lancement_ramene_la_fenetre(monkeypatch) -> None:
+    """Un double-clic de trop ne doit ni ouvrir une seconde fenêtre, ni échouer."""
     import threading
 
     from lmu_telemetry import lanceur
 
+    class Fenetre:
+        ramenee = 0
+
+        def premier_plan(self) -> None:
+            self.ramenee += 1
+
+    ouverte = Fenetre()
+    monkeypatch.setattr(serveur.Gestionnaire, "fenetre", ouverte)
     http_serveur = serveur.creer_serveur(0)
     threading.Thread(target=http_serveur.serve_forever, daemon=True).start()
     try:
         monkeypatch.setattr(lanceur, "PORT", http_serveur.server_address[1])
-        assert lanceur.lancer("en", ouvrir_navigateur=False) == 0
+        assert lanceur.lancer("en") == 0
     finally:
         http_serveur.shutdown()
         http_serveur.server_close()
-    sortie = capsys.readouterr().out
-    assert "LMU Telemetry" in sortie
-    assert "already open" in sortie
+    assert ouverte.ramenee == 1

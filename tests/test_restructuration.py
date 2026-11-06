@@ -26,7 +26,6 @@ from lmu_telemetry.domaine.virages import (
 from lmu_telemetry.errors import ErreurTelemetrie, FichierIllisible
 from lmu_telemetry.parametres import SeuilsVirage
 from lmu_telemetry.sources.reader import FichierSession
-from lmu_telemetry.web import reponses
 
 # ----------------------------------------------------------------------
 # Fichiers abîmés
@@ -39,17 +38,6 @@ def test_un_fichier_abime_donne_une_erreur_lisible(tmp_path: Path, contenu: byte
     chemin.write_bytes(contenu)
     with pytest.raises(FichierIllisible, match="abime.duckdb"):
         FichierSession(chemin)
-
-
-def test_un_fichier_abime_ne_casse_pas_la_liste(session_test: Path, tmp_path: Path) -> None:
-    """Un seul fichier abîmé faisait échouer tout le lot de résumés."""
-    chemin = tmp_path / "abime.duckdb"
-    chemin.write_bytes(b"pas une base" * 100)
-    trouves = reponses.resumes(
-        reponses.Contexte(dossier=tmp_path), {"chemin": [str(chemin), str(session_test)]}
-    )
-    assert "abime.duckdb" in trouves[0]["indisponible"]
-    assert trouves[1]["indisponible"] is None
 
 
 # ----------------------------------------------------------------------

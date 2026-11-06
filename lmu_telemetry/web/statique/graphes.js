@@ -8,10 +8,10 @@
 // même curseur. C'est ce qui permet de lire d'un coup ce que faisaient les
 // pédales à l'endroit précis où le delta décroche.
 
+import { statistiques } from "/format.js";
 import { t, locale } from "/i18n.js";
 
-const MARGE = { gauche: 62, droite: 14, haut: 16, bas: 6 };
-const MARGE_BAS_DERNIER = 26; // le dernier graphique porte l'axe des distances
+const MARGE_BAS_DERNIER = 18; // le dernier graphique porte l'axe des distances
 
 // En dessous d'une vingtaine de points visibles, il n'y a plus rien à lire.
 const POINTS_MINIMUM = 20;
@@ -21,22 +21,26 @@ const POINTS_MINIMUM = 20;
 // de secours, utilisée si la feuille de style n'est pas (encore) chargée. Les
 // valeurs sont en #rrggbb : les tracés y ajoutent leur transparence (« 33 »).
 const PALETTE = {
-  reference: ["--reference", "#4da6ff"],
-  compare: ["--compare", "#ff9d3d"],
-  grille: ["--grille", "#1f2738"],
-  axe: ["--axe", "#7d889e"],
-  texte: ["--texte", "#e4e9f2"],
-  fond: ["--fond-bloc", "#111623"],
+  reference: ["--reference", "#a25ee8"],
+  compare: ["--compare", "#ee8a35"],
+  grille: ["--grille", "#26323e"],
+  axe: ["--axe", "#8a99a8"],
+  texte: ["--texte", "#eef2f6"],
+  fond: ["--fond-graphe", "#16212d"],
   curseur: ["--curseur", "#ffffff"],
-  perte: ["--perte", "#ff5f6d"],
-  gain: ["--gain", "#3ddc84"],
-  record: ["--record", "#b57bff"],
-  accent: ["--accent", "#7c6cff"],
-  bord: ["--bord-fort", "#33405a"],
-  route: ["--route", "#1a2031"],
-  bordRoute: ["--bord-route", "#5d6a82"],
-  bordRouteEstime: ["--bord-route-estime", "#3b4660"],
-  traceNeutre: ["--trace-neutre", "#4a5470"],
+  perte: ["--perte", "#ef4465"],
+  gain: ["--gain", "#22c55e"],
+  record: ["--record", "#a25ee8"],
+  accent: ["--accent", "#28c8f0"],
+  bord: ["--bord-fort", "#3b4c5a"],
+  route: ["--route", "#1a2531"],
+  bordRoute: ["--bord-route", "#5f7d96"],
+  bordRouteEstime: ["--bord-route-estime", "#3c4f60"],
+  traceNeutre: ["--trace-neutre", "#5f7d96"],
+  secteur1: ["--secteur-1", "#2898d0"],
+  secteur2: ["--secteur-2", "#c8a818"],
+  secteur3: ["--secteur-3", "#9f55d0"],
+  interieur: ["--interieur-circuit", "#121921"],
 };
 
 export const COULEURS = {};
@@ -52,7 +56,7 @@ export function lirePalette() {
 lirePalette();
 
 // Police des textes dessinés dans les graphiques, la même que la page.
-export const POLICE = '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif';
+export const POLICE = 'Bahnschrift, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif';
 
 // ---------------------------------------------------------------------
 // Un graphique
@@ -62,24 +66,25 @@ export class Graphe {
   constructor(canvas, options) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    this.titre = options.titre;
     this.unite = options.unite || "";
-    this.series = options.series; // [{valeurs, couleur, epaisseur}]
-    this.zero = options.zero || false; // forcer l'axe à contenir 0
+    this.series = options.series; // [{valeurs, couleur, epaisseur, tirets}]
+    this.zero = options.zero || false; // axe symétrique autour de 0
+    this.basZero = options.basZero || false; // axe qui part de 0
     this.remplirZero = options.remplirZero || false;
     this.escalier = options.escalier || false;
-    this.dernier = options.dernier || false;
+    this.dernier = false;
     this.min = options.min;
     this.max = options.max;
-    this.decimales = options.decimales;
-    // `entier` : une graduation par valeur entière, sans marge décimale.
-    // Pour le rapport engagé, un axe gradué de 2 en 2 oblige à compter les
-    // interlignes pour savoir si on est en 3e ou en 4e.
+    this.decimales = options.decimales ?? 1;
+    // `entier` : pour le rapport engagé, l'échelle tombe sur des valeurs entières.
     this.entier = options.entier || false;
+    // Valeurs à écrire sur l'axe, si ce ne sont pas le haut, le milieu et le bas.
+    this.echelle = options.echelle;
+    this.reperes = [];
   }
 
   get margeBas() {
-    return this.dernier ? MARGE_BAS_DERNIER : MARGE.bas;
+    return this.dernier ? MARGE_BAS_DERNIER : 0;
   }
 
   // Domaine vertical, calculé sur la seule portion visible : sinon, zoomer
@@ -99,33 +104,34 @@ export class Graphe {
       }
     }
     if (!Number.isFinite(bas)) return [0, 1];
-    if (this.entier) return [Math.floor(bas), Math.ceil(haut)];
+    if (this.entier) return [0, Math.ceil(haut)];
     if (this.zero) {
       const ampleur = Math.max(Math.abs(bas), Math.abs(haut), 0.01);
-      return [-ampleur, ampleur];
+      return [-ampleur * 1.08, ampleur * 1.08];
     }
+    if (this.basZero) return [0, haut * 1.04 || 1];
     const marge = (haut - bas) * 0.08 || 1;
     return [bas - marge, haut + marge];
   }
 
   dessiner(vue) {
-    const { i0, i1, distance } = vue;
+    const { i0, i1 } = vue;
     const ctx = this.ctx;
     const ratio = window.devicePixelRatio || 1;
     const largeurCss = this.canvas.clientWidth;
     const hauteurCss = this.canvas.clientHeight;
+    if (!largeurCss || !hauteurCss) return;
     this.canvas.width = largeurCss * ratio;
     this.canvas.height = hauteurCss * ratio;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-    const x0 = MARGE.gauche;
-    const x1 = largeurCss - MARGE.droite;
-    const y0 = MARGE.haut;
+    const x0 = 0;
+    const x1 = largeurCss;
+    const y0 = 0;
     const y1 = hauteurCss - this.margeBas;
     this.zone = { x0, x1, y0, y1 };
 
-    ctx.fillStyle = COULEURS.fond;
-    ctx.fillRect(0, 0, largeurCss, hauteurCss);
+    ctx.clearRect(0, 0, largeurCss, hauteurCss);
 
     const [bas, haut] = this.domaine(i0, i1);
     this.bas = bas;
@@ -136,71 +142,83 @@ export class Graphe {
     this.versX = versX;
     this.versY = versY;
 
-    this.grille(ctx, bas, haut);
-
+    this.grille(ctx, vue);
     if (this.remplirZero) this.remplissage(ctx, vue, versX, versY);
-
+    this.traits(ctx, vue);
     for (const serie of this.series) {
       this.courbe(ctx, serie, vue, versX, versY);
     }
-
-    // Le cadre par-dessus les courbes, pour qu'elles soient nettement coupées.
-    ctx.strokeStyle = COULEURS.grille;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x0 + 0.5, y0 + 0.5, x1 - x0, y1 - y0);
-
-    // Le titre est posé dans la zone de tracé : sans fond, une courbe qui passe
-    // derrière le rend illisible.
-    const libelle = this.unite ? `${this.titre}  (${this.unite})` : this.titre;
-    ctx.font = `600 11px ${POLICE}`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    const largeurTitre = ctx.measureText(libelle).width;
-    ctx.fillStyle = COULEURS.fond + "e6";
-    ctx.fillRect(x0 + 1, y0 + 1, largeurTitre + 12, 16);
-    ctx.fillStyle = COULEURS.texte;
-    ctx.fillText(libelle, x0 + 6, y0 + 13);
+    this.etiquettes(ctx);
 
     if (this.dernier) this.axeDistances(ctx, vue, versX, y1);
   }
 
-  grille(ctx, bas, haut) {
+  // Le repère reste discret : trois niveaux et quelques verticales suffisent à
+  // situer une valeur, le reste se lit au curseur.
+  grille(ctx, vue) {
     const { x0, x1, y0, y1 } = this.zone;
-    // Un axe entier est gradué de 1 en 1, quel que soit le nombre de lignes que
-    // ça fait : c'est une échelle de rapports, pas une échelle continue.
-    const graduations = this.entier
-      ? Array.from({ length: Math.round(haut - bas) + 1 }, (_, k) => Math.round(bas) + k)
-      : this.graduations(bas, haut, 4);
-    ctx.font = `10px ${POLICE}`;
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    for (const v of graduations) {
-      const y = this.versY(v);
-      if (y < y0 - 1 || y > y1 + 1) continue;
-      ctx.strokeStyle = v === 0 && this.zero ? COULEURS.axe : COULEURS.grille;
-      ctx.lineWidth = 1;
+    ctx.strokeStyle = COULEURS.grille;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const milieu = Math.round((y0 + y1) / 2) + 0.5;
+    ctx.moveTo(x0, milieu);
+    ctx.lineTo(x1, milieu);
+    const d0 = vue.distance.debut + vue.i0 * vue.distance.pas;
+    const d1 = vue.distance.debut + vue.i1 * vue.distance.pas;
+    for (const d of graduations(d0, d1, 10)) {
+      const x = Math.round(this.versX((d - vue.distance.debut) / vue.distance.pas)) + 0.5;
+      ctx.moveTo(x, y0);
+      ctx.lineTo(x, y1);
+    }
+    ctx.stroke();
+  }
+
+  // Les limites de secteur.
+  traits(ctx) {
+    const { y0, y1 } = this.zone;
+    for (const { indice, couleur } of this.reperes) {
+      const x = Math.round(this.versX(indice)) + 0.5;
+      ctx.strokeStyle = couleur;
+      ctx.setLineDash([3, 4]);
       ctx.beginPath();
-      ctx.moveTo(x0, Math.round(y) + 0.5);
-      ctx.lineTo(x1, Math.round(y) + 0.5);
+      ctx.moveTo(x, y0);
+      ctx.lineTo(x, y1);
       ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
+  // Trois valeurs, posées sur le tracé et sur fond sombre : une courbe qui passe
+  // derrière les rendrait sinon illisibles.
+  etiquettes(ctx) {
+    const { x0, y0, y1 } = this.zone;
+    const milieu = (this.haut + this.bas) / 2;
+    const libelle = (v) => `${formater(v, this.entier ? 0 : this.decimales)}${this.unite ? ` ${this.unite}` : ""}`;
+    ctx.font = `600 9.5px ${POLICE}`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    const borner = (y) => Math.max(y0 + 8, Math.min(y1 - 8, y));
+    const places = this.echelle
+      ? this.echelle.map((v) => [v, borner(this.versY(v))])
+      : [
+          [this.haut, y0 + 8],
+          [milieu, (y0 + y1) / 2],
+          [this.bas, y1 - 8],
+        ];
+    for (const [valeur, y] of places) {
+      const texte = libelle(valeur);
+      const largeur = ctx.measureText(texte).width;
+      ctx.fillStyle = COULEURS.fond + "e0";
+      ctx.fillRect(x0 + 4, y - 6.5, largeur + 8, 13);
       ctx.fillStyle = COULEURS.axe;
-      ctx.fillText(formater(v, this.decimales), x0 - 6, y);
+      ctx.fillText(texte, x0 + 8, y + 0.5);
     }
   }
 
-  graduations(bas, haut, cible) {
-    const brut = (haut - bas) / cible;
-    const ordre = Math.pow(10, Math.floor(Math.log10(Math.abs(brut) || 1)));
-    const pas = [1, 2, 2.5, 5, 10].map((m) => m * ordre).find((p) => p >= brut) || ordre;
-    const debut = Math.ceil(bas / pas) * pas;
-    const valeurs = [];
-    for (let v = debut; v <= haut; v += pas) valeurs.push(Math.round(v / pas) * pas);
-    return valeurs;
-  }
-
-  // Tracé décimé : au-delà d'un point par pixel, on dessine le minimum et le
-  // maximum de chaque colonne. Prendre un point sur N ferait disparaître les
-  // pics de freinage, qui sont précisément ce qu'on vient regarder.
+  // Tracé décimé : au-delà d'un point par pixel, on garde le minimum et le maximum
+  // de chaque colonne. Prendre un point sur N ferait disparaître les pics de
+  // freinage, qui sont précisément ce qu'on vient regarder. Le tout forme un seul
+  // chemin : c'est ce qui permet au pointillé du tour comparé de rester régulier.
   courbe(ctx, serie, vue, versX, versY) {
     const { i0, i1 } = vue;
     const { x0, x1, y0, y1 } = this.zone;
@@ -213,8 +231,9 @@ export class Graphe {
     ctx.clip();
 
     ctx.strokeStyle = serie.couleur;
-    ctx.lineWidth = serie.epaisseur || 1.4;
+    ctx.lineWidth = serie.epaisseur || 1.5;
     ctx.lineJoin = "round";
+    if (serie.tirets) ctx.setLineDash(serie.tirets);
     ctx.beginPath();
 
     if (points <= largeur * 1.5) {
@@ -230,21 +249,26 @@ export class Graphe {
       }
     } else {
       const parPixel = points / largeur;
+      let commence = false;
       for (let colonne = 0; colonne < largeur; colonne++) {
         const debut = i0 + Math.floor(colonne * parPixel);
         const fin = Math.min(i1, i0 + Math.floor((colonne + 1) * parPixel));
         let bas = Infinity;
         let haut = -Infinity;
+        let iBas = debut;
+        let iHaut = debut;
         for (let i = debut; i <= fin; i++) {
           const v = serie.valeurs[i];
           if (v === null || v === undefined) continue;
-          if (v < bas) bas = v;
-          if (v > haut) haut = v;
+          if (v < bas) { bas = v; iBas = i; }
+          if (v > haut) { haut = v; iHaut = i; }
         }
         if (!Number.isFinite(bas)) continue;
         const x = x0 + colonne;
-        ctx.moveTo(x, versY(bas));
-        ctx.lineTo(x, versY(haut));
+        const [a, b] = iBas <= iHaut ? [bas, haut] : [haut, bas];
+        if (!commence) { ctx.moveTo(x, versY(a)); commence = true; }
+        else ctx.lineTo(x, versY(a));
+        if (a !== b) ctx.lineTo(x, versY(b));
       }
     }
     ctx.stroke();
@@ -262,6 +286,11 @@ export class Graphe {
     ctx.beginPath();
     ctx.rect(x0, y0, x1 - x0, y1 - y0);
     ctx.clip();
+    ctx.strokeStyle = COULEURS.axe + "80";
+    ctx.beginPath();
+    ctx.moveTo(x0, Math.round(yZero) + 0.5);
+    ctx.lineTo(x1, Math.round(yZero) + 0.5);
+    ctx.stroke();
     for (const [signe, couleur] of [[1, COULEURS.perte], [-1, COULEURS.gain]]) {
       ctx.beginPath();
       ctx.moveTo(versX(i0), yZero);
@@ -282,30 +311,25 @@ export class Graphe {
     const { i0, i1, distance } = vue;
     const d0 = distance.debut + i0 * distance.pas;
     const d1 = distance.debut + i1 * distance.pas;
-    ctx.font = `10px ${POLICE}`;
+    ctx.font = `500 10px ${POLICE}`;
     ctx.fillStyle = COULEURS.axe;
     ctx.textBaseline = "top";
 
     const libelle = t("graphe.axe_distance");
     // Le libellé occupe le bord droit : on n'y écrit pas de graduation, sinon
     // les deux se chevauchent dans une colonne étroite.
-    const reserve = this.zone.x1 - ctx.measureText(libelle).width - 8;
+    const reserve = this.zone.x1 - ctx.measureText(libelle).width - 16;
 
-    for (const d of this.graduations(d0, d1, 8)) {
+    for (const d of graduations(d0, d1, 10)) {
       const i = (d - distance.debut) / distance.pas;
       if (i < i0 || i > i1) continue;
       const x = versX(i);
-      if (x > reserve) continue;
+      if (x > reserve || x < 12) continue;
       ctx.textAlign = "center";
       ctx.fillText(`${Math.round(d)}`, x, y1 + 5);
-      ctx.strokeStyle = COULEURS.grille;
-      ctx.beginPath();
-      ctx.moveTo(Math.round(x) + 0.5, y1);
-      ctx.lineTo(Math.round(x) + 0.5, y1 + 3);
-      ctx.stroke();
     }
     ctx.textAlign = "right";
-    ctx.fillText(libelle, this.zone.x1, y1 + 5);
+    ctx.fillText(libelle, this.zone.x1 - 6, y1 + 5);
   }
 
   // Curseur et sélection sont dessinés dans un calque séparé, pour ne pas
@@ -350,12 +374,19 @@ export class Graphe {
   }
 }
 
+function graduations(bas, haut, cible) {
+  const brut = (haut - bas) / cible;
+  const ordre = Math.pow(10, Math.floor(Math.log10(Math.abs(brut) || 1)));
+  const pas = [1, 2, 2.5, 5, 10].map((m) => m * ordre).find((p) => p >= brut) || ordre;
+  const debut = Math.ceil(bas / pas) * pas;
+  const valeurs = [];
+  for (let v = debut; v <= haut; v += pas) valeurs.push(Math.round(v / pas) * pas);
+  return valeurs;
+}
+
 function formater(v, decimales) {
-  if (decimales !== undefined) return v.toFixed(decimales);
   if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString(locale());
-  if (Math.abs(v) >= 10) return v.toFixed(0);
-  if (Math.abs(v) >= 1) return v.toFixed(1);
-  return v.toFixed(2);
+  return v.toFixed(decimales);
 }
 
 // ---------------------------------------------------------------------
@@ -368,22 +399,47 @@ export class Pile {
     this.distance = distance;
     this.surCurseur = surCurseur;
     this.surVue = surVue;
-    this.graphes = [];
-    this.calques = [];
+    this.rangees = [];
     this.i0 = 0;
     this.i1 = distance.nombre - 1;
     this.indice = null;
     this.selection = null;
-    this._redessinerLie = () => this.redessiner();
-    window.addEventListener("resize", this._redessinerLie);
+    this.fige = false;
+    // Tous les écouteurs meurent avec la pile : les fenêtres gardent sinon ceux de
+    // chaque comparaison ouverte depuis le lancement.
+    this.abandon = new AbortController();
+    window.addEventListener("resize", () => this.redessiner(), { signal: this.abandon.signal });
   }
 
   detruire() {
-    window.removeEventListener("resize", this._redessinerLie);
+    this.abandon.abort();
     this.conteneur.innerHTML = "";
   }
 
+  /**
+   * Ajoute une rangée : la légende à gauche, le tracé à droite. La légende donne les
+   * valeurs sous le curseur et le résumé de la portion visible.
+   */
   ajouter(options, hauteur) {
+    const rangee = document.createElement("div");
+    rangee.className = "rangee-canal";
+    rangee.dataset.cle = options.cle;
+    const legende = document.createElement("div");
+    legende.className = "legende";
+    legende.innerHTML = `<div class="legende-titre">${options.titre}</div>${
+      options.series
+        .map(
+          (s, k) => `<div class="legende-ligne ${s.classe || ""}"><i></i><span>${s.nom}</span>
+            <b data-serie="${k}">--</b></div>`
+        )
+        .join("")
+    }${options.stats === false ? (options.note ? `<div class="legende-note">${options.note}</div>` : "") : `
+      <div class="legende-stats">
+        <span><small>${t("tele.min")}</small><b data-stat="min"></b></span>
+        <span><small>${t("tele.max")}</small><b data-stat="max"></b></span>
+        <span><small>${t("tele.moy")}</small><b data-stat="moyenne" class="accent"></b></span>
+      </div>`}`;
+
     const bloc = document.createElement("div");
     bloc.className = "graphe";
     bloc.style.height = `${hauteur}px`;
@@ -391,19 +447,21 @@ export class Pile {
     const calque = document.createElement("canvas");
     calque.className = "calque";
     bloc.append(fond, calque);
-    this.conteneur.append(bloc);
+    rangee.append(legende, bloc);
+    this.conteneur.append(rangee);
 
-    const graphe = new Graphe(fond, { ...options, dernier: false });
-    this.graphes.push(graphe);
-    this.calques.push(calque);
+    const graphe = new Graphe(fond, options);
+    const entree = {
+      graphe, calque, rangee, legende, cle: options.cle,
+      decimales: options.decimales ?? 1,
+      visible: true,
+    };
+    this.rangees.push(entree);
     this._brancher(calque, graphe);
     return graphe;
   }
 
   terminer() {
-    if (this.graphes.length) {
-      this.graphes[this.graphes.length - 1].dernier = true;
-    }
     this.redessiner();
     this.surVue(this.i0, this.i1);
   }
@@ -412,20 +470,69 @@ export class Pile {
     return { i0: this.i0, i1: this.i1, distance: this.distance };
   }
 
+  get visibles() {
+    return this.rangees.filter((r) => r.visible);
+  }
+
   redessiner() {
-    for (const g of this.graphes) g.dessiner(this.vue);
+    const visibles = this.visibles;
+    visibles.forEach((r, k) => {
+      r.graphe.dernier = k === visibles.length - 1;
+      r.graphe.dessiner(this.vue);
+    });
+    this.majResumes();
     this.redessinerCurseur();
   }
 
   redessinerCurseur() {
-    this.graphes.forEach((g, k) =>
-      g.dessinerCurseur(this.calques[k], this.indice, this.selection)
-    );
+    for (const r of this.visibles) {
+      r.graphe.dessinerCurseur(r.calque, this.indice, this.selection);
+    }
+    this.majValeurs();
+  }
+
+  majValeurs() {
+    for (const r of this.visibles) {
+      for (const b of r.legende.querySelectorAll("[data-serie]")) {
+        const v = this.indice === null ? null : r.graphe.series[+b.dataset.serie].valeurs[this.indice];
+        b.textContent = v === null || v === undefined ? "--" : v.toFixed(r.decimales);
+      }
+    }
+  }
+
+  majResumes() {
+    for (const r of this.visibles) {
+      const champs = r.legende.querySelectorAll("[data-stat]");
+      if (!champs.length) continue;
+      const s = statistiques(r.graphe.series[0].valeurs, this.i0, this.i1);
+      for (const b of champs) {
+        b.textContent = s ? s[b.dataset.stat].toFixed(r.decimales) : "--";
+      }
+    }
+  }
+
+  /** Montre ou cache une rangée. */
+  basculer(cle, visible) {
+    const r = this.rangees.find((x) => x.cle === cle);
+    if (!r) return;
+    r.visible = visible;
+    r.rangee.hidden = !visible;
+    this.redessiner();
+  }
+
+  /** Traits verticaux posés sur tous les graphiques. */
+  definirReperes(reperes) {
+    for (const r of this.rangees) r.graphe.reperes = reperes;
+    this.redessiner();
+  }
+
+  /** Place le curseur sans passer par la souris : la lecture du tour s'en sert. */
+  placerCurseur(indice) {
+    this.indice = indice;
+    this.redessinerCurseur();
   }
 
   // Proportion de la zone de tracé sous une abscisse, bornée à [0, 1].
-  // Sans ce bornage, la souris sur la marge de l'axe (62 px à gauche) donne
-  // une proportion négative, et le zoom part hors du tour.
   proportionDepuisX(graphe, x) {
     if (!graphe.zone) return 0;
     const { x0, x1 } = graphe.zone;
@@ -439,8 +546,10 @@ export class Pile {
 
   _brancher(calque, graphe) {
     let depart = null;
+    const signal = this.abandon.signal;
 
     calque.addEventListener("mousemove", (e) => {
+      if (this.fige) return;
       const rect = calque.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const i = this.indiceDepuisX(graphe, x);
@@ -448,19 +557,19 @@ export class Pile {
       this.selection = depart === null ? null : [depart, x];
       this.redessinerCurseur();
       this.surCurseur(this.indice);
-    });
+    }, { signal });
 
     calque.addEventListener("mouseleave", () => {
-      if (depart !== null) return;
+      if (depart !== null || this.fige) return;
       this.indice = null;
       this.redessinerCurseur();
       this.surCurseur(null);
-    });
+    }, { signal });
 
     calque.addEventListener("mousedown", (e) => {
       const rect = calque.getBoundingClientRect();
       depart = e.clientX - rect.left;
-    });
+    }, { signal });
 
     window.addEventListener("mouseup", (e) => {
       if (depart === null) return;
@@ -475,9 +584,9 @@ export class Pile {
       depart = null;
       this.selection = null;
       this.redessinerCurseur();
-    });
+    }, { signal });
 
-    calque.addEventListener("dblclick", () => this.reinitialiser());
+    calque.addEventListener("dblclick", () => this.reinitialiser(), { signal });
 
     // Zoom molette. Le point sous le curseur doit rester SOUS le curseur :
     // c'est ce qui distingue un zoom d'un saut. Recentrer la vue sur la souris
@@ -496,7 +605,7 @@ export class Pile {
         const largeur = (this.i1 - this.i0) * facteur;
         this.zoomer(ancre - proportion * largeur, ancre + (1 - proportion) * largeur);
       },
-      { passive: false }
+      { passive: false, signal }
     );
   }
 

@@ -5,129 +5,158 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Télémétrie — Le Mans Ultimate</title>
 <link rel="stylesheet" href="/style.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c6cff'/%3E%3Cstop offset='1' stop-color='%23e052a0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='30' height='30' rx='8' fill='url(%23d)'/%3E%3Cpath d='M5 20 L10 20 L13 11 L17 23 L20 15 L25 15' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23a25ee8'/%3E%3Cstop offset='1' stop-color='%2322c55e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='30' height='30' rx='8' fill='url(%23d)'/%3E%3Cpath d='M5 20 L10 20 L13 11 L17 23 L20 15 L25 15' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 </head>
 <body>
 
-<header>
-  <div class="marque-appli">
-    <!-- Emblème maison : une courbe de télémétrie, pas le logo du jeu. -->
-    <svg viewBox="0 0 30 30" aria-hidden="true">
-      <defs>
-        <linearGradient id="degrade-embleme" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#7c6cff"/><stop offset="1" stop-color="#e052a0"/>
-        </linearGradient>
-      </defs>
-      <rect width="30" height="30" rx="8" fill="url(#degrade-embleme)"/>
-      <path d="M5 20 L10 20 L13 11 L17 23 L20 15 L25 15" fill="none" stroke="#fff"
-            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <h1><span data-t="entete.titre">Télémétrie</span> <span class="discret">Le Mans Ultimate</span></h1>
+<header id="barre-titre">
+  <!-- Emblème maison : une courbe de télémétrie, pas le logo du jeu. -->
+  <svg class="embleme" viewBox="0 0 30 30" aria-hidden="true">
+    <defs>
+      <linearGradient id="degrade-embleme" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#a25ee8"/><stop offset="1" stop-color="#22c55e"/>
+      </linearGradient>
+    </defs>
+    <rect width="30" height="30" rx="8" fill="url(#degrade-embleme)"/>
+    <path d="M5 20 L10 20 L13 11 L17 23 L20 15 L25 15" fill="none" stroke="#fff"
+          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <button id="bascule-laterale" class="bouton-barre" type="button" data-t-title="nav.bascule"></button>
+  <nav id="onglets">
+    <button type="button" data-onglet="resultats" data-t="nav.resultats">Résultats</button>
+    <button type="button" data-onglet="telemetrie" data-t="nav.telemetrie">Télémétrie</button>
+    <button type="button" data-onglet="overlay" data-t="nav.overlay">Overlay</button>
+    <button type="button" data-onglet="temps" data-t="nav.temps">Temps au tour</button>
+  </nav>
+  <div class="espace"></div>
+  <button id="ouvrir-reglages" class="bouton-barre" type="button" data-t-title="reglages.titre"></button>
+  <div id="controles-fenetre" hidden>
+    <span class="separateur"></span>
+    <button id="fenetre-reduire" class="bouton-barre" type="button" data-t-title="fenetre.reduire"></button>
+    <button id="fenetre-agrandir" class="bouton-barre" type="button" data-t-title="fenetre.agrandir"></button>
+    <button id="fenetre-fermer" class="bouton-barre fermer" type="button" data-t-title="fenetre.fermer"></button>
   </div>
-  <nav id="fil"></nav>
-  <span id="version" class="version"></span>
-  <div id="choix-langue" class="choix-langue" role="group" aria-label="Langue / Language"></div>
 </header>
 
-<main>
+<div id="corps">
+  <aside id="laterale"></aside>
 
-  <!-- Écran 1 : la liste des sessions -->
-  <section id="ecran-sessions">
-    <div class="barre">
-      <label for="circuit" class="discret" data-t="sessions.filtre_circuit">Circuit</label>
-      <select id="circuit"><option value=""></option></select>
-      <label for="tri" class="discret" data-t="sessions.trier_par">Trier par</label>
-      <select id="tri">
-        <option value="date" data-t="sessions.tri_date">Les plus récentes</option>
-        <option value="chrono" data-t="sessions.tri_chrono">Meilleur chrono</option>
-      </select>
-      <label><input type="checkbox" id="avec-tours" checked> <span data-t="sessions.masquer_vides">Masquer les sessions sans tour chronométré</span></label>
-    </div>
-    <div id="liste-sessions" class="tableau"></div>
-    <div id="pied-liste" class="barre-zoom"></div>
-    <div id="source-sessions" class="source"></div>
-  </section>
+  <main id="contenu">
 
-  <!-- Écran 0 : choisir le dossier de télémétrie, quand il n'a pas été trouvé
-       tout seul ou qu'on veut en changer. -->
-  <section id="ecran-dossier" hidden>
-    <div class="carte-dossier">
-      <h2 data-t="dossier.titre">Où sont tes sessions ?</h2>
-      <p id="message-dossier" class="message-dossier"></p>
-      <div class="saisie-dossier">
-        <input id="saisie-dossier" type="text" spellcheck="false" autocomplete="off"
-               placeholder="D:\SteamLibrary\steamapps\common\Le Mans Ultimate\UserData\Telemetry">
-        <button id="valider-dossier" type="button" class="principal" data-t="dossier.valider">Utiliser ce dossier</button>
-        <button id="annuler-dossier" type="button" hidden data-t="dossier.annuler">Annuler</button>
+    <!-- Résultats : une session, ses tours et sa régularité -->
+    <section id="ecran-resultats" hidden>
+      <div id="entete-session"></div>
+      <div id="sous-onglets" class="barre-onglets" hidden>
+        <button type="button" data-vue="tours" data-t="session.onglet_tours">Tours</button>
+        <button type="button" data-vue="regularite" data-t="session.onglet_regularite">Régularité</button>
       </div>
-      <p id="erreur-dossier" class="erreur-dossier" hidden></p>
-      <div class="aide" data-t-html="dossier.aide"></div>
-    </div>
-  </section>
+      <div id="vue-session"></div>
+    </section>
 
-  <!-- Écran 2 : une session et ses tours -->
-  <section id="ecran-session" hidden>
-    <div id="entete-session"></div>
-    <div id="liste-tours" class="tableau"></div>
-    <div class="barre" id="choix-tours"></div>
-  </section>
-
-  <!-- Écran 4 : la régularité -->
-  <section id="ecran-regularite" hidden>
-    <div id="resume-regularite" class="resume"></div>
-    <div id="note-regularite" class="discret"></div>
-    <div class="colonnes-regularite">
-      <div class="bloc-chronos">
-        <h2 data-t="regularite.titre_chronos">Chronos de la session</h2>
-        <canvas id="graphe-chronos"></canvas>
-      </div>
-      <div id="tendance" class="aide"></div>
-    </div>
-    <h2 class="titre-classement" data-t="regularite.titre_classement">Où tu es le moins constant</h2>
-    <div id="classement-virages" class="tableau"></div>
-  </section>
-
-  <!-- Écran 3 : la comparaison -->
-  <section id="ecran-comparaison" hidden>
-    <div id="resume-comparaison" class="resume"></div>
-    <div id="avertissements" hidden></div>
-    <div class="colonnes">
-      <div class="principal">
-        <div class="barre-zoom">
-          <button id="reset-zoom" type="button" data-t="comparaison.voir_tour_entier">Voir le tour entier</button>
-          <span id="etendue"></span>
-          <span class="discret" data-t="comparaison.aide_zoom">Glisser sur un graphique ou molette pour zoomer · double-clic pour revenir</span>
+    <!-- Télémétrie : deux tours superposés -->
+    <section id="ecran-telemetrie" hidden>
+      <div id="tele-vide"></div>
+      <div id="tele-page" hidden>
+        <div class="tele-haut">
+          <div id="carte-ref" class="carte-tour ref"></div>
+          <div id="carte-cmp" class="carte-tour cmp"></div>
+          <div id="outils-tele" class="outils"></div>
         </div>
-        <div id="graphiques"></div>
-
-        <section id="bloc-virages" hidden>
-          <h2 data-t="virages.titre">Virage par virage</h2>
-          <div id="entete-virages" class="discret"></div>
-          <div id="table-virages" class="tableau"></div>
-        </section>
-      </div>
-      <aside id="cote">
-        <div id="lecture" class="lecture"></div>
-        <div class="bloc-piste">
-          <div class="entete-piste">
-            <strong data-t="piste.titre">Vue de la route</strong>
-            <select id="fenetre-piste">
-              <option value="40">40 m</option>
-              <option value="80" selected>80 m</option>
-              <option value="160">160 m</option>
-              <option value="320">320 m</option>
+        <div class="transport">
+          <div class="transport-lecture">
+            <button id="lecture" class="bouton-carre" type="button" data-t-title="tele.lecture"></button>
+            <span id="temps-lecture" class="valeur-temps">0:00.000</span>
+          </div>
+          <div id="frise" class="frise"></div>
+          <div class="transport-droite">
+            <span id="temps-total" class="valeur-temps"></span>
+            <select id="vitesse-lecture" data-t-title="tele.vitesse_lecture">
+              <option value="0.25">0,25×</option>
+              <option value="0.5">0,5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="4">4×</option>
             </select>
           </div>
-          <canvas id="vue-piste"></canvas>
-          <div id="note-piste" class="discret"></div>
         </div>
-        <canvas id="carte" width="300" height="300"></canvas>
-      </aside>
-    </div>
-  </section>
+        <div id="avertissements" hidden></div>
+        <div class="tele-corps">
+          <div class="tele-gauche">
+            <div id="graphiques"></div>
+            <section id="bloc-virages">
+              <h3 class="titre-section" data-t="virages.titre">Virage par virage</h3>
+              <div id="entete-virages" class="note"></div>
+              <div id="table-virages" class="carte tableau"></div>
+            </section>
+          </div>
+          <aside class="tele-cote">
+            <div class="carte bloc-carte">
+              <div class="titre-carte" id="titre-carte"></div>
+              <div class="toile-carte">
+                <canvas id="carte-fond"></canvas>
+                <canvas id="carte-calque"></canvas>
+              </div>
+              <div id="modes-carte" class="modes-carte"></div>
+            </div>
+            <div id="bloc-chronos" class="carte"></div>
+            <h3 class="titre-section" data-t="tele.secteurs">Secteurs</h3>
+            <div id="bloc-secteurs" class="grille-secteurs"></div>
+            <div id="bloc-vitesses" class="grille-deux"></div>
+            <div id="bloc-carburant" class="grille-deux"></div>
+            <div class="carte bloc-route">
+              <div class="titre-route">
+                <strong data-t="piste.titre">Vue de la route</strong>
+                <select id="fenetre-piste">
+                  <option value="40">40 m</option>
+                  <option value="80" selected>80 m</option>
+                  <option value="160">160 m</option>
+                  <option value="320">320 m</option>
+                </select>
+              </div>
+              <canvas id="vue-piste"></canvas>
+              <div id="note-piste" class="note"></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
 
-  <div id="erreur" hidden></div>
-</main>
+    <!-- Overlay : l'état du jeu -->
+    <section id="ecran-overlay" hidden></section>
+
+    <!-- Temps au tour : les records par circuit -->
+    <section id="ecran-temps" hidden></section>
+
+    <!-- Choisir le dossier de télémétrie, quand il n'a pas été trouvé tout seul -->
+    <section id="ecran-dossier" hidden>
+      <div class="carte carte-dossier">
+        <h2 data-t="dossier.titre">Où sont tes sessions ?</h2>
+        <p id="message-dossier" class="message-dossier"></p>
+        <div class="saisie-dossier">
+          <input id="saisie-dossier" type="text" spellcheck="false" autocomplete="off"
+                 placeholder="D:\SteamLibrary\steamapps\common\Le Mans Ultimate\UserData\Telemetry">
+          <button id="valider-dossier" type="button" class="principal" data-t="dossier.valider">Utiliser ce dossier</button>
+          <button id="annuler-dossier" type="button" hidden data-t="dossier.annuler">Annuler</button>
+        </div>
+        <p id="erreur-dossier" class="erreur-dossier" hidden></p>
+        <div class="aide" data-t-html="dossier.aide"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="reglages" class="panneau" hidden></div>
+
+<div id="erreur" role="alert" hidden>
+  <span id="erreur-texte"></span>
+  <button id="erreur-fermer" type="button" data-t-title="erreur.fermer">×</button>
+</div>
+
+<!-- Bords de la fenêtre : sans bordure, c'est la page qui les fournit. -->
+<div id="poignees" hidden>
+  <div data-bord="n"></div><div data-bord="s"></div><div data-bord="e"></div><div data-bord="o"></div>
+  <div data-bord="no"></div><div data-bord="ne"></div><div data-bord="so"></div><div data-bord="se"></div>
+</div>
 
 <script type="module" src="/app.js"></script>
 </body>

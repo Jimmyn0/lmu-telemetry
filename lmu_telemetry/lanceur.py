@@ -2,31 +2,33 @@
 
 Pour quelqu'un qui n'a jamais ouvert un terminal, tout doit se régler seul :
 
-* l'outil s'ouvre dans le navigateur, sans rien taper ;
+* l'outil s'ouvre dans sa propre fenêtre, sans rien taper ;
 * s'il est DÉJÀ ouvert (double-clic de trop, fenêtre cachée derrière le jeu),
-  on rouvre simplement la page au lieu d'échouer sur un port occupé ;
+  on ramène simplement sa fenêtre au lieu d'échouer sur un port occupé ;
 * si le port est pris par un autre programme, on essaie les suivants ;
-* en cas de problème, le message reste affiché jusqu'à ce qu'on appuie sur
-  Entrée. Sans cette pause, la fenêtre se fermerait avant qu'on ait pu lire
-  quoi que ce soit.
+* sans WebView2, le moteur de la fenêtre, on se rabat sur le navigateur ;
+* en cas de problème, un message reste affiché jusqu'à ce qu'on le ferme. Il n'y
+  a plus de console pour le lire : c'est une boîte de dialogue, et une copie va
+  dans `journal.txt`.
 
-La fenêtre noire reste ouverte tant que l'outil tourne : c'est elle qui fait
-tourner le serveur local, la fermer arrête l'outil. Elle le dit.
+Fermer la fenêtre arrête l'outil.
 
-Elle parle la langue choisie dans l'interface (bouton FR | EN, enregistré dans
-les réglages), et à défaut celle de Windows. Ses phrases sont les clés
+Les messages parlent la langue choisie dans l'interface (bouton FR | EN,
+enregistré dans les réglages), et à défaut celle de Windows. Ce sont les clés
 `console.*` des mêmes fichiers de traduction que la page.
 """
 
 from __future__ import annotations
 
+import ctypes
 import json
 import sys
+import threading
 import traceback
 import urllib.request
 import webbrowser
 
-from . import __version__
+from . import __version__, emplacements, fenetre
 from .errors import ErreurTelemetrie
 from .textes import Message, console_utf8, langue_preferee, traduire
 
@@ -44,28 +46,51 @@ def outil_deja_ouvert(port: int) -> bool:
         return False
 
 
-def _pause(langue: str) -> None:
+def _boite(texte: str, titre: str = fenetre.TITRE) -> None:
+    """Un message à lire, qui reste affiché jusqu'à ce qu'on le ferme."""
+    ctypes.windll.user32.MessageBoxW(None, texte, titre, 0x40)
+
+
+def _journaliser(texte: str) -> None:
+    """Sans console, une erreur ne laisserait aucune trace."""
     try:
-        input("\n" + traduire("console.pause", langue))
-    except (EOFError, KeyboardInterrupt):
+        chemin = emplacements.donnees() / "journal.txt"
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        with chemin.open("a", encoding="utf-8") as journal:
+            journal.write(texte + "\n")
+    except OSError:
         pass
 
 
-def lancer(langue: str, ouvrir_navigateur: bool = True) -> int:
-    from .web.serveur import PortOccupe, creer_serveur, servir
+def _ramener(port: int) -> None:
+    """Demande à l'outil déjà ouvert d'afficher sa fenêtre.
 
-    def dire(cle: str, **valeurs: object) -> None:
-        print(traduire(cle, langue, valeurs))
+    Windows n'autorise un programme à passer devant que si celui qui est au
+    premier plan l'y autorise : c'est nous, puisqu'on vient d'être lancé.
+    """
+    ctypes.windll.user32.AllowSetForegroundWindow(-1)
+    requete = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/premier-plan",
+        data=b"{}",
+        headers={"Content-Type": "application/json", "Origin": f"http://127.0.0.1:{port}"},
+    )
+    try:
+        with urllib.request.urlopen(requete, timeout=2) as reponse:
+            if json.loads(reponse.read()).get("fenetre"):
+                return
+    except OSError:
+        pass
+    webbrowser.open(f"http://127.0.0.1:{port}/")
 
-    dire("console.titre", version=__version__)
-    print("=" * 40)
+
+def lancer(langue: str, ouvrir_fenetre: bool = True) -> int:
+    from .web.serveur import Gestionnaire, PortOccupe, creer_serveur, servir
 
     serveur = None
     for port in range(PORT, PORT + PORTS_ESSAYES):
         if outil_deja_ouvert(port):
-            dire("console.deja_ouvert")
-            if ouvrir_navigateur:
-                webbrowser.open(f"http://127.0.0.1:{port}/")
+            if ouvrir_fenetre:
+                _ramener(port)
             return 0
         try:
             serveur = creer_serveur(port)
@@ -78,10 +103,19 @@ def lancer(langue: str, ouvrir_navigateur: bool = True) -> int:
         )
 
     adresse = f"http://127.0.0.1:{serveur.server_address[1]}/"
-    dire("console.ouvert", adresse=adresse)
-    print()
-    dire("console.laisser_ouvert")
-    servir(serveur, ouvrir_navigateur)
+    print(traduire("console.titre", langue, {"version": __version__}), adresse)
+    if not ouvrir_fenetre:
+        servir(serveur, ouvrir=False)
+        return 0
+
+    threading.Thread(target=servir, args=(serveur, False), daemon=True).start()
+
+    def retenir(ouverte: fenetre.Fenetre) -> None:
+        Gestionnaire.fenetre = ouverte
+
+    if not fenetre.ouvrir(adresse, retenir):
+        webbrowser.open(adresse)
+        _boite(traduire("console.sans_fenetre", langue, {"adresse": adresse}))
     return 0
 
 
@@ -89,18 +123,18 @@ def main() -> int:
     console_utf8()
     langue = langue_preferee()
     try:
-        # `--sans-navigateur` : pour tester le .exe sans ouvrir de fenêtre.
-        return lancer(langue, ouvrir_navigateur="--sans-navigateur" not in sys.argv)
+        # `--sans-fenetre` : pour tester le .exe sans rien ouvrir.
+        return lancer(langue, ouvrir_fenetre="--sans-fenetre" not in sys.argv)
     except KeyboardInterrupt:
         return 0
     except ErreurTelemetrie as erreur:
-        print("\n" + (erreur.message.dans(langue) if erreur.message else str(erreur)))
-        _pause(langue)
+        texte = erreur.message.dans(langue) if erreur.message else str(erreur)
+        _journaliser(texte)
+        _boite(texte)
         return 1
     except Exception:  # noqa: BLE001
-        print("\n" + traduire("console.inattendu", langue))
-        traceback.print_exc()
-        _pause(langue)
+        _journaliser(traceback.format_exc())
+        _boite(traduire("console.inattendu", langue) + traceback.format_exc(limit=3))
         return 1
 
 

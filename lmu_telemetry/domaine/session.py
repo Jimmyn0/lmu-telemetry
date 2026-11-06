@@ -202,6 +202,15 @@ class Session:
     journal_present: bool
     """Un .wal traînait à côté : la fin de la session peut manquer."""
 
+    duree: float = 0.0
+    """Durée de l'enregistrement, en secondes."""
+
+    longueur: float | None = None
+    """Plus grande distance relevée sur un tour, en mètres.
+
+    C'est la longueur de la piste dès qu'un tour a été bouclé.
+    """
+
     # ------------------------------------------------------------------
 
     @classmethod
@@ -223,6 +232,8 @@ class Session:
                 info=fichier.info,
                 tours=tuple(_construire_tours(fichier)),
                 journal_present=fichier.journal_present,
+                duree=fichier.duree,
+                longueur=_longueur(fichier),
             )
 
         cle = cle_fichier(fichier.chemin)
@@ -303,6 +314,13 @@ def _construire_tours(fichier: FichierSession) -> list[Tour]:
             )
         )
     return tours
+
+
+def _longueur(fichier: FichierSession) -> float | None:
+    if "Lap Dist" not in fichier.canaux:
+        return None
+    distances = fichier.canal("Lap Dist")
+    return float(distances.max()) if distances.size else None
 
 
 def _assembler_tour(**champs) -> Tour:

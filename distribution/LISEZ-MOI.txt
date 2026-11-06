@@ -25,9 +25,9 @@ UTILISATION
 -----------
 
 1. Double-clique sur Telemetrie-LMU.exe.
-2. Une fenêtre noire s'ouvre, puis l'outil apparaît dans ton navigateur.
-3. Laisse la fenêtre noire ouverte pendant que tu t'en sers : c'est elle qui
-   fait tourner l'outil. Ferme-la quand tu as fini.
+2. L'outil s'ouvre dans sa propre fenêtre. Ferme-la quand tu as fini.
+3. Au tout premier lancement, l'outil lit toutes tes sessions en tâche de fond :
+   la liste se complète pendant une minute ou deux. Ensuite, c'est immédiat.
 
 Rien à régler dans le jeu : Le Mans Ultimate enregistre ta télémétrie tout
 seul, à chaque session. Roule, quitte la session, et elle apparaît dans la
@@ -73,8 +73,9 @@ Porsche.png, Ferrari.png, Aston Martin.png...
 EN CAS DE PROBLÈME
 ------------------
 
-* « L'outil ne répond plus » : la fenêtre noire a été fermée. Relance
-  Telemetrie-LMU.exe.
+* Rien ne s'ouvre, ou l'outil s'ouvre dans ton navigateur : il manque sans doute
+  le composant WebView2 de Microsoft, normalement présent sur Windows 10 et 11.
+  L'outil reste utilisable dans le navigateur.
 * Une session n'apparaît pas : quitte d'abord la session dans le jeu (le jeu
   garde le fichier ouvert tant qu'elle tourne).
 * Ton antivirus bloque le .exe : c'est une fausse alerte fréquente avec ce

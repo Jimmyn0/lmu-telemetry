@@ -152,6 +152,7 @@ Ce qu'il **écrit** — et que tu peux retoucher — va dans ton dossier de donn
 %LOCALAPPDATA%\Telemetrie LMU\
     reglages.json      le dossier de télémétrie, si tu l'as choisi dans l'outil
     parametres.json    les seuils de l'outil, modifiables
+    index.sqlite       ce que l'outil sait de chaque session (se reconstruit seul)
     virages\           le découpage de chaque circuit, modifiable
     logos\             tes logos de marque personnels
     pays.json          drapeaux des circuits ajoutés (facultatif)
@@ -184,15 +185,22 @@ liste des sessions, permet d'en changer.
 C'est la façon normale de se servir de l'outil :
 
 ```bash
-.venv\Scripts\python.exe -m lmu_telemetry web
+.venv\Scripts\python.exe -m lmu_telemetry.lanceur
 ```
 
-Le navigateur s'ouvre tout seul. Tu y trouves tes sessions, puis les tours de
-la session choisie, puis la comparaison de deux tours.
+L'outil s'ouvre dans sa propre fenêtre, et la fermer l'arrête. Tu y trouves quatre
+onglets : **Résultats** (tes sessions, leurs tours, leur régularité), **Télémétrie**
+(deux tours superposés), **Overlay** et **Temps au tour** (tes records par circuit).
 
-L'interface existe en **français et en anglais** : le bouton **FR | EN**, en
-haut à droite, change la langue sans perdre l'écran en cours, et le choix est
-retenu. Au premier lancement, l'outil prend la langue du navigateur. Tout est
+`python -m lmu_telemetry web` ouvre la même page dans le navigateur, sans fenêtre.
+
+Au tout premier lancement, l'outil lit toutes tes sessions en tâche de fond, ce qui
+peut prendre une à deux minutes : la liste se complète pendant ce temps. Ce qu'il en
+retient va dans `index.sqlite`, et seules les nouvelles sessions sont lues ensuite.
+
+L'interface existe en **français et en anglais** : le choix se fait dans les
+réglages (la roue dentée, en haut à droite), sans perdre l'écran en cours, et il est
+retenu. Au premier lancement, l'outil prend la langue de Windows. Tout est
 traduit, y compris les remarques sur les tours, les avertissements et les
 messages d'erreur : le serveur n'écrit pas de phrases, il envoie une clé que la
 page traduit. Les textes sont dans `lmu_telemetry/web/statique/langues/` ; un
@@ -365,8 +373,8 @@ Rettifilo est T1 et T2, la Variante Ascari est T8, T9 et T10. C'est la
 numérotation des cartes de circuit, et c'est aussi ce qui permet de lire
 séparément le freinage d'entrée et la réaccélération de sortie.
 
-Les mêmes numéros sont posés **sur la carte du circuit**, en bas de la page de
-comparaison, dans une pastille à l'extérieur de chaque virage.
+Ces numéros sont ceux de la **liste des virages**, sous la carte du circuit de
+l'onglet Télémétrie.
 
 Une flèche indique le sens : ↱ à droite, ↰ à gauche. Tout est déduit de la
 forme du circuit, rien d'une table.
@@ -579,6 +587,8 @@ sessions quand LMU est installé sur la machine, et sont ignorés sinon.
 | `lmu_telemetry/domaine/circuits.py` | retrouve ou détecte le découpage d'un circuit. |
 | `lmu_telemetry/parametres.py` | les seuils réglables, et le fichier qui permet de les changer. |
 | `lmu_telemetry/cache.py` | le cache à taille bornée qu'utilisent le serveur et le chargement des tours. |
+| `lmu_telemetry/stockage/index.py` | ce qu'on sait de chaque session sans rouvrir son fichier. |
+| `lmu_telemetry/fenetre.py` | la fenêtre sans bordure : déplacement, redimensionnement, agrandissement. |
 | `lmu_telemetry/web/serveur.py` | serveur local : routes et protections. |
 | `lmu_telemetry/web/reponses.py` | mise en forme JSON des analyses pour la page. |
 | `lmu_telemetry/web/statique/` | l'interface. Graphiques écrits à la main en canvas, aucune bibliothèque à télécharger. |

@@ -107,7 +107,7 @@ const COULEUR_MARQUE_INCONNUE = "#5a6570";
 // Nom du pays dans la langue de la page. Le navigateur connaît le nom de tous
 // les pays dans toutes les langues : pas de table à tenir à jour. Le nom
 // français envoyé par le serveur ne sert que si le navigateur ne sait pas.
-function nomDuPays(pays) {
+export function nomDuPays(pays) {
   try {
     return new Intl.DisplayNames([locale()], { type: "region" }).of(pays.code) || pays.nom;
   } catch {

@@ -25,9 +25,9 @@ USING IT
 --------
 
 1. Double-click Telemetrie-LMU.exe.
-2. A black window opens, then the tool appears in your browser.
-3. Keep the black window open while you use the tool: it is what runs it.
-   Close it when you are done.
+2. The tool opens in its own window. Close it when you are done.
+3. On the very first start, the tool reads all your sessions in the background:
+   the list fills up over a minute or two. After that, it is instant.
 
 Nothing to set up in the game: Le Mans Ultimate records your telemetry on its
 own, for every session. Drive, leave the session, and it shows up in the list.
@@ -70,8 +70,9 @@ it: Porsche.png, Ferrari.png, Aston Martin.png...
 TROUBLESHOOTING
 ---------------
 
-* "The tool is no longer responding": the black window was closed. Start
-  Telemetrie-LMU.exe again.
+* Nothing opens, or the tool opens in your browser: Microsoft's WebView2
+  component is probably missing (it normally comes with Windows 10 and 11). The
+  tool remains usable in the browser.
 * A session does not show up: leave the session in the game first (the game
   keeps the file open while it is running).
 * Your antivirus blocks the .exe: this is a common false alarm with this kind

@@ -66,6 +66,9 @@ sont dans ton dossier de données, et ne partent pas avec le .exe.
 
 `lmu_telemetry/lanceur.py`, appelé au double-clic :
 
+*Depuis la v2, l'outil a sa propre fenêtre et plus de console : voir
+[14-redesign.md](14-redesign.md). Ce qui suit décrit la v1.*
+
 1. si l'outil est **déjà ouvert**, il réaffiche sa page et s'arrête ;
 2. sinon il prend le port 8770, ou le suivant s'il est tenu par un autre
    programme ;

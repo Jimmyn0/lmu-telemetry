@@ -8,9 +8,7 @@
 # * UN SEUL FICHIER (.exe autonome) : c'est ce qu'on envoie à un ami. Il
 #   s'extrait dans un dossier temporaire à chaque lancement, d'où quelques
 #   secondes de démarrage.
-# * FENÊTRE DE CONSOLE conservée : c'est elle qui dit que l'outil tourne, où
-#   le trouver, et qui l'arrête quand on la ferme. Sans elle, l'outil
-#   tournerait en arrière-plan sans moyen évident de l'arrêter.
+# * PAS DE FENÊTRE DE CONSOLE : l'outil a sa propre fenêtre, et la fermer l'arrête.
 # * PAS DE COMPRESSION UPX : elle rend le .exe plus petit mais le fait
 #   beaucoup plus souvent prendre pour un virus par les antivirus.
 
@@ -73,6 +71,6 @@ exe = EXE(
     name="Telemetrie-LMU",
     icon=str(RACINE / "lmu_telemetry" / "ressources" / "icone.ico"),
     version=version,
-    console=True,
+    console=False,
     upx=False,
 )
