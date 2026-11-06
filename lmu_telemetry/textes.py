@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -56,6 +57,16 @@ def traduire(cle: str, langue: str, valeurs: dict | None = None) -> str:
 def texte(cle: str, **valeurs: object) -> str:
     """La phrase française d'une clé, avec ses `{emplacements}` remplis."""
     return traduire(cle, "fr", valeurs)
+
+
+def console_utf8() -> None:
+    """La console Windows n'est pas en UTF-8 par défaut : sans ça, les accents
+    s'affichent en symboles incompréhensibles, voire font planter l'outil."""
+    for flux in (sys.stdout, sys.stderr):
+        try:
+            flux.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
 
 
 def langue_du_systeme() -> str:

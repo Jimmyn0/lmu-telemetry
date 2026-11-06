@@ -134,22 +134,12 @@ class Virage:
     sens: int = 0
     """+1 à gauche, -1 à droite, 0 si on ne sait pas (ancien fichier)."""
 
-    chicane: bool = False
-    """Obsolète, toujours False : gardé pour relire les anciens fichiers.
-
-    Les premières versions détectaient une chicane comme UN virage et le
-    signalaient ici. Depuis le découpage par apex, ses deux moitiés sont deux
-    virages distincts, chacun dans son sens.
-    """
-
     @property
     def longueur(self) -> float:
         return self.fin - self.debut
 
     @property
     def sens_libelle(self) -> str:
-        if self.chicane:
-            return "chicane"
         return {1: "gauche", -1: "droite"}.get(self.sens, "")
 
     @property
@@ -194,9 +184,8 @@ class DefinitionCircuit:
                         "Distances en mètres depuis la ligne de départ. "
                         "Ce fichier est fait pour être modifié à la main : "
                         "ajuste debut/fin, donne un nom aux virages, ou "
-                        "supprime ceux qui ne t'intéressent pas. Mets "
-                        "\"automatique\" à false pour que l'outil ne le "
-                        "regénère jamais."
+                        "supprime ceux qui ne t'intéressent pas. L'outil ne "
+                        "le regénère jamais."
                     ),
                     "virages": [
                         {
@@ -206,7 +195,6 @@ class DefinitionCircuit:
                             "fin": round(v.fin, 1),
                             "rayon_min": round(v.rayon_min, 1),
                             "sens": v.sens,
-                            "chicane": v.chicane,
                         }
                         for v in self.virages
                     ],
@@ -243,7 +231,6 @@ class DefinitionCircuit:
                         # ancien fichier reste lisible, simplement sans cette
                         # information, jusqu'à la prochaine redétection.
                         sens=int(v.get("sens", 0)),
-                        chicane=bool(v.get("chicane", False)),
                     )
                     for v in sorted(brut["virages"], key=lambda v: float(v["debut"]))
                 ),
@@ -302,24 +289,16 @@ def courbure(axe: np.ndarray, pas: float = 1.0) -> np.ndarray:
     return np.abs(courbure_signee(axe, pas))
 
 
-def _sens_et_chicane(signee: np.ndarray) -> dict:
+def _sens(signee: np.ndarray) -> int:
     """Sens d'un virage : celui dans lequel la piste tourne au total.
 
     C'est le signe de l'angle balayé sur toute la zone, et non celui du point
     le plus serré : un frémissement de l'axe peut être très courbé sans rien
-    changer à la direction générale du virage.
-
-    `chicane` vaut toujours False. Depuis le découpage par apex, les deux
-    moitiés d'une chicane sont deux virages distincts : un virage ne change
-    plus de sens. Le champ n'est gardé que pour relire les fichiers écrits
-    avant. Constaté sur 138 virages de 9 tracés : un seul restait marqué
-    chicane — le T1 de Portimão, un virage à droite traversé par un frémissement
-    de l'axe, qui s'affichait sans flèche.
+    changer à la direction générale du virage. Cas réel : le T1 de Portimão, un
+    virage à droite traversé par un tel frémissement.
     """
-    if signee.size == 0:
-        return {"sens": 0, "chicane": False}
     total = float(signee.sum())
-    return {"sens": 1 if total > 0 else -1 if total < 0 else 0, "chicane": False}
+    return 1 if total > 0 else -1 if total < 0 else 0
 
 
 def _angle_balaye(signee: np.ndarray, a: int, b: int, pas: float) -> float:
@@ -427,7 +406,7 @@ def detecter(
             debut=float(distance[a]),
             fin=float(distance[min(b, len(distance) - 1)]),
             rayon_min=float(1.0 / k[a:b].max()),
-            **_sens_et_chicane(signee[a:b]),
+            sens=_sens(signee[a:b]),
         )
         for i, (a, b) in enumerate(plages, 1)
     )

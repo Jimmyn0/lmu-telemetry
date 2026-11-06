@@ -69,6 +69,23 @@ class SessionEnCours(ErreurTelemetrie):
         super().__init__(message)
 
 
+class FichierIllisible(ErreurTelemetrie):
+    """Le fichier existe mais n'est pas une session exploitable.
+
+    Fichier tronqué, ou qui n'est pas une base DuckDB. Sans cette classe,
+    l'erreur de DuckDB remontait telle quelle, et un seul fichier abîmé faisait
+    échouer tout un lot de la liste des sessions.
+    """
+
+    def __init__(self, chemin: Path, detail: str) -> None:
+        super().__init__(
+            Message(
+                "serveur.erreur.fichier_illisible",
+                {"fichier": chemin.name, "detail": detail},
+            )
+        )
+
+
 class SchemaInconnu(ErreurTelemetrie):
     """La structure du fichier n'est pas celle qu'on sait lire."""
 

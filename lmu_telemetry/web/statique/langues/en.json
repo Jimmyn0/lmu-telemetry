@@ -19,7 +19,6 @@
 
   "sens.gauche": "left-hander",
   "sens.droite": "right-hander",
-  "sens.chicane": "chicane: the track changes direction",
 
   "dossier.titre": "Where are your sessions?",
   "dossier.valider": "Use this folder",
@@ -171,6 +170,7 @@
   "serveur.avert.arret_compare": "The compared lap ({n}) nearly stopped ({vitesse} km/h for {duree} s). The delta will jump vertically at that point: the distance stops moving while the time keeps running.",
 
   "serveur.erreur.fichier_introuvable": "File not found: {chemin}\nCheck the path. LMU sessions are normally found in:\n  ...\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry",
+  "serveur.erreur.fichier_illisible": "This session file cannot be read: {fichier}\nIt may be damaged. Your other sessions are not affected.\nDetail: {detail}",
   "serveur.erreur.jeu_sans_session": "Le Mans Ultimate is installed, but has not recorded any session yet: the folder\n  {chemin}\ndoes not exist yet. Drive a session (even a few practice laps), leave it, then start the tool again.",
   "serveur.erreur.jeu_introuvable": "Le Mans Ultimate could not be found on this computer.\nEnter the folder where the game records your telemetry. It is inside the game's installation folder:\n  ...\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry",
   "serveur.erreur.dossier_inexistant": "This folder does not exist:\n  {chemin}\nEnter the folder where Le Mans Ultimate records your telemetry:\n  ...\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry",
@@ -201,6 +201,7 @@
   "serveur.erreur.langue_inconnue": "Unknown language: {langue}.",
   "serveur.erreur.requete_incomplete": "Incomplete request: {detail}",
   "serveur.erreur.inattendue": "The tool ran into an unexpected problem. It is not your fault: report it to whoever gave you the tool, saying what you were doing.\n\nTechnical detail: {detail}",
+  "serveur.erreur.port_occupe": "Port {port} is already in use: the tool may already be running in\nanother window. Otherwise, pick another port, for example:\n  python -m lmu_telemetry web --port {suivant}",
   "serveur.erreur.brute": "{texte}",
 
   "console.titre": "LMU Telemetry {version}",

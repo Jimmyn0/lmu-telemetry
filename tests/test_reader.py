@@ -134,14 +134,7 @@ def test_lecture_des_evenements(session_test: Path) -> None:
     assert list(numeros) == list(range(len(constructeur.FRONTIERES)))
 
 
-def test_valeur_a_prend_la_derniere_connue(session_test: Path) -> None:
-    """Un événement n'est écrit qu'au changement : l'état à l'instant t est la
-    dernière valeur écrite avant t."""
-    with FichierSession(session_test) as f:
-        assert f.valeur_a("In Pits", 120.0) == 1  # encore aux stands
-        assert f.valeur_a("In Pits", 130.0) == 0  # sortie
-        assert f.valeur_a("In Pits", 400.0) == 0  # bien plus tard, toujours en piste
-        assert f.valeur_a("In Pits", 50.0, defaut="rien") == "rien"  # avant t0
+
 
 
 # ----------------------------------------------------------------------

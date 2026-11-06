@@ -43,12 +43,12 @@ les incidents réels sans prétendre en connaître la cause.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
 
-from ..sources.reader import SURFACES_HORS_PISTE, FichierSession, InfoSession
+from ..sources.reader import CANAL_SURFACES, FichierSession, InfoSession
 from ..textes import Message
 
 #: Vitesse (km/h) en dessous de laquelle on considère que la voiture s'est
@@ -64,22 +64,6 @@ SEUIL_QUASI_ARRET = 30.0
 #: Durée minimale hors piste (toutes roues confondues) au-delà de laquelle on
 #: le signale comme une sortie, et non comme un simple passage sur l'herbe.
 DUREE_SORTIE_SIGNALEE = 0.6
-
-#: Précision réelle (s) de la durée mesurée entre deux événements `Lap`.
-#:
-#: Le chrono du jeu est exact : c'est l'instant interpolé du franchissement.
-#: L'événement `Lap`, lui, n'est inscrit qu'au cycle de mise à jour suivant.
-#: Chaque frontière porte donc un retard, et la durée mesurée — une différence
-#: de deux frontières — porte la différence de ces deux retards.
-#:
-#: Mesuré sur les 415 tours cohérents du disque : écart signé entre -18,96 et
-#: +18,75 ms, moyenne +0,19 ms, écart-type 7,87 ms. Une différence de deux
-#: retards tirés uniformément dans un cycle de 20 ms suit une loi triangulaire
-#: de bornes ±20 ms et d'écart-type 20/√6 = 8,2 ms. L'accord est net.
-#:
-#: Conséquence pour l'affichage : ne jamais présenter la durée mesurée au
-#: millième, on ne l'a pas.
-PRECISION_DUREE_MESUREE = 0.02
 
 #: Écart toléré (s) entre le chrono du jeu et la durée mesurée entre deux
 #: franchissements de ligne.
@@ -147,7 +131,14 @@ class Tour:
 
     @property
     def duree_mesuree(self) -> float | None:
-        """Durée entre les deux franchissements, indépendante du chrono du jeu."""
+        """Durée entre les deux franchissements, indépendante du chrono du jeu.
+
+        Elle ne vaut qu'à ±0,02 s : le chrono du jeu est interpolé, alors que
+        l'événement `Lap` n'est inscrit qu'au cycle de mise à jour suivant. Mesuré
+        sur 415 tours : écart entre -18,96 et +18,75 ms, écart-type 7,87 ms, soit
+        la différence de deux retards tirés dans un cycle de 20 ms (8,2 ms en
+        théorie). Ne jamais l'afficher au millième.
+        """
         return None if self.fin is None else self.fin - self.debut
 
     @property
@@ -230,11 +221,6 @@ class Session:
     def meilleur_tour(self) -> Tour | None:
         valides = [t for t in self.tours_valides if t.chrono is not None]
         return min(valides, key=lambda t: t.chrono) if valides else None
-
-    @property
-    def duree_roulage(self) -> float:
-        """Durée cumulée des tours bouclés, en secondes."""
-        return sum(t.duree_mesuree or 0.0 for t in self.tours)
 
 
 # ----------------------------------------------------------------------
@@ -329,11 +315,7 @@ def _assembler_tour(**champs) -> Tour:
             )
         )
 
-    # `remarques` est figé dans le dataclass : on reconstruit l'objet.
-    return Tour(
-        **{k: v for k, v in tour.__dict__.items() if k != "remarques"},
-        remarques=tuple(remarques),
-    )
+    return replace(tour, remarques=tuple(remarques))
 
 
 # ----------------------------------------------------------------------
@@ -376,15 +358,21 @@ def _instants_chocs(fichier: FichierSession) -> np.ndarray:
 
 
 def _intervalles_hors_piste(fichier: FichierSession) -> list[tuple[float, float]]:
-    """Périodes où au moins une roue est sur l'herbe, la terre ou le gravier."""
-    if "SurfaceTypes" not in fichier.canaux:
-        return []
-    surfaces = fichier.canal("SurfaceTypes")
-    temps = fichier.temps_canal("SurfaceTypes")
-    pas = 1.0 / fichier.canaux["SurfaceTypes"].frequence
-    dehors = np.isin(surfaces, list(SURFACES_HORS_PISTE)).any(axis=1)
-    return [(float(t), float(t) + pas) for t, d in zip(temps, dehors) if d]
+    """Périodes où au moins une roue est sur l'herbe, la terre ou le gravier.
 
+    Les échantillons voisins sont réunis : un intervalle par sortie, et non un
+    par échantillon, que chaque tour devrait ensuite reparcourir.
+    """
+    releve = fichier.hors_piste()
+    if releve is None:
+        return []
+    temps, dehors = releve
+    pas = 1.0 / fichier.canaux[CANAL_SURFACES].frequence
+    bords = np.flatnonzero(np.diff(np.r_[0, dehors.astype(np.int8), 0]))
+    return [
+        (float(temps[debut]), float(temps[fin - 1]) + pas)
+        for debut, fin in zip(bords[::2], bords[1::2])
+    ]
 
 
 # ----------------------------------------------------------------------

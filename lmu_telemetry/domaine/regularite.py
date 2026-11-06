@@ -110,10 +110,6 @@ class StatistiquesVirage:
         return np.array([p.temps for p in self.passages])
 
     @property
-    def temps_moyen(self) -> float:
-        return float(self.temps.mean())
-
-    @property
     def temps_meilleur(self) -> float:
         return float(self.temps.min())
 

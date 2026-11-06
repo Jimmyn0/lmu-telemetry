@@ -33,7 +33,6 @@ import argparse
 import json
 import math
 import struct
-import sys
 import time
 from collections.abc import Iterator
 from datetime import datetime
@@ -43,6 +42,7 @@ from typing import BinaryIO
 import numpy as np
 
 from lmu_telemetry import emplacements
+from lmu_telemetry.textes import console_utf8
 from lmu_telemetry.sources.memoire_lmu import (
     CHAMPS_ROUE,
     CHAMPS_SCORING,
@@ -462,11 +462,7 @@ def construire_parseur() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    for flux in (sys.stdout, sys.stderr):
-        try:
-            flux.reconfigure(encoding="utf-8", errors="replace")
-        except (AttributeError, ValueError):
-            pass
+    console_utf8()
     args = construire_parseur().parse_args(argv)
     dossier = args.dossier or (
         emplacements.donnees() / "diagnostics" / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

@@ -17,6 +17,7 @@ from pathlib import Path
 from .sources import catalogue
 from .errors import DossierIntrouvable, ErreurTelemetrie, FichierIntrouvable
 from .sources.reader import FichierSession
+from .textes import console_utf8
 from .domaine.session import Session
 
 
@@ -217,14 +218,7 @@ def construire_parseur() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # La console Windows n'est pas en UTF-8 par défaut : sans ça, les accents
-    # font planter l'affichage au lieu d'afficher le résultat.
-    for flux in (sys.stdout, sys.stderr):
-        try:
-            flux.reconfigure(encoding="utf-8", errors="replace")
-        except (AttributeError, ValueError):
-            pass
-
+    console_utf8()
     args = construire_parseur().parse_args(argv)
     try:
         return args.fonction(args)

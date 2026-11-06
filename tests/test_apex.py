@@ -18,7 +18,7 @@ from lmu_telemetry.domaine.virages import (
     Virage,
     _angle_balaye,
     _apex,
-    _sens_et_chicane,
+    _sens,
     courbure,
     courbure_signee,
 )
@@ -176,8 +176,8 @@ def test_angle_minimal_respecte() -> None:
 
 
 def test_virage_simple_a_un_sens() -> None:
-    assert _sens_et_chicane(np.full(50, +0.01)) == {"sens": 1, "chicane": False}
-    assert _sens_et_chicane(np.full(50, -0.01)) == {"sens": -1, "chicane": False}
+    assert _sens(np.full(50, +0.01)) == 1
+    assert _sens(np.full(50, -0.01)) == -1
 
 
 def test_le_sens_est_celui_du_virage_pas_du_fremissement() -> None:
@@ -185,11 +185,11 @@ def test_le_sens_est_celui_du_virage_pas_du_fremissement() -> None:
     gauche reste un virage à droite. Cas réel du T1 de Portimão, qui
     s'affichait comme une chicane."""
     signee = np.concatenate([np.full(60, -0.02), np.full(4, +0.08), np.full(60, -0.02)])
-    assert _sens_et_chicane(signee) == {"sens": -1, "chicane": False}
+    assert _sens(signee) == -1
 
 
 def test_zone_vide() -> None:
-    assert _sens_et_chicane(np.array([])) == {"sens": 0, "chicane": False}
+    assert _sens(np.array([])) == 0
 
 
 def test_libelles_du_sens() -> None:
@@ -266,4 +266,4 @@ def test_ancien_fichier_sans_sens_reste_lisible(tmp_path) -> None:
     )
     relu = DefinitionCircuit.lire(chemin)
     assert relu.virages[0].sens == 0
-    assert relu.virages[0].chicane is False
+    assert not hasattr(relu.virages[0], "chicane")

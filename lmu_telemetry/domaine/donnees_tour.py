@@ -57,7 +57,7 @@ import numpy as np
 
 from ..errors import ErreurTelemetrie
 from ..textes import Message
-from ..sources.reader import SURFACES_HORS_PISTE, FichierSession, InfoSession
+from ..sources.reader import FichierSession, InfoSession
 from .session import Session, Tour
 
 #: Canaux chargés par défaut : ceux que le brief demande de superposer (§4.4),
@@ -103,7 +103,6 @@ CANAUX_DISCONTINUS = frozenset({"Track Edge", "Hors Piste"})
 #: géométrie (voir `piste.py`) : une sortie de route déplace la trajectoire de
 #: plusieurs dizaines de mètres et fausserait l'axe du circuit.
 CANAL_HORS_PISTE = "Hors Piste"
-CANAL_SURFACES = "SurfaceTypes"
 
 #: Fréquence de la grille de travail, en Hz. C'est celle des canaux les plus
 #: rapides du jeu : on ne fabrique pas de résolution qui n'existe pas.
@@ -276,9 +275,6 @@ def _ajouter_hors_piste(
 ) -> None:
     """Ajoute le canal hors piste, réduit des quatre roues à une seule valeur.
 
-    Une roue suffit : c'est le critère déjà retenu par `session.py` pour
-    annoter les tours, et il n'y a pas de raison d'en changer ici.
-
     Le rééchantillonnage se fait au plus proche voisin. C'est un ÉTAT, pas une
     grandeur continue : une valeur de 0,5 entre « sur la piste » et « dans le
     gravier » ne voudrait rien dire. `SurfaceTypes` est d'ailleurs à 5 Hz, deux
@@ -287,15 +283,11 @@ def _ajouter_hors_piste(
     Rien n'est ajouté si le canal manque : le reste de l'outil doit continuer
     de marcher, simplement sans pouvoir écarter les sorties de piste.
     """
-    if CANAL_SURFACES not in fichier.canaux:
+    releve = fichier.hors_piste()
+    if releve is None:
         return
-    surfaces = fichier.canal(CANAL_SURFACES)
-    if surfaces.ndim != 2:
-        return
-    dehors = np.isin(surfaces, list(SURFACES_HORS_PISTE)).any(axis=1)
-    valeurs[CANAL_HORS_PISTE] = _plus_proche(
-        grille, fichier.temps_canal(CANAL_SURFACES), dehors.astype(float)
-    )
+    temps, dehors = releve
+    valeurs[CANAL_HORS_PISTE] = _plus_proche(grille, temps, dehors.astype(float))
 
 
 def _grille(tour: Tour) -> np.ndarray:

@@ -63,7 +63,6 @@ function signe(v, decimales = 3) {
 const FLECHES = {
   gauche: ["↰", "sens.gauche"],
   droite: ["↱", "sens.droite"],
-  chicane: ["⇄", "sens.chicane"],
 };
 
 function fleche(sens) {

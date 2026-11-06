@@ -8,11 +8,12 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from .. import emplacements
 from ..errors import DossierIntrouvable
+from .reader import chemin_journal, horodatage
 
 #: Chemin du dossier de télémétrie à l'intérieur d'une bibliothèque Steam.
 SOUS_CHEMIN_JEU = ("steamapps", "common", "Le Mans Ultimate")
@@ -43,7 +44,7 @@ class FichierRepere:
 
     @property
     def journal_present(self) -> bool:
-        return self.chemin.with_suffix(self.chemin.suffix + ".wal").exists()
+        return chemin_journal(self.chemin).exists()
 
 
 def dossier_telemetrie(force: Path | str | None = None) -> Path:
@@ -182,13 +183,5 @@ def _decouper_nom(nom: str) -> tuple[str, str, datetime | None]:
     morceaux = nom.rsplit("_", 4)
     if len(morceaux) == 5 and len(morceaux[1]) == 1:
         circuit, code = morceaux[0], morceaux[1]
-        brut = "_".join(morceaux[2:])
-        try:
-            date, _, heure = brut.partition("T")
-            horodatage = datetime.fromisoformat(
-                f"{date}T{heure.rstrip('Z').replace('_', ':')}"
-            ).replace(tzinfo=timezone.utc)
-        except ValueError:
-            horodatage = None
-        return circuit, code, horodatage
+        return circuit, code, horodatage("_".join(morceaux[2:]))
     return nom, "?", None

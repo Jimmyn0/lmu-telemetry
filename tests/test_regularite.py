@@ -217,7 +217,7 @@ def test_somme_des_virages_vaut_le_tour(session_test: Path, definition) -> None:
     le chrono moyen. C'est le contrôle qui prouve qu'aucun morceau de piste
     n'est oublié ni compté deux fois."""
     r = analyser(session_test, definition)
-    somme = sum(v.temps_moyen for v in r.virages)
+    somme = sum(float(v.temps.mean()) for v in r.virages)
     assert somme == pytest.approx(float(np.mean(r.chronos)), abs=0.05)
 
 

@@ -919,9 +919,7 @@ class PortOccupe(ErreurTelemetrie):
     def __init__(self, port: int) -> None:
         self.port = port
         super().__init__(
-            f"Le port {port} est déjà utilisé : l'outil tourne peut-être déjà dans\n"
-            "une autre fenêtre. Sinon, choisis un autre port, par exemple :\n"
-            f"  python -m lmu_telemetry web --port {port + 1}"
+            Message("serveur.erreur.port_occupe", {"port": port, "suivant": port + 1})
         )
 
 
@@ -957,18 +955,23 @@ def creer_serveur(port: int, dossier: Path | None = None) -> ThreadingHTTPServer
         raise
 
 
-def demarrer(port: int = 8770, dossier: Path | None = None, ouvrir: bool = True) -> None:
-    """Lance le serveur et ouvre le navigateur."""
-    serveur = creer_serveur(port, dossier)
-    adresse = f"http://127.0.0.1:{port}/"
-
-    print(f"Interface disponible sur {adresse}")
-    print("Ctrl+C pour arrêter.")
+def servir(serveur: ThreadingHTTPServer, ouvrir: bool) -> None:
+    """Fait tourner le serveur jusqu'à son arrêt, en ouvrant la page au besoin."""
     if ouvrir:
+        adresse = f"http://127.0.0.1:{serveur.server_address[1]}/"
         threading.Timer(0.5, lambda: webbrowser.open(adresse)).start()
     try:
         serveur.serve_forever()
-    except KeyboardInterrupt:
-        print("\nArrêt.")
     finally:
         serveur.server_close()
+
+
+def demarrer(port: int = 8770, dossier: Path | None = None, ouvrir: bool = True) -> None:
+    """Lance le serveur et ouvre le navigateur."""
+    serveur = creer_serveur(port, dossier)
+    print(f"Interface disponible sur http://127.0.0.1:{port}/")
+    print("Ctrl+C pour arrêter.")
+    try:
+        servir(serveur, ouvrir)
+    except KeyboardInterrupt:
+        print("\nArrêt.")

@@ -55,6 +55,7 @@ import numpy as np
 
 from ..errors import (
     DonneeManquante,
+    FichierIllisible,
     FichierIntrouvable,
     SchemaInconnu,
     SessionEnCours,
@@ -71,6 +72,9 @@ ROUES = ("AVG", "AVD", "ARG", "ARD")
 #: valeur 0, 6,6 m pour 5 et 5,0 m pour 6 (vibreurs, donc en piste), contre
 #: 10,8 m pour 2 et 22,5 m pour 4. Les valeurs 2/3/4 sont donc bien hors piste.
 SURFACES_HORS_PISTE = frozenset({2, 3, 4})
+
+#: Canal donnant la nature du sol sous chaque roue.
+CANAL_SURFACES = "SurfaceTypes"
 
 #: Fragments de message d'erreur DuckDB signalant un fichier verrouillé.
 #: Le message système est traduit selon la langue de Windows, d'où plusieurs
@@ -179,7 +183,7 @@ class FichierSession:
             texte = str(exc)
             if any(signe in texte.lower() for signe in _SIGNES_VERROU):
                 raise SessionEnCours(self.chemin, texte.strip()) from exc
-            raise
+            raise FichierIllisible(self.chemin, texte.strip()) from exc
 
         self._cache: dict[str, np.ndarray] = {}
         self._info: InfoSession | None = None
@@ -188,7 +192,12 @@ class FichierSession:
         self._t0: float | None = None
         self._tables: dict[str, tuple[list[str], int]] | None = None
 
-        self._verifier_schema()
+        try:
+            self._verifier_schema()
+        except duckdb.Error as exc:
+            # Une base valide qui n'a pas les tables du jeu.
+            self.fermer()
+            raise FichierIllisible(self.chemin, str(exc).strip()) from exc
 
     # ------------------------------------------------------------------
     # Cycle de vie
@@ -206,7 +215,7 @@ class FichierSession:
     @property
     def journal_present(self) -> bool:
         """True si un .wal traîne à côté : session non refermée proprement."""
-        return self.chemin.with_suffix(self.chemin.suffix + ".wal").exists()
+        return chemin_journal(self.chemin).exists()
 
     # ------------------------------------------------------------------
     # Métadonnées
@@ -236,7 +245,7 @@ class FichierSession:
                 voiture=m.get("CarName", "?"),
                 categorie=m.get("CarClass", "?"),
                 meteo=m.get("WeatherConditions", "?"),
-                enregistree_le=_horodatage(m.get("RecordingTime")),
+                enregistree_le=horodatage(m.get("RecordingTime")),
                 version_schema=m.get("Version", "?"),
                 setup_brut=m.get("CarSetup"),
                 debattement_volant=debattement,
@@ -376,17 +385,19 @@ class FichierSession:
         valeurs = np.array([v[0] for v in brut]) if len(colonnes) == 1 else np.array(brut)
         return temps, valeurs
 
-    def valeur_a(self, evenement: str, temps: float, defaut=None):
-        """Dernière valeur connue d'un événement à un instant donné.
+    def hors_piste(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Instants de `SurfaceTypes`, et pour chacun si une roue est hors piste.
 
-        Les événements n'étant écrits qu'au changement, connaître l'état à un
-        instant t revient à prendre la dernière ligne dont le `ts` est ≤ t.
+        Une roue suffit. None si le canal manque : le reste de l'outil doit
+        continuer de marcher, simplement sans repérer les sorties de piste.
         """
-        ts, valeurs = self.evenement(evenement)
-        anterieurs = np.nonzero(ts <= temps)[0]
-        if anterieurs.size == 0:
-            return defaut
-        return valeurs[anterieurs[-1]]
+        if CANAL_SURFACES not in self.canaux:
+            return None
+        surfaces = self.canal(CANAL_SURFACES)
+        if surfaces.ndim != 2:
+            return None
+        dehors = np.isin(surfaces, list(SURFACES_HORS_PISTE)).any(axis=1)
+        return self.temps_canal(CANAL_SURFACES), dehors
 
     # ------------------------------------------------------------------
     # Utilitaires internes
@@ -448,6 +459,24 @@ class FichierSession:
 # ----------------------------------------------------------------------
 # Fonctions libres
 # ----------------------------------------------------------------------
+
+
+def chemin_journal(chemin: Path) -> Path:
+    """Le `.wal` d'une session : présent, la session n'a pas été refermée."""
+    return chemin.with_suffix(chemin.suffix + ".wal")
+
+
+def cle_fichier(chemin: Path) -> tuple[str, int, int] | None:
+    """De quoi reconnaître une version d'un fichier sans le relire.
+
+    Chemin, date de modification et taille : un fichier réécrit change de clé,
+    donc tout ce qui en a été déduit est recalculé. None s'il n'existe pas.
+    """
+    try:
+        etat = chemin.stat()
+    except OSError:
+        return None
+    return (str(chemin), etat.st_mtime_ns, etat.st_size)
 
 
 def _echapper(nom: str) -> str:
@@ -516,7 +545,7 @@ def _debattement(setup: str | None) -> tuple[float | None, float | None]:
     return volant, roues
 
 
-def _horodatage(brut: str | None) -> datetime | None:
+def horodatage(brut: str | None) -> datetime | None:
     """Convertit `2026-09-08T12_12_19Z` en datetime.
 
     Le jeu remplace les deux-points par des underscores, un nom de fichier

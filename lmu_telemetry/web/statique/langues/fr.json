@@ -19,7 +19,6 @@
 
   "sens.gauche": "vers la gauche",
   "sens.droite": "vers la droite",
-  "sens.chicane": "chicane : la piste change de sens",
 
   "dossier.titre": "Où sont tes sessions ?",
   "dossier.valider": "Utiliser ce dossier",
@@ -171,6 +170,7 @@
   "serveur.avert.arret_compare": "Le tour comparé ({n}) s'est quasiment arrêté ({vitesse} km/h pendant {duree} s). Le delta fera un saut vertical à cet endroit : la distance n'avance plus alors que le temps continue.",
 
   "serveur.erreur.fichier_introuvable": "Fichier introuvable : {chemin}\nVérifie le chemin. Les sessions de LMU se trouvent normalement dans :\n  ...\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry",
+  "serveur.erreur.fichier_illisible": "Ce fichier de session est illisible : {fichier}\nIl est peut-être abîmé. Le reste de tes sessions n'est pas touché.\nDétail : {detail}",
   "serveur.erreur.jeu_sans_session": "Le Mans Ultimate est bien installé, mais n'a encore enregistré aucune session : le dossier\n  {chemin}\nn'existe pas encore. Roule une session (même quelques tours en essais), quitte-la, puis relance l'outil.",
   "serveur.erreur.jeu_introuvable": "Impossible de trouver Le Mans Ultimate sur cet ordinateur.\nIndique le dossier où le jeu enregistre ta télémétrie. Il se trouve dans le dossier d'installation du jeu :\n  ...\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry",
   "serveur.erreur.dossier_inexistant": "Ce dossier n'existe pas :\n  {chemin}\nIndique le dossier où Le Mans Ultimate enregistre ta télémétrie :\n  ...\\steamapps\\common\\Le Mans Ultimate\\UserData\\Telemetry",
@@ -201,6 +201,7 @@
   "serveur.erreur.langue_inconnue": "Langue inconnue : {langue}.",
   "serveur.erreur.requete_incomplete": "Requête incomplète : {detail}",
   "serveur.erreur.inattendue": "L'outil a rencontré un problème inattendu. Ce n'est pas de ta faute : signale-le à qui t'a donné l'outil, en précisant ce que tu faisais.\n\nDétail technique : {detail}",
+  "serveur.erreur.port_occupe": "Le port {port} est déjà utilisé : l'outil tourne peut-être déjà dans\nune autre fenêtre. Sinon, choisis un autre port, par exemple :\n  python -m lmu_telemetry web --port {suivant}",
   "serveur.erreur.brute": "{texte}",
 
   "console.titre": "Télémétrie LMU {version}",

@@ -22,14 +22,13 @@ from __future__ import annotations
 
 import json
 import sys
-import threading
 import traceback
 import urllib.request
 import webbrowser
 
 from . import __version__
 from .errors import ErreurTelemetrie
-from .textes import Message, langue_preferee, traduire
+from .textes import Message, console_utf8, langue_preferee, traduire
 
 #: Premier port essayé, puis les suivants s'il est pris par un autre programme.
 PORT = 8770
@@ -53,7 +52,7 @@ def _pause(langue: str) -> None:
 
 
 def lancer(langue: str, ouvrir_navigateur: bool = True) -> int:
-    from .web.serveur import PortOccupe, creer_serveur
+    from .web.serveur import PortOccupe, creer_serveur, servir
 
     def dire(cle: str, **valeurs: object) -> None:
         print(traduire(cle, langue, valeurs))
@@ -82,23 +81,12 @@ def lancer(langue: str, ouvrir_navigateur: bool = True) -> int:
     dire("console.ouvert", adresse=adresse)
     print()
     dire("console.laisser_ouvert")
-    if ouvrir_navigateur:
-        threading.Timer(0.5, lambda: webbrowser.open(adresse)).start()
-    try:
-        serveur.serve_forever()
-    finally:
-        serveur.server_close()
+    servir(serveur, ouvrir_navigateur)
     return 0
 
 
 def main() -> int:
-    # La console Windows n'est pas en UTF-8 par défaut : sans ça, les accents
-    # s'affichent en symboles incompréhensibles, voire font planter l'outil.
-    for flux in (sys.stdout, sys.stderr):
-        try:
-            flux.reconfigure(encoding="utf-8", errors="replace")
-        except (AttributeError, ValueError):
-            pass
+    console_utf8()
     langue = langue_preferee()
     try:
         # `--sans-navigateur` : pour tester le .exe sans ouvrir de fenêtre.
