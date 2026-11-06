@@ -16,7 +16,7 @@ avant, puis comparées champ par champ après. Toute différence est expliquée 
 | `domaine/` | tours, virages, comparaison, régularité, circuits | aucune connaissance de l'interface |
 | `web/` | `serveur.py` (HTTP), `reponses.py` (JSON), `statique/` | aucun calcul de pilotage |
 
-`web/serveur.py` passe de 970 à environ 370 lignes. Le découpage d'un circuit et l'écart par
+`web/serveur.py` passe de 970 à 400 lignes. Le découpage d'un circuit et l'écart par
 virage, enfermés dans le serveur, sont dans `domaine/` : le direct en aura besoin.
 
 ## Ce qui a été corrigé dans les mesures
@@ -37,7 +37,7 @@ aussitôt. Il faut maintenant tenir 0,3 s.
 
 **Le geste du pilote.** `Throttle Pos` porte les coupures automatiques du changement de
 rapport et de l'antipatinage : 100, 0, 100 en sortie de T1 à Spa. La remise des gaz et le
-temps sur l'erre lisent `Throttle Pos Unfiltered`. Le temps sur l'erre baisse donc de 3 % en
+temps sur l'erre lisent `Throttle Pos Unfiltered`. Le temps sur l'erre baisse donc de 5 % en
 moyenne : ces coupures n'étaient pas de la roue libre.
 
 ## Les autres différences relevées
