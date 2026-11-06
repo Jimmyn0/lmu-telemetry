@@ -55,9 +55,10 @@ from pathlib import Path
 
 import numpy as np
 
-from .donnees_tour import DonneesTour
 from ..errors import ErreurTelemetrie
+from ..parametres import SeuilsVirage
 from ..textes import Message
+from .donnees_tour import CANAL_GAZ_BRUT, DonneesTour
 from .piste import construire
 
 #: Rayon (m) en dessous duquel on parle de virage.
@@ -101,20 +102,8 @@ ANGLE_MINIMAL = 15.0
 #: reconstruction de la géométrie avec une erreur incompréhensible.
 LONGUEUR_TOUR_MINIMALE = 100.0
 
-#: Distance maximale remontée en amont d'un virage pour y chercher le freinage.
-REMONTEE_FREINAGE = 350.0
-
-#: Distance conservée en aval pour observer la sortie.
-PROLONGEMENT_SORTIE = 100.0
-
-#: Seuils de pédale, en pourcentage de course.
-SEUIL_FREIN = 3.0
-SEUIL_GAZ = 15.0
-
-#: En dessous de ces deux valeurs, la voiture roule sur son erre : c'est le
-#: « coasting », révélateur chez les débutants d'après le brief.
-SEUIL_COASTING_FREIN = 3.0
-SEUIL_COASTING_GAZ = 5.0
+#: Canaux dont se déduisent les mesures d'un virage.
+CANAUX_MESURES = ("Ground Speed", "Brake Pos", "Throttle Pos", CANAL_GAZ_BRUT)
 
 #: Remarque « pris sans freiner » : la page l'affiche comme une étiquette dans
 #: la case du virage, et non comme une remarque, d'où une clé nommée.
@@ -456,7 +445,10 @@ class MetriquesVirage:
     position_vitesse_min: float
 
     remise_gaz: float | None
-    """Distance à laquelle l'accélérateur repasse durablement au-dessus du seuil."""
+    """Distance à laquelle l'accélérateur repasse durablement au-dessus du seuil.
+
+    Durablement : un coup de gaz relâché aussitôt n'est pas une remise des gaz.
+    """
 
     vitesse_remise_gaz: float | None
     vitesse_sortie: float
@@ -467,16 +459,59 @@ class MetriquesVirage:
 
 
 def mesurer(
-    tour: DonneesTour, definition: DefinitionCircuit, pas: float = 1.0
+    tour: DonneesTour,
+    definition: DefinitionCircuit,
+    pas: float = 1.0,
+    seuils: SeuilsVirage = SeuilsVirage(),
 ) -> list[MetriquesVirage]:
     """Mesure tous les virages d'un circuit sur un tour."""
     distance = np.arange(0.0, tour.longueur, pas)
-    v = tour.sur_distance(distance)
+    v = tour.sur_distance(distance, CANAUX_MESURES)
     temps = tour.temps_a_distance(distance)
     return [
-        _mesurer_un(tour, virage, definition, distance, v, temps, pas)
+        _mesurer_un(tour, virage, definition, distance, v, temps, seuils)
         for virage in definition.virages
         if virage.debut < tour.longueur
+    ]
+
+
+@dataclass(frozen=True)
+class EcartVirage:
+    """Un virage sur deux tours, et le temps gagné ou perdu entre les deux."""
+
+    reference: MetriquesVirage
+    compare: MetriquesVirage | None
+    delta_zone: float | None
+    """Temps perdu par le tour comparé sur la portion du virage, en secondes."""
+
+
+def ecarts_par_virage(
+    reference: DonneesTour,
+    compare: DonneesTour,
+    definition: DefinitionCircuit,
+    seuils: SeuilsVirage = SeuilsVirage(),
+) -> list[EcartVirage]:
+    """Compare deux tours virage par virage.
+
+    Le temps gagné ou perdu est réparti sur tout le tour : chaque mètre appartient
+    à un virage et à un seul, donc la colonne s'additionne exactement à l'écart
+    final. Une colonne qui ne totalise pas serait trompeuse.
+    """
+    mesures_cmp = {m.virage.numero: m for m in mesurer(compare, definition, seuils=seuils)}
+    axe = np.arange(0.0, min(reference.longueur, compare.longueur), 1.0)
+    delta = compare.temps_a_distance(axe) - reference.temps_a_distance(axe)
+    portions = dict(zip((v.numero for v in definition.virages), secteurs(definition)))
+
+    def delta_zone(virage: Virage) -> float | None:
+        borne = portions.get(virage.numero)
+        if borne is None:
+            return None
+        a, b = min(borne[0], axe[-1]), min(borne[1], axe[-1])
+        return float(np.interp(b, axe, delta) - np.interp(a, axe, delta))
+
+    return [
+        EcartVirage(m, mesures_cmp.get(m.virage.numero), delta_zone(m.virage))
+        for m in mesurer(reference, definition, seuils=seuils)
     ]
 
 
@@ -502,7 +537,9 @@ def secteurs(definition: DefinitionCircuit) -> list[tuple[float, float]]:
 
 
 def zone_analyse(
-    virage: Virage, definition: DefinitionCircuit
+    virage: Virage,
+    definition: DefinitionCircuit,
+    seuils: SeuilsVirage = SeuilsVirage(),
 ) -> tuple[float, float]:
     """Portion de piste observée pour un virage : son approche et sa sortie.
 
@@ -512,13 +549,26 @@ def zone_analyse(
     precedent = [v.fin for v in definition.virages if v.fin <= virage.debut]
     suivant = [v.debut for v in definition.virages if v.debut >= virage.fin]
     debut = max(
-        virage.debut - REMONTEE_FREINAGE, max(precedent) if precedent else 0.0
+        virage.debut - seuils.remontee_freinage, max(precedent) if precedent else 0.0
     )
     fin = min(
-        virage.fin + PROLONGEMENT_SORTIE,
+        virage.fin + seuils.prolongement_sortie,
         min(suivant) if suivant else definition.longueur,
     )
     return debut, max(fin, virage.fin)
+
+
+def _premier_durable(actif: np.ndarray, temps: np.ndarray, duree: float) -> int | None:
+    """Premier indice à partir duquel `actif` reste vrai pendant `duree` secondes.
+
+    Une plage qui atteint la fin de la zone est acceptée : on ne sait pas ce qui
+    suit, et une remise des gaz tardive reste une remise des gaz.
+    """
+    bords = np.flatnonzero(np.diff(np.r_[0, actif.astype(np.int8), 0]))
+    for debut, fin in zip(bords[::2], bords[1::2]):
+        if fin == actif.size or temps[fin - 1] - temps[debut] >= duree:
+            return int(debut)
+    return None
 
 
 def _mesurer_un(
@@ -528,9 +578,9 @@ def _mesurer_un(
     distance: np.ndarray,
     v: dict[str, np.ndarray],
     temps: np.ndarray,
-    pas: float,
+    seuils: SeuilsVirage,
 ) -> MetriquesVirage:
-    debut_zone, fin_zone = zone_analyse(virage, definition)
+    debut_zone, fin_zone = zone_analyse(virage, definition, seuils)
     zone = (distance >= debut_zone) & (distance <= fin_zone)
     dans = (distance >= virage.debut) & (distance <= virage.fin)
     if not zone.any() or not dans.any():
@@ -545,14 +595,28 @@ def _mesurer_un(
     d = distance[zone]
     t = temps[zone]
     frein = v["Brake Pos"][zone]
-    gaz = v["Throttle Pos"][zone]
+    # Le geste du pilote : sans ce canal, les vieux fichiers retombent sur
+    # l'accélérateur filtré.
+    gaz = v.get(CANAL_GAZ_BRUT, v["Throttle Pos"])[zone]
     vitesse = v["Ground Speed"][zone]
     remarques: list[Message] = []
 
+    # --- point le plus lent ------------------------------------------
+    vitesses_virage = v["Ground Speed"][dans]
+    creux = int(np.argmin(vitesses_virage))
+    vitesse_min = float(vitesses_virage[creux])
+    position_min = float(distance[dans][creux])
+
     # --- freinage ----------------------------------------------------
-    freine = frein > SEUIL_FREIN
-    if freine.any():
-        premier = int(np.argmax(freine))
+    # On cherche une ATTAQUE de la pédale avant le point le plus lent. Une pédale
+    # déjà enfoncée à l'entrée de la zone prolonge le freinage du virage d'avant,
+    # et le début de zone passait pour un point de freinage. Un coup de frein
+    # après le point le plus lent prépare le virage suivant.
+    freine = frein > seuils.frein
+    attaques = np.flatnonzero(np.diff(freine.astype(np.int8)) == 1) + 1
+    attaques = attaques[d[attaques] <= position_min]
+    if attaques.size:
+        premier = int(attaques[0])
         debut_freinage = float(d[premier])
         vitesse_entree = float(vitesse[premier])
         distance_freinage = virage.debut - debut_freinage
@@ -562,27 +626,21 @@ def _mesurer_un(
         debut_freinage = vitesse_entree = distance_freinage = None
         # Ce n'est pas une anomalie : à Monza, la sortie de la première chicane
         # et la Curva Grande se passent sans jamais toucher le frein.
-        remarques.append(Message(SANS_FREINER))
+        remarques.append(
+            Message("serveur.virage.freinage_precedent" if freine[0] else SANS_FREINER)
+        )
 
     # Le temps se déduit de l'axe de distance : on somme la durée des tronçons
     # où la pédale est enfoncée, plutôt que de compter des échantillons.
     duree = np.diff(t, prepend=t[0])
     duree_freinage = float(duree[freine].sum())
 
-    # --- point le plus lent ------------------------------------------
-    vitesses_virage = v["Ground Speed"][dans]
-    creux = int(np.argmin(vitesses_virage))
-    vitesse_min = float(vitesses_virage[creux])
-    position_min = float(distance[dans][creux])
-
     # --- remise des gaz ----------------------------------------------
     # On la cherche APRÈS le point le plus lent : avant, un coup d'accélérateur
     # en entrée de courbe n'est pas une remise des gaz.
     apres = d >= position_min
-    gaz_apres = gaz[apres]
-    ouvert = gaz_apres > SEUIL_GAZ
-    if ouvert.any():
-        indice = int(np.argmax(ouvert))
+    indice = _premier_durable(gaz[apres] > seuils.gaz, t[apres], seuils.duree_remise_gaz)
+    if indice is not None:
         remise_gaz = float(d[apres][indice])
         vitesse_remise = float(vitesse[apres][indice])
     else:
@@ -591,7 +649,7 @@ def _mesurer_un(
 
     # --- sortie et coasting ------------------------------------------
     vitesse_sortie = float(v["Ground Speed"][dans][-1])
-    sur_lerre = (frein <= SEUIL_COASTING_FREIN) & (gaz <= SEUIL_COASTING_GAZ)
+    sur_lerre = (frein <= seuils.coasting_frein) & (gaz <= seuils.coasting_gaz)
     temps_coasting = float(duree[sur_lerre].sum())
 
     return MetriquesVirage(

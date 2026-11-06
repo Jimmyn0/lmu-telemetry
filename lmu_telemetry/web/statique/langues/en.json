@@ -163,6 +163,7 @@
 
   "serveur.virage.freinage_dans_virage": "braking started inside the corner",
   "serveur.virage.sans_freiner": "taken without braking",
+  "serveur.virage.freinage_precedent": "braking started before this corner",
   "serveur.virage.pas_de_remise_gaz": "not back on the throttle before the end of the zone",
 
   "serveur.avert.voitures": "The two laps are not in the same car ({ref} vs {cmp}). The delta then mostly measures a difference in machinery, not in driving.",
@@ -188,6 +189,7 @@
   "serveur.erreur.tours_trop_courts": "These laps are too short to be compared.",
   "serveur.erreur.regularite_peu_de_tours": "This session only has {n} valid lap(s). At least {minimum} are needed to talk about consistency: with fewer, a spread means nothing.\nPick a longer session, or drive a few more laps.",
   "serveur.erreur.virages_illisible": "The corner file for this track cannot be read:\n  {chemin}\n({detail})\nFix it, or delete it so that it is generated again.",
+  "serveur.erreur.parametres_illisible": "The settings file cannot be read:\n  {chemin}\nFix it, or delete it to get the default values back.\nDetail: {detail}",
   "serveur.erreur.decoupage_sans_tour": "At least one lap is needed to split the track into corners.",
   "serveur.erreur.decoupage_tours_courts": "The laps provided are too short to split the track into corners ({longueur} m). Pick a session where you completed a full lap.",
   "serveur.erreur.virage_hors_tour": "Corner {numero} falls outside the lap ({debut}–{fin} m for a {longueur} m lap). The corner file may not match this track.",

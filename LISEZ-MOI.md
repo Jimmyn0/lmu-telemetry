@@ -151,6 +151,7 @@ Ce qu'il **écrit** — et que tu peux retoucher — va dans ton dossier de donn
 ```
 %LOCALAPPDATA%\Telemetrie LMU\
     reglages.json      le dossier de télémétrie, si tu l'as choisi dans l'outil
+    parametres.json    les seuils de l'outil, modifiables
     virages\           le découpage de chaque circuit, modifiable
     logos\             tes logos de marque personnels
     pays.json          drapeaux des circuits ajoutés (facultatif)
@@ -504,7 +505,11 @@ Relance l'outil, puis recharge la page (F5).
 
 **« Version de format non reconnue »**
 Une mise à jour du jeu a changé la structure des fichiers. Un seul fichier de
-l'outil est à corriger, `lmu_telemetry/reader.py` — c'est fait exprès.
+l'outil est à corriger, `lmu_telemetry/sources/reader.py` — c'est fait exprès.
+
+**« Le fichier de réglages est illisible »**
+Une retouche de `parametres.json` a laissé une faute de frappe : le message dit
+laquelle. Corrige-la, ou supprime le fichier pour retrouver les valeurs d'origine.
 
 **« L'outil a rencontré un problème inattendu »**
 C'est un défaut de l'outil, pas une erreur de manipulation. Le message donne
@@ -561,17 +566,23 @@ sessions quand LMU est installé sur la machine, et sont ignorés sinon.
 
 | Fichier | Rôle |
 |---|---|
-| `lmu_telemetry/reader.py` | **le seul module qui connaît le format des `.duckdb` de télémétrie.** Si LMU change ce format, c'est ici et nulle part ailleurs. |
-| `lmu_telemetry/resultats.py` | **le seul module qui connaît le format des `.xml` de résultats.** C'est de là que vient le modèle de la voiture. |
-| `lmu_telemetry/pays.py` | pays de chaque circuit, pour le drapeau. Table écrite à la main, complétable sans toucher au code. |
-| `lmu_telemetry/session.py` | découpage en tours, chronos, validité. Ne sait rien de DuckDB. |
-| `lmu_telemetry/donnees_tour.py` | extrait un tour sur un axe de distance. |
-| `lmu_telemetry/comparaison.py` | aligne deux tours et calcule le delta cumulé. |
-| `lmu_telemetry/piste.py` | reconstruit la géométrie de la route (axe, bords) pour la vue rapprochée. |
-| `lmu_telemetry/virages.py` | découpe le circuit en virages et mesure le pilotage sur chacun. |
-| `lmu_telemetry/regularite.py` | dispersion des chronos, constance par virage, tour idéal. |
-| `lmu_telemetry/web/` | serveur local et interface. Graphiques écrits à la main en canvas, aucune bibliothèque à télécharger. |
-| `lmu_telemetry/catalogue.py` | repérage des fichiers sur le disque, et du jeu dans les bibliothèques Steam. |
+| `lmu_telemetry/sources/reader.py` | **le seul module qui connaît le format des `.duckdb` de télémétrie.** Si LMU change ce format, c'est ici et nulle part ailleurs. |
+| `lmu_telemetry/sources/resultats.py` | **le seul module qui connaît le format des `.xml` de résultats.** C'est de là que vient le modèle de la voiture. |
+| `lmu_telemetry/domaine/pays.py` | pays de chaque circuit, pour le drapeau. Table écrite à la main, complétable sans toucher au code. |
+| `lmu_telemetry/domaine/session.py` | découpage en tours, chronos, validité. Ne sait rien de DuckDB. |
+| `lmu_telemetry/domaine/donnees_tour.py` | extrait un tour sur un axe de distance. |
+| `lmu_telemetry/domaine/comparaison.py` | aligne deux tours et calcule le delta cumulé. |
+| `lmu_telemetry/domaine/piste.py` | reconstruit la géométrie de la route (axe, bords) pour la vue rapprochée. |
+| `lmu_telemetry/domaine/virages.py` | découpe le circuit en virages et mesure le pilotage sur chacun. |
+| `lmu_telemetry/domaine/regularite.py` | dispersion des chronos, constance par virage, tour idéal. |
+| `lmu_telemetry/sources/memoire_lmu.py` | **le seul module qui connaît la mémoire partagée du jeu**, lue en direct, sans la modifier ni y prendre de verrou. |
+| `lmu_telemetry/domaine/circuits.py` | retrouve ou détecte le découpage d'un circuit. |
+| `lmu_telemetry/parametres.py` | les seuils réglables, et le fichier qui permet de les changer. |
+| `lmu_telemetry/cache.py` | le cache à taille bornée qu'utilisent le serveur et le chargement des tours. |
+| `lmu_telemetry/web/serveur.py` | serveur local : routes et protections. |
+| `lmu_telemetry/web/reponses.py` | mise en forme JSON des analyses pour la page. |
+| `lmu_telemetry/web/statique/` | l'interface. Graphiques écrits à la main en canvas, aucune bibliothèque à télécharger. |
+| `lmu_telemetry/sources/catalogue.py` | repérage des fichiers sur le disque, et du jeu dans les bibliothèques Steam. |
 | `lmu_telemetry/emplacements.py` | où vont les ressources livrées et les données de l'utilisateur. |
 | `lmu_telemetry/lanceur.py` | ce qui se passe au double-clic sur le .exe. |
 | `lmu_telemetry/textes.py` | les messages que le serveur envoie à traduire, et le français de la ligne de commande. |

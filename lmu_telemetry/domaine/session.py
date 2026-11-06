@@ -48,7 +48,8 @@ from pathlib import Path
 
 import numpy as np
 
-from ..sources.reader import CANAL_SURFACES, FichierSession, InfoSession
+from ..cache import CacheBorne
+from ..sources.reader import CANAL_SURFACES, FichierSession, InfoSession, cle_fichier
 from ..textes import Message
 
 #: Vitesse (km/h) en dessous de laquelle on considère que la voiture s'est
@@ -75,6 +76,9 @@ DUREE_SORTIE_SIGNALEE = 0.6
 #: correspond alors pas au chrono, et le tour n'est comparable à aucun autre.
 #: N'importe quel seuil entre 0,05 s et 5 s isole exactement les mêmes 20 tours.
 TOLERANCE_CHRONO = 0.5
+
+#: Nombre de sessions gardées découpées en mémoire.
+SESSIONS_EN_CACHE = 64
 
 
 @dataclass(frozen=True)
@@ -203,13 +207,26 @@ class Session:
     @classmethod
     def ouvrir(cls, chemin: Path | str) -> "Session":
         """Lit un fichier de session et en extrait les tours."""
+        cle = cle_fichier(Path(chemin))
+        if cle is not None and (connue := _sessions.get(cle)) is not None:
+            return connue
         with FichierSession(chemin) as fichier:
+            return cls.depuis(fichier)
+
+    @classmethod
+    def depuis(cls, fichier: FichierSession) -> "Session":
+        """La session d'un fichier déjà ouvert, sans le rouvrir."""
+
+        def decouper() -> "Session":
             return cls(
                 chemin=fichier.chemin,
                 info=fichier.info,
                 tours=tuple(_construire_tours(fichier)),
                 journal_present=fichier.journal_present,
             )
+
+        cle = cle_fichier(fichier.chemin)
+        return decouper() if cle is None else _sessions.obtenir(cle, decouper)
 
     # ------------------------------------------------------------------
 
@@ -221,6 +238,12 @@ class Session:
     def meilleur_tour(self) -> Tour | None:
         valides = [t for t in self.tours_valides if t.chrono is not None]
         return min(valides, key=lambda t: t.chrono) if valides else None
+
+
+#: Sessions déjà découpées. Une comparaison, ses virages et la régularité
+#: repartent tous de la même session : la redécouper à chaque fois coûtait
+#: 0,1 s par tour chargé.
+_sessions: CacheBorne[tuple[str, int, int], Session] = CacheBorne(SESSIONS_EN_CACHE)
 
 
 # ----------------------------------------------------------------------

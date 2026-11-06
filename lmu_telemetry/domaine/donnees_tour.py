@@ -50,21 +50,30 @@ locale, qui n'est autre que la vitesse.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
 
+from ..cache import CacheBorne
 from ..errors import ErreurTelemetrie
+from ..sources.reader import FichierSession, InfoSession, cle_fichier
 from ..textes import Message
-from ..sources.reader import FichierSession, InfoSession
 from .session import Session, Tour
+
+#: Accélérateur tel que le pilote l'actionne. Voir `CANAUX_PAR_DEFAUT`.
+CANAL_GAZ_BRUT = "Throttle Pos Unfiltered"
 
 #: Canaux chargés par défaut : ceux que le brief demande de superposer (§4.4),
 #: plus les coordonnées GPS qui servent à tracer la carte du circuit.
 CANAUX_PAR_DEFAUT = (
     "Ground Speed",
     "Throttle Pos",
+    # Le geste du pilote, sans les coupures automatiques (changement de rapport,
+    # antipatinage) que porte `Throttle Pos`. Sur Monza, celles-ci faisaient
+    # passer 83 % des remises des gaz pour hésitantes, contre 3,8 % ici.
+    CANAL_GAZ_BRUT,
     "Brake Pos",
     "Steering Pos",
     "Engine RPM",
@@ -107,6 +116,11 @@ CANAL_HORS_PISTE = "Hors Piste"
 #: Fréquence de la grille de travail, en Hz. C'est celle des canaux les plus
 #: rapides du jeu : on ne fabrique pas de résolution qui n'existe pas.
 FREQUENCE_GRILLE = 100
+
+#: Nombre de tours gardés en mémoire, environ 1 Mo chacun. Une comparaison, ses
+#: virages et sa vue de la route portent sur les mêmes tours : sans cache, chaque
+#: requête les relisait.
+TOURS_EN_CACHE = 48
 
 #: Canal calculé : l'angle au volant en degrés, déduit de `Steering Pos`.
 #:
@@ -168,6 +182,17 @@ class DonneesTour:
 
     # ------------------------------------------------------------------
 
+    @cached_property
+    def _progression(self) -> tuple[np.ndarray, np.ndarray]:
+        """Distances strictement croissantes, et le masque qui les sélectionne.
+
+        np.interp veut des abscisses strictement croissantes : on ne garde que
+        le dernier instant de chaque palier.
+        """
+        croissante = np.maximum.accumulate(self.distance)
+        garde = np.append(np.diff(croissante) > 0, True)
+        return croissante[garde], garde
+
     def temps_a_distance(self, distances: np.ndarray) -> np.ndarray:
         """Instant auquel le tour a atteint chaque distance donnée.
 
@@ -177,34 +202,39 @@ class DonneesTour:
         plus TARDIF — celui où la voiture repart —, sinon un arrêt de trois
         secondes disparaîtrait purement et simplement du calcul de delta.
         """
-        croissante = np.maximum.accumulate(self.distance)
-        # np.interp veut des abscisses strictement croissantes : on ne garde
-        # que le dernier instant de chaque palier.
-        garde = np.append(np.diff(croissante) > 0, True)
-        return np.interp(distances, croissante[garde], self.temps[garde])
+        x, garde = self._progression
+        return np.interp(distances, x, self.temps[garde])
 
-    def sur_distance(self, distances: np.ndarray) -> dict[str, np.ndarray]:
-        """Rééchantillonne tous les canaux sur un axe de distance donné.
+    def sur_distance(
+        self, distances: np.ndarray, canaux: tuple[str, ...] | None = None
+    ) -> dict[str, np.ndarray]:
+        """Rééchantillonne les canaux sur un axe de distance donné.
 
-        Les canaux discontinus sont pris au plus proche voisin : les interpoler
+        Tous par défaut, ou seulement ceux de `canaux` qui ont été chargés. Les
+        canaux discontinus sont pris au plus proche voisin : les interpoler
         inventerait des valeurs intermédiaires qui n'existent pas.
         """
-        croissante = np.maximum.accumulate(self.distance)
-        garde = np.append(np.diff(croissante) > 0, True)
-        x = croissante[garde]
+        x, garde = self._progression
+        retenus = self.canaux if canaux is None else {
+            nom: self.canaux[nom] for nom in canaux if nom in self.canaux
+        }
         return {
             nom: (
                 _plus_proche(distances, x, valeurs[garde])
                 if nom in CANAUX_DISCONTINUS
                 else np.interp(distances, x, valeurs[garde])
             )
-            for nom, valeurs in self.canaux.items()
+            for nom, valeurs in retenus.items()
         }
 
 
 # ----------------------------------------------------------------------
 # Chargement
 # ----------------------------------------------------------------------
+
+
+#: Tours déjà extraits, indexés par la version du fichier et ce qui a été chargé.
+_tours: CacheBorne[tuple, DonneesTour] = CacheBorne(TOURS_EN_CACHE)
 
 
 def charger(
@@ -214,7 +244,43 @@ def charger(
     evenements: tuple[str, ...] = EVENEMENTS_PAR_DEFAUT,
 ) -> DonneesTour:
     """Charge un tour d'une session, prêt à être comparé."""
-    session = Session.ouvrir(chemin)
+    return charger_tours(chemin, [numero], canaux, evenements)[0]
+
+
+def charger_tours(
+    chemin: Path | str,
+    numeros: list[int],
+    canaux: tuple[str, ...] = CANAUX_PAR_DEFAUT,
+    evenements: tuple[str, ...] = EVENEMENTS_PAR_DEFAUT,
+) -> list[DonneesTour]:
+    """Charge plusieurs tours d'une même session, en n'ouvrant le fichier qu'une
+    fois : lecture et conversion des canaux sont communes à tous les tours."""
+    empreinte = cle_fichier(Path(chemin))
+
+    def cle(numero: int) -> tuple:
+        return (empreinte, numero, canaux, evenements)
+
+    trouves = {n: _tours.get(cle(n)) if empreinte else None for n in numeros}
+    manquants = [n for n, tour in trouves.items() if tour is None]
+    if manquants:
+        with FichierSession(chemin) as fichier:
+            session = Session.depuis(fichier)
+            for numero in manquants:
+                trouves[numero] = _extraire(fichier, session, numero, canaux, evenements)
+                if empreinte:
+                    _tours[cle(numero)] = trouves[numero]
+    # Chacun reçoit son dictionnaire : y remplacer un canal ne doit pas toucher
+    # le tour gardé en cache, partagé avec les autres requêtes.
+    return [replace(trouves[n], canaux=dict(trouves[n].canaux)) for n in numeros]
+
+
+def _extraire(
+    fichier: FichierSession,
+    session: Session,
+    numero: int,
+    canaux: tuple[str, ...],
+    evenements: tuple[str, ...],
+) -> DonneesTour:
     tours = {t.numero: t for t in session.tours}
     if numero not in tours:
         raise TourIntrouvable(numero, sorted(tours))
@@ -222,29 +288,32 @@ def charger(
     if tour.fin is None:
         raise ErreurTelemetrie.de("serveur.erreur.tour_non_boucle", numero=numero)
 
-    with FichierSession(chemin) as fichier:
-        grille = _grille(tour)
-        distance = _distance_sur(fichier, tour, grille)
-        valeurs = {
-            nom: _canal_sur(fichier, nom, grille)
-            for nom in canaux
-            if nom in fichier.canaux
+    grille = _grille(tour)
+    distance = _distance_sur(fichier, tour, grille)
+    valeurs = {
+        nom: _canal_sur(fichier, nom, grille) for nom in canaux if nom in fichier.canaux
+    }
+    valeurs.update(
+        {
+            nom: _evenement_sur(fichier, nom, grille)
+            for nom in evenements
+            if nom in fichier.evenements
         }
-        valeurs.update(
-            {
-                nom: _evenement_sur(fichier, nom, grille)
-                for nom in evenements
-                if nom in fichier.evenements
-            }
-        )
-        _ajouter_volant(valeurs, session.info)
-        _ajouter_hors_piste(fichier, valeurs, grille)
+    )
+    _ajouter_volant(valeurs, session.info)
+    _ajouter_hors_piste(fichier, valeurs, grille)
+
+    temps = grille - tour.debut
+    # Ces tableaux sont partagés par le cache : une écriture accidentelle doit
+    # échouer tout de suite, pas fausser en silence une autre analyse.
+    for tableau in (temps, distance, *valeurs.values()):
+        tableau.setflags(write=False)
 
     return DonneesTour(
         tour=tour,
         info=session.info,
         chemin=session.chemin,
-        temps=grille - tour.debut,
+        temps=temps,
         distance=distance,
         canaux=valeurs,
     )

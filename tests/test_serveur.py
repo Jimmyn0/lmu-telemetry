@@ -11,7 +11,7 @@ from pathlib import Path
 
 from lmu_telemetry.domaine.session import Session
 from lmu_telemetry.domaine.virages import DefinitionCircuit, Virage, fichier_definition
-from lmu_telemetry.web import serveur
+from lmu_telemetry.web import reponses, serveur
 
 
 def test_une_retouche_du_fichier_de_virages_est_prise_en_compte(
@@ -23,7 +23,6 @@ def test_une_retouche_du_fichier_de_virages_est_prise_en_compte(
     Le cache était indexé par le seul chemin du fichier : une retouche faite
     pendant que le serveur tournait était ignorée, sans aucun signe.
     """
-    serveur._cache_virages.clear()
     contexte = serveur.Contexte(dossier_virages=tmp_path)
     session = Session.ouvrir(session_test)
 
@@ -36,7 +35,7 @@ def test_une_retouche_du_fichier_de_virages_est_prise_en_compte(
         virages=(Virage(1, 100.0, 200.0, 50.0),),
     ).enregistrer(chemin)
 
-    avant, _ = serveur._definition(contexte, session)
+    avant, _ = reponses.definition(contexte, session)
     assert avant.virages[0].nom == ""
 
     brut = json.loads(chemin.read_text(encoding="utf-8"))
@@ -44,7 +43,7 @@ def test_une_retouche_du_fichier_de_virages_est_prise_en_compte(
     brut["automatique"] = False
     chemin.write_text(json.dumps(brut, ensure_ascii=False), encoding="utf-8")
 
-    apres, _ = serveur._definition(contexte, session)
+    apres, _ = reponses.definition(contexte, session)
     assert apres.virages[0].nom == "Mon virage"
     assert apres.automatique is False
 
@@ -52,9 +51,8 @@ def test_une_retouche_du_fichier_de_virages_est_prise_en_compte(
 def test_le_fichier_de_virages_est_ecrit_d_un_bloc(session_test: Path, tmp_path: Path) -> None:
     """Aucun fichier temporaire ne doit traîner après l'écriture, et le
     fichier final doit être lisible."""
-    serveur._cache_virages.clear()
     contexte = serveur.Contexte(dossier_virages=tmp_path)
-    _, chemin = serveur._definition(contexte, Session.ouvrir(session_test))
+    _, chemin = reponses.definition(contexte, Session.ouvrir(session_test))
     assert [p.name for p in tmp_path.iterdir()] == [chemin.name]
     json.loads(chemin.read_text(encoding="utf-8"))
 

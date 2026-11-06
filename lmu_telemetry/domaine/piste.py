@@ -175,14 +175,32 @@ class Geometrie:
         return float(self.mesure.mean())
 
 
+#: Canaux dont se déduit la géométrie, seuls utiles à ce module.
+CANAUX_GPS = ("GPS Longitude", "GPS Latitude")
+CANAUX_GEOMETRIE = (*CANAUX_GPS, "Path Lateral", "Track Edge")
+
+
+def _en_metres(lon: np.ndarray, lat: np.ndarray, k: float) -> np.ndarray:
+    return np.column_stack([lon * METRES_PAR_DEGRE * k, lat * METRES_PAR_DEGRE])
+
+
+def _cosinus(lat: np.ndarray) -> float:
+    """Un seul cosinus pour tout le circuit : sur 5 km, la latitude varie de
+    0,02°, ce qui change l'échelle de 3 dix-millièmes."""
+    return math.cos(math.radians(float(np.mean(lat))))
+
+
 def positions(tour: DonneesTour) -> np.ndarray:
     """Position de la voiture en mètres, sur la grille de distance du tour."""
     lat = tour.canal("GPS Latitude")
-    lon = tour.canal("GPS Longitude")
-    # Un seul cosinus pour tout le circuit : sur 5 km, la latitude varie de
-    # 0,02°, ce qui change l'échelle de 3 dix-millièmes.
-    k = math.cos(math.radians(float(np.mean(lat))))
-    return np.column_stack([lon * METRES_PAR_DEGRE * k, lat * METRES_PAR_DEGRE])
+    return _en_metres(tour.canal("GPS Longitude"), lat, _cosinus(lat))
+
+
+def trajectoires(tours: list[DonneesTour], distance: np.ndarray) -> list[np.ndarray]:
+    """Trajectoires de plusieurs tours en mètres, dans un même repère."""
+    gps = [t.sur_distance(distance, CANAUX_GPS) for t in tours]
+    k = _cosinus(gps[0]["GPS Latitude"])
+    return [_en_metres(g["GPS Longitude"], g["GPS Latitude"], k) for g in gps]
 
 
 def _lisser(valeurs: np.ndarray, fenetre: int) -> np.ndarray:
@@ -227,7 +245,7 @@ def _sur_piste(tour: DonneesTour, distance: np.ndarray) -> np.ndarray:
     if CANAL_HORS_PISTE not in tour.canaux or distance.size == 0:
         return np.ones(distance.shape, dtype=bool)
 
-    dehors = tour.sur_distance(distance)[CANAL_HORS_PISTE] > 0.5
+    dehors = tour.sur_distance(distance, (CANAL_HORS_PISTE,))[CANAL_HORS_PISTE] > 0.5
     pas = float(distance[1] - distance[0]) if len(distance) > 1 else 1.0
     marge = max(1, int(round(MARGE_HORS_PISTE / pas)))
 
@@ -259,7 +277,7 @@ def _moyenne_valide(valeurs: np.ndarray, valides: np.ndarray) -> np.ndarray:
 
 
 def _axe_dun_tour(
-    tour: DonneesTour, distance: np.ndarray, signe: float
+    valeurs: dict[str, np.ndarray], distance: np.ndarray, signe: float
 ) -> tuple[np.ndarray, np.ndarray]:
     """Axe de piste et normale déduits d'un seul tour.
 
@@ -267,15 +285,8 @@ def _axe_dun_tour(
     convention du jeu n'est pas documentée, on l'établit en comparant les deux
     possibilités (voir `construire`).
     """
-    valeurs = tour.sur_distance(distance)
-    xy = np.column_stack(
-        [
-            valeurs["GPS Longitude"],
-            valeurs["GPS Latitude"],
-        ]
-    )
-    k = math.cos(math.radians(float(np.mean(valeurs["GPS Latitude"]))))
-    xy = np.column_stack([xy[:, 0] * METRES_PAR_DEGRE * k, xy[:, 1] * METRES_PAR_DEGRE])
+    lat = valeurs["GPS Latitude"]
+    xy = _en_metres(valeurs["GPS Longitude"], lat, _cosinus(lat))
 
     pas = float(distance[1] - distance[0])
     lateral = valeurs["Path Lateral"] * signe
@@ -300,6 +311,7 @@ def construire(tours: list[DonneesTour], distance: np.ndarray) -> Geometrie:
     # où chaque tour est exploitable. Le masque ne dépend pas du signe testé
     # plus bas, on ne le calcule donc qu'une fois.
     valides = np.stack([_sur_piste(t, distance) for t in tours])
+    valeurs = [t.sur_distance(distance, CANAUX_GEOMETRIE) for t in tours]
 
     # La convention de signe de `Path Lateral` n'est pas documentée. On essaie
     # les deux, et on garde celle qui rapproche le plus les axes déduits des
@@ -307,7 +319,7 @@ def construire(tours: list[DonneesTour], distance: np.ndarray) -> Geometrie:
     # du double de l'écart latéral.
     meilleur = None
     for signe in (1.0, -1.0):
-        essais = [_axe_dun_tour(t, distance, signe) for t in tours]
+        essais = [_axe_dun_tour(v, distance, signe) for v in valeurs]
         axes = np.stack([a for a, _ in essais])
         moyen = _moyenne_valide(axes, valides)
         # La dispersion se mesure sur les seuls échantillons retenus : sinon
@@ -330,7 +342,7 @@ def construire(tours: list[DonneesTour], distance: np.ndarray) -> Geometrie:
     # de Monza : −4,4 m sur le tour sorti contre +5,6 m sur les trois autres.
     gauche = np.full(distance.shape, np.nan)
     droit = np.full(distance.shape, np.nan)
-    bords = [tour.sur_distance(distance)["Track Edge"] * signe for tour in tours]
+    bords = [v["Track Edge"] * signe for v in valeurs]
     # Demi-largeur typique : la médiane des distances au bord mesurées, tous
     # tours et deux côtés confondus. Sert de référence pour écarter les
     # mesures aberrantes (voir FACTEUR_BORD_ABERRANT).

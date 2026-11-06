@@ -163,6 +163,7 @@
 
   "serveur.virage.freinage_dans_virage": "freinage commencé dans le virage",
   "serveur.virage.sans_freiner": "pris sans freiner",
+  "serveur.virage.freinage_precedent": "freinage commencé avant ce virage",
   "serveur.virage.pas_de_remise_gaz": "pas de remise des gaz avant la fin de la zone",
 
   "serveur.avert.voitures": "Les deux tours ne sont pas dans la même voiture ({ref} contre {cmp}). Le delta mesure alors surtout un écart de matériel, pas de pilotage.",
@@ -188,6 +189,7 @@
   "serveur.erreur.tours_trop_courts": "Ces tours sont trop courts pour être comparés.",
   "serveur.erreur.regularite_peu_de_tours": "Cette session ne contient que {n} tour(s) valide(s). Il en faut au moins {minimum} pour parler de régularité : avec moins, une dispersion ne veut rien dire.\nChoisis une session plus longue, ou roule quelques tours de plus.",
   "serveur.erreur.virages_illisible": "Le fichier de virages de ce circuit est illisible :\n  {chemin}\n({detail})\nCorrige-le, ou supprime-le pour qu'il soit regénéré.",
+  "serveur.erreur.parametres_illisible": "Le fichier de réglages est illisible :\n  {chemin}\nCorrige-le, ou supprime-le pour retrouver les valeurs d'origine.\nDétail : {detail}",
   "serveur.erreur.decoupage_sans_tour": "Il faut au moins un tour pour découper le circuit.",
   "serveur.erreur.decoupage_tours_courts": "Les tours fournis sont trop courts pour découper le circuit ({longueur} m). Choisis une session où tu as bouclé un tour entier.",
   "serveur.erreur.virage_hors_tour": "Le virage {numero} tombe hors du tour ({debut}–{fin} m pour un tour de {longueur} m). Le fichier de virages ne correspond peut-être pas à ce circuit.",

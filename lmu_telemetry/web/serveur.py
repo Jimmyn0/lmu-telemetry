@@ -24,40 +24,21 @@ from __future__ import annotations
 
 import errno
 import json
-import math
-import shutil
 import socket
 import sys
 import threading
 import traceback
 import webbrowser
-from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import numpy as np
-
-from .. import __version__, emplacements, textes
-
-from ..sources import catalogue, resultats
-
-from ..domaine import pays
-from ..domaine.comparaison import comparer_fichiers
-from ..domaine.donnees_tour import charger
-from ..domaine.piste import construire as construire_piste
-from ..domaine.regularite import analyser
-from ..domaine.virages import (
-    DefinitionCircuit,
-    detecter,
-    fichier_definition,
-    mesurer,
-    secteurs,
-)
+from .. import __version__, emplacements, parametres, textes
 from ..errors import DossierIntrouvable, ErreurTelemetrie
+from ..sources import catalogue
 from ..textes import Message
-from ..sources.reader import FichierSession
-from ..domaine.session import Session
+from . import reponses
+from .reponses import Contexte
 
 STATIQUE = Path(__file__).parent / "statique"
 
@@ -73,565 +54,6 @@ TYPES_MIME = {
     ".webp": "image/webp",
     ".gif": "image/gif",
 }
-
-#: Extensions acceptées pour un logo de marque déposé par l'utilisateur.
-EXTENSIONS_LOGO = (".svg", ".png", ".webp", ".jpg", ".jpeg", ".gif")
-
-
-@dataclass
-class Contexte:
-    """Ce que le serveur a besoin de savoir, passé aux gestionnaires de routes."""
-
-    #: Dossier de télémétrie imposé (option --dossier) ; sinon, détection.
-    dossier: Path | None = None
-    #: Découpages et logos de l'utilisateur, qui priment sur ceux livrés avec
-    #: l'outil (voir `emplacements.py`).
-    dossier_virages: Path = field(default_factory=emplacements.virages_utilisateur)
-    dossier_logos: Path = field(default_factory=emplacements.logos_utilisateur)
-    virages_fournis: Path = field(default_factory=emplacements.virages_fournis)
-    logos_fournis: Path = field(default_factory=emplacements.logos_fournis)
-
-    @property
-    def dossier_resultats(self) -> Path | None:
-        """Dossier des résultats du jeu, d'où vient le modèle des voitures.
-
-        Déduit de celui de la télémétrie. Renvoie None s'il est introuvable :
-        l'outil marche sans, on perd seulement le modèle et la marque.
-        """
-        try:
-            return resultats.dossier_resultats(telemetrie=self.dossier)
-        except ErreurTelemetrie:
-            return None
-
-
-# ----------------------------------------------------------------------
-# Mise en forme des réponses
-# ----------------------------------------------------------------------
-
-
-def _arrondir(valeurs: np.ndarray, decimales: int) -> list[float | None]:
-    """Arrondit un tableau pour le JSON, en remplaçant les NaN par null.
-
-    Sans arrondi, une comparaison de deux tours pèse plusieurs mégaoctets de
-    chiffres dont les douze décimales ne veulent rien dire.
-    """
-    arrondi = np.round(np.asarray(valeurs, dtype=float), decimales)
-    return [None if math.isnan(v) else float(v) for v in arrondi]
-
-
-#: Nombre de décimales conservé par canal, selon ce que la donnée vaut vraiment.
-DECIMALES = {
-    "delta": 3,
-    "Ground Speed": 1,
-    "Throttle Pos": 1,
-    "Brake Pos": 1,
-    "Steering Pos": 2,
-    "Angle Volant": 1,
-    "Engine RPM": 0,
-    "Gear": 0,
-    "GPS Latitude": 7,
-    "GPS Longitude": 7,
-}
-
-
-def _sessions(contexte: Contexte) -> list[dict]:
-    return [
-        {
-            "id": str(f.chemin),
-            "nom": f.chemin.name,
-            "circuit": f.circuit,
-            "pays": _pays(f.circuit),
-            "type": f.code_type,
-            "date": f.enregistre_le.isoformat() if f.enregistre_le else None,
-            "taille": f.taille,
-            "journal": f.journal_present,
-        }
-        for f in catalogue.lister(contexte.dossier)
-    ]
-
-
-#: Tracé de chaque session, indexé comme les résumés.
-#:
-#: LMU propose plusieurs variantes du même circuit — « Monza Curva Grande
-#: Circuit » à côté d'« Autodromo Nazionale Monza », « Bahrain Outer Circuit »
-#: à côté du tracé complet — et elles n'ont ni la même longueur ni les mêmes
-#: virages. Le NOM DU FICHIER ne porte que `TrackName` : les deux Monza
-#: s'appellent pareil sur le disque, et rien ne les distingue sans ouvrir le
-#: fichier.
-#:
-#: Ouvrir les 388 sessions coûte 9,7 s — trop pour une liste censée être
-#: instantanée. On les lit donc en tâche de fond, et la liste se précise
-#: pendant que l'utilisateur la regarde.
-_traces: dict[tuple[str, int, int], str] = {}
-_verrou_traces = threading.Lock()
-_scan_traces: threading.Thread | None = None
-
-
-def _cle_fichier(chemin: Path) -> tuple[str, int, int] | None:
-    try:
-        etat = chemin.stat()
-    except OSError:
-        return None
-    return (str(chemin), etat.st_mtime_ns, etat.st_size)
-
-
-def _traces_connues(contexte: Contexte) -> dict:
-    """Tracés déjà lus, et combien il en reste. Lance le balayage au besoin."""
-    global _scan_traces
-
-    reperes = catalogue.lister(contexte.dossier)
-    cles = {r.chemin: _cle_fichier(r.chemin) for r in reperes}
-    with _verrou_traces:
-        connus = {
-            str(chemin): _traces[cle]
-            for chemin, cle in cles.items()
-            if cle in _traces and _traces[cle]
-        }
-        restant = sum(1 for cle in cles.values() if cle and cle not in _traces)
-
-    if restant and (_scan_traces is None or not _scan_traces.is_alive()):
-        _scan_traces = threading.Thread(
-            target=_balayer_traces, args=(list(cles.items()),), daemon=True
-        )
-        _scan_traces.start()
-
-    return {"traces": connus, "restant": restant}
-
-
-def _balayer_traces(fichiers: list) -> None:
-    """Lit le tracé de chaque session, une par une, en tâche de fond.
-
-    Un fichier illisible — session en cours d'enregistrement, format inconnu —
-    est mémorisé comme vide plutôt que retenté sans fin.
-    """
-    for chemin, cle in fichiers:
-        if cle is None:
-            continue
-        with _verrou_traces:
-            if cle in _traces:
-                continue
-        trace = ""
-        try:
-            with FichierSession(chemin) as fichier:
-                trace = fichier.info.trace
-        except (ErreurTelemetrie, Exception):  # noqa: BLE001
-            trace = ""
-        with _verrou_traces:
-            _traces[cle] = trace
-
-
-#: Résumés déjà calculés, indexés par (chemin, date de modification, taille).
-#: Parcourir les 378 sessions du disque prend une douzaine de secondes ; on ne
-#: le refait pas à chaque affichage de la liste. La clé inclut la taille et la
-#: date pour qu'une session réécrite par le jeu soit recalculée.
-_cache_resumes: dict[tuple[str, int, int], dict] = {}
-
-
-def _voiture(contexte: Contexte, engagement: str) -> dict:
-    """Ce qu'on affiche d'une voiture : l'engagement, et si on le sait le modèle.
-
-    Le fichier de télémétrie ne connaît que l'engagement — « Manthey DK
-    Engineering 2026 #91:WEC » — qui est l'écurie et le numéro, pas la voiture.
-    Le modèle vient des fichiers de résultats du jeu (voir `resultats.py`).
-    S'ils manquent, `modele` et `marque` sont nuls et la page se rabat sur
-    l'engagement seul.
-    """
-    trouvee = resultats.voiture(engagement, contexte.dossier_resultats)
-    return {
-        "engagement": engagement,
-        "modele": trouvee.modele if trouvee else None,
-        "marque": trouvee.marque if trouvee else None,
-        "classe": trouvee.classe if trouvee else None,
-    }
-
-
-def _logos(contexte: Contexte) -> dict[str, Path]:
-    """Logos de marque disponibles, indexés par marque.
-
-    Deux sources : les logos libres de droits livrés avec l'outil, puis ceux
-    que l'utilisateur dépose dans son dossier `logos`, nommés d'après la marque
-    telle que l'outil l'affiche — `Porsche.png`, `Aston Martin.svg`. Les siens
-    l'emportent. Sans logo, une pastille colorée fait l'affaire.
-
-    Le nom demandé par le navigateur n'est JAMAIS transformé en chemin : on
-    compare aux fichiers réellement présents. Un paramètre malveillant du
-    genre `../../secret` ne correspond alors à rien.
-    """
-    trouves: dict[str, Path] = {}
-    for dossier in (contexte.logos_fournis, contexte.dossier_logos):
-        try:
-            entrees = sorted(dossier.iterdir())
-        except OSError:
-            continue
-        par_marque: dict[str, Path] = {}
-        for fichier in entrees:
-            if fichier.is_file() and fichier.suffix.lower() in EXTENSIONS_LOGO:
-                par_marque.setdefault(fichier.stem, fichier)
-        trouves.update(par_marque)
-    return trouves
-
-
-def _pays(circuit: str) -> dict | None:
-    trouve = pays.pays_du_circuit(circuit, emplacements.donnees())
-    return {"code": trouve.code, "nom": trouve.nom} if trouve else None
-
-
-def _resumes(contexte: Contexte, params: dict[str, list[str]]) -> list[dict]:
-    """Nombre de tours et meilleur chrono, pour les sessions DEMANDÉES.
-
-    Chaque résumé oblige à ouvrir le fichier : analyser les 378 sessions du
-    disque prend une douzaine de secondes, ce qui est insupportable à chaque
-    ouverture de la liste. Le navigateur ne demande donc que les sessions qu'il
-    affiche réellement, une dizaine à la fois.
-    """
-    resumes = []
-    for brut in params.get("chemin", []):
-        chemin = Path(brut)
-        try:
-            etat = chemin.stat()
-        except OSError:
-            continue
-        cle = (str(chemin), etat.st_mtime_ns, etat.st_size)
-        if cle not in _cache_resumes:
-            _cache_resumes[cle] = _resumer(contexte, chemin)
-        resumes.append({"id": str(chemin), **_cache_resumes[cle]})
-    return resumes
-
-
-def _resumer(contexte: Contexte, chemin: Path) -> dict:
-    try:
-        session = Session.ouvrir(chemin)
-    except ErreurTelemetrie as erreur:
-        return {"tours": 0, "valides": 0, "meilleur": None, "indisponible": str(erreur)}
-    meilleur = session.meilleur_tour
-    return {
-        "tours": len(session.tours),
-        "valides": len(session.tours_valides),
-        "meilleur": meilleur.chrono if meilleur else None,
-        "trace": session.info.trace,
-        "voiture": _voiture(contexte, session.info.voiture),
-        "indisponible": None,
-    }
-
-
-def _session(contexte: Contexte, chemin: str) -> dict:
-    session = Session.ouvrir(chemin)
-    return {
-        "id": str(session.chemin),
-        # Le tracé plutôt que le circuit : c'est lui qui décrit ce qu'on a
-        # roulé. « Monza Curva Grande Circuit » n'a pas les mêmes virages que
-        # « Autodromo Nazionale Monza », alors que les deux portent le même
-        # `TrackName`.
-        "circuit": session.info.trace,
-        "pays": _pays(session.info.trace),
-        "type": session.info.type_session,
-        "voiture": _voiture(contexte, session.info.voiture),
-        "categorie": session.info.categorie,
-        "pilote": session.info.pilote,
-        "meteo": session.info.meteo,
-        "debattement_volant": session.info.debattement_volant,
-        "demultiplication": session.info.demultiplication,
-        "date": (
-            session.info.enregistree_le.isoformat()
-            if session.info.enregistree_le
-            else None
-        ),
-        "journal": session.journal_present,
-        "tours": [
-            {
-                "numero": t.numero,
-                "chrono": t.chrono,
-                "duree_mesuree": t.duree_mesuree,
-                "secteurs": list(t.secteurs),
-                "valide": t.valide,
-                "vitesse_min": round(t.vitesse_min, 1),
-                "remarques": [r.json() for r in t.remarques],
-            }
-            for t in session.tours
-        ],
-    }
-
-
-def _comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
-    comparaison = comparer_fichiers(
-        params["ref"][0],
-        int(params["tour_ref"][0]),
-        params.get("cmp", params["ref"])[0],
-        int(params["tour_cmp"][0]),
-    )
-
-    traces = {
-        nom: {
-            "reference": _arrondir(ref, DECIMALES.get(nom, 3)),
-            "compare": _arrondir(cmp, DECIMALES.get(nom, 3)),
-        }
-        for nom, (ref, cmp) in comparaison.traces.items()
-    }
-
-    def resume(donnees) -> dict:
-        return {
-            "session": donnees.chemin.name,
-            "circuit": donnees.info.trace,
-            "voiture": _voiture(contexte, donnees.info.voiture),
-            "debattement_volant": donnees.info.debattement_volant,
-            "numero": donnees.tour.numero,
-            "chrono": donnees.tour.chrono,
-            "longueur": round(donnees.longueur, 1),
-            "remarques": [r.json() for r in donnees.tour.remarques],
-        }
-
-    return {
-        "piste": _piste(comparaison),
-        # L'axe est régulier : on envoie sa définition, pas ses 5 776 valeurs.
-        "distance": {
-            "debut": float(comparaison.distance[0]),
-            "pas": float(comparaison.distance[1] - comparaison.distance[0]),
-            "nombre": int(comparaison.distance.size),
-        },
-        "delta": _arrondir(comparaison.delta, 3),
-        "traces": traces,
-        "reference": resume(comparaison.reference),
-        "compare": resume(comparaison.compare),
-        "ecart_final": round(comparaison.ecart_final, 3),
-        "ecart_chronos": comparaison.ecart_chronos,
-        "coherent": comparaison.coherent,
-        "avertissements": [a.json() for a in comparaison.avertissements],
-        "troncons": [
-            {"distance": d, "delta": round(v, 3)}
-            for d, v in comparaison.perte_par_troncon()
-        ],
-    }
-
-
-def _piste(comparaison) -> dict:
-    """Géométrie de la route et trajectoires des deux tours, en mètres.
-
-    Les coordonnées brutes valent près de 6,7 millions de mètres (60° de
-    latitude × 111 320) : on retranche une origine, sans quoi chaque nombre
-    pèserait dix chiffres pour deux décimales utiles.
-    """
-    tours = [comparaison.reference, comparaison.compare]
-    geometrie = construire_piste(tours, comparaison.distance)
-
-    traces = [
-        np.column_stack(
-            [
-                t.sur_distance(comparaison.distance)["GPS Longitude"],
-                t.sur_distance(comparaison.distance)["GPS Latitude"],
-            ]
-        )
-        for t in tours
-    ]
-    k = math.cos(math.radians(float(np.mean(traces[0][:, 1]))))
-    traces = [
-        np.column_stack([tr[:, 0] * 111_320.0 * k, tr[:, 1] * 111_320.0]) for tr in traces
-    ]
-
-    tous = np.vstack([geometrie.axe, geometrie.bord_gauche, geometrie.bord_droit, *traces])
-    origine = np.nanmin(tous, axis=0)
-
-    def xy(points: np.ndarray) -> dict:
-        decale = points - origine
-        # Au décimètre : la position GPS du jeu est quantifiée à 0,42 m, une
-        # précision supérieure serait du bruit et doublerait la taille du JSON.
-        return {
-            "x": _arrondir(decale[:, 0], 1),
-            "y": _arrondir(decale[:, 1], 1),
-        }
-
-    return {
-        "axe": xy(geometrie.axe),
-        "bord_gauche": xy(geometrie.bord_gauche),
-        "bord_droit": xy(geometrie.bord_droit),
-        # 1 là où les deux bords sont mesurés, 0 là où l'un est estimé.
-        "mesure": [int(v) for v in geometrie.mesure],
-        # Et pour chaque bord séparément : un bord longé est mesuré, que
-        # l'autre le soit ou non.
-        "mesure_gauche": [int(v) for v in geometrie.mesure_gauche],
-        "mesure_droit": [int(v) for v in geometrie.mesure_droit],
-        "trace_reference": xy(traces[0]),
-        "trace_compare": xy(traces[1]),
-        "largeur": round(geometrie.largeur_mediane, 2),
-        "part_mesuree": round(geometrie.part_mesuree, 3),
-        "ecart_axes": round(geometrie.ecart_axes, 3),
-    }
-
-
-#: Découpages de circuits déjà calculés, par chemin de fichier de définition.
-#:
-#: Indexé par la date de modification ET la taille du fichier, pas par son seul
-#: chemin : le README invite à retoucher ce fichier à la main, et une retouche
-#: faite pendant que le serveur tournait était ignorée jusqu'au redémarrage,
-#: sans aucun signe.
-_cache_virages: dict[tuple[str, int, int], DefinitionCircuit] = {}
-
-#: Deux requêtes simultanées sur un circuit pas encore découpé détecteraient
-#: chacune les virages et écriraient le même fichier en même temps.
-_verrou_virages = threading.Lock()
-
-
-def _definition(contexte: Contexte, session: Session) -> tuple[DefinitionCircuit, Path]:
-    """Découpage du circuit, lu sur disque ou détecté puis enregistré.
-
-    Le fichier est fait pour être retouché à la main : une fois écrit, on ne le
-    régénère jamais, même si la détection donnerait autre chose.
-    """
-    chemin = fichier_definition(contexte.dossier_virages, session.info.trace)
-    with _verrou_virages:
-        # Un découpage livré avec l'outil est recopié chez l'utilisateur la
-        # première fois : c'est la copie qu'il retouchera, et elle survivra au
-        # remplacement de l'outil par une nouvelle version.
-        fourni = fichier_definition(contexte.virages_fournis, session.info.trace)
-        if not chemin.exists() and fourni.is_file():
-            chemin.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(fourni, chemin)
-        cle = _cle_fichier(chemin)
-        if cle is not None:
-            if cle not in _cache_virages:
-                _cache_virages[cle] = DefinitionCircuit.lire(chemin)
-            return _cache_virages[cle], chemin
-
-        # Plusieurs tours valent mieux qu'un : la géométrie de la piste s'en
-        # trouve mieux contrainte, et les deux bords sont connus sur une plus
-        # grande part du tour.
-        numeros = [t.numero for t in session.tours_valides if t.chrono][:5]
-        if not numeros:
-            raise ErreurTelemetrie.de("serveur.erreur.decoupage_aucun_tour_valide")
-        definition = detecter([charger(session.chemin, n) for n in numeros])
-        definition.enregistrer(chemin)
-        cle = _cle_fichier(chemin)
-        if cle is not None:
-            _cache_virages[cle] = definition
-        return definition, chemin
-
-
-def _virages(contexte: Contexte, params: dict[str, list[str]]) -> dict:
-    chemin_ref = params["ref"][0]
-    chemin_cmp = params.get("cmp", params["ref"])[0]
-    definition, fichier = _definition(contexte, Session.ouvrir(chemin_ref))
-
-    reference = charger(chemin_ref, int(params["tour_ref"][0]))
-    compare = charger(chemin_cmp, int(params["tour_cmp"][0]))
-    mesures_ref = mesurer(reference, definition)
-    mesures_cmp = {m.virage.numero: m for m in mesurer(compare, definition)}
-
-    # Temps gagné ou perdu, réparti sur tout le tour : chaque mètre appartient
-    # à un virage et à un seul, donc la colonne s'additionne exactement à
-    # l'écart final. Une colonne qui ne totalise pas serait trompeuse.
-    axe = np.arange(0.0, min(reference.longueur, compare.longueur), 1.0)
-    delta = compare.temps_a_distance(axe) - reference.temps_a_distance(axe)
-    portions = dict(zip((v.numero for v in definition.virages), secteurs(definition)))
-
-    def delta_zone(virage) -> float | None:
-        borne = portions.get(virage.numero)
-        if borne is None:
-            return None
-        a, b = min(borne[0], axe[-1]), min(borne[1], axe[-1])
-        return float(np.interp(b, axe, delta) - np.interp(a, axe, delta))
-
-    def ligne(a) -> dict:
-        b = mesures_cmp.get(a.virage.numero)
-
-        def paire(nom):
-            va = getattr(a, nom)
-            vb = getattr(b, nom) if b else None
-            ecart = None if va is None or vb is None else vb - va
-            return {"reference": va, "compare": vb, "ecart": ecart}
-
-        return {
-            "numero": a.virage.numero,
-            "nom": a.virage.libelle,
-            "sens": a.virage.sens_libelle,
-            "delta_zone": delta_zone(a.virage),
-            "debut": a.virage.debut,
-            "fin": a.virage.fin,
-            "rayon_min": round(a.virage.rayon_min, 1),
-            "remarques": [r.json() for r in (*a.remarques, *(b.remarques if b else ()))],
-            "mesures": {
-                nom: paire(nom)
-                for nom in (
-                    "distance_freinage",
-                    "vitesse_entree",
-                    "duree_freinage",
-                    "frein_max",
-                    "vitesse_min",
-                    "position_vitesse_min",
-                    "remise_gaz",
-                    "vitesse_remise_gaz",
-                    "vitesse_sortie",
-                    "temps_coasting",
-                )
-            },
-        }
-
-    return {
-        "circuit": definition.circuit,
-        "fichier": str(fichier),
-        "automatique": definition.automatique,
-        "virages": [ligne(m) for m in mesures_ref],
-        "coasting_total": {
-            "reference": round(sum(m.temps_coasting for m in mesures_ref), 2),
-            "compare": round(sum(m.temps_coasting for m in mesures_cmp.values()), 2),
-        },
-    }
-
-
-def _regularite(contexte: Contexte, params: dict[str, list[str]]) -> dict:
-    chemin = params["chemin"][0]
-    session = Session.ouvrir(chemin)
-    definition, fichier = _definition(contexte, session)
-    r = analyser(chemin, definition)
-
-    return {
-        "circuit": r.circuit,
-        "type_session": r.type_session,
-        "voiture": r.voiture,
-        "fichier_virages": str(fichier),
-        # Un tour de course se juge autrement : trafic, stratégie et drapeaux
-        # pèsent sur les chronos sans rien dire du pilotage.
-        "course": r.type_session.lower() == "race",
-        "fiable": r.fiable,
-        "tours": [
-            {"numero": n, "chrono": round(c, 3)}
-            for n, c in zip(r.numeros, r.chronos)
-        ],
-        "meilleur": round(r.meilleur, 3),
-        "median": round(r.median, 3),
-        "ecart_type": round(r.ecart_type, 3),
-        "ecart_meilleur_median": round(r.ecart_meilleur_median, 3),
-        "tour_ideal": round(r.tour_ideal, 3),
-        "marge_de_regularite": round(r.marge_de_regularite, 3),
-        "tendance": round(r.tendance, 3),
-        "moitie_debut": round(r.moitie_debut, 3),
-        "moitie_fin": round(r.moitie_fin, 3),
-        "virages": [
-            {
-                "numero": v.virage.numero,
-                "nom": v.virage.libelle,
-                "sens": v.virage.sens_libelle,
-                "debut": v.virage.debut,
-                "fin": v.virage.fin,
-                "temps_median": round(v.temps_median, 3),
-                "temps_meilleur": round(v.temps_meilleur, 3),
-                "dispersion": round(v.dispersion_robuste, 3),
-                "ecart_type": round(v.dispersion, 3),
-                "potentiel": round(v.potentiel, 3),
-                "dispersion_freinage": (
-                    round(v.dispersion_freinage, 1)
-                    if v.dispersion_freinage is not None
-                    else None
-                ),
-                "dispersion_vitesse_min": round(v.dispersion_vitesse_min, 1),
-                "passage_aberrant": v.passage_aberrant,
-                "tour_le_plus_lent": v.tour_le_plus_lent,
-                "passages": [
-                    {"tour": p.tour, "temps": round(p.temps, 3)} for p in v.passages
-                ],
-            }
-            for v in r.classement
-        ],
-    }
-
 
 # ----------------------------------------------------------------------
 # Serveur
@@ -793,21 +215,21 @@ class Gestionnaire(BaseHTTPRequestHandler):
         try:
             _verifier_chemins(self.contexte, params)
             if url.path == "/api/sessions":
-                self._json(_sessions(self.contexte))
+                self._json(reponses.sessions(self.contexte))
             elif url.path == "/api/resumes":
-                self._json(_resumes(self.contexte, params))
+                self._json(reponses.resumes(self.contexte, params))
             elif url.path == "/api/session":
-                self._json(_session(self.contexte, params["chemin"][0]))
+                self._json(reponses.session(self.contexte, params["chemin"][0]))
             elif url.path == "/api/comparaison":
-                self._json(_comparaison(self.contexte, params))
+                self._json(reponses.comparaison(self.contexte, params))
             elif url.path == "/api/virages":
-                self._json(_virages(self.contexte, params))
+                self._json(reponses.virages(self.contexte, params))
             elif url.path == "/api/regularite":
-                self._json(_regularite(self.contexte, params))
+                self._json(reponses.regularite(self.contexte, params))
             elif url.path == "/api/traces":
-                self._json(_traces_connues(self.contexte))
+                self._json(reponses.traces_connues(self.contexte))
             elif url.path == "/api/logos":
-                self._json(sorted(_logos(self.contexte)))
+                self._json(sorted(reponses.logos(self.contexte)))
             elif url.path == "/api/version":
                 self._json(_version())
             elif url.path == "/api/dossier":
@@ -884,7 +306,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
     def _logo(self, params: dict[str, list[str]]) -> None:
         """Sert le logo d'une marque, s'il a été déposé dans `logos/`."""
         marque = (params.get("marque") or [""])[0]
-        cible = _logos(self.contexte).get(marque)
+        cible = reponses.logos(self.contexte).get(marque)
         if cible is None:
             self.send_error(404, "Pas de logo pour cette marque")
             return
@@ -957,6 +379,7 @@ def creer_serveur(port: int, dossier: Path | None = None) -> ThreadingHTTPServer
 
 def servir(serveur: ThreadingHTTPServer, ouvrir: bool) -> None:
     """Fait tourner le serveur jusqu'à son arrêt, en ouvrant la page au besoin."""
+    parametres.creer_modele()
     if ouvrir:
         adresse = f"http://127.0.0.1:{serveur.server_address[1]}/"
         threading.Timer(0.5, lambda: webbrowser.open(adresse)).start()

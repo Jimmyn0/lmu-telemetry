@@ -56,6 +56,7 @@ def definition_circuit(
         numeros = [t.numero for t in session.tours_valides if t.chrono][:TOURS_DETECTION]
         if not numeros:
             raise ErreurTelemetrie.de("serveur.erreur.decoupage_aucun_tour_valide")
-        definition = detecter(charger_tours(session.chemin, numeros))
-        definition.enregistrer(chemin)
-        return definition, chemin
+        detecter(charger_tours(session.chemin, numeros)).enregistrer(chemin)
+        # Relu plutôt que gardé tel quel : le fichier arrondit au décimètre, et
+        # le découpage ne doit pas changer au redémarrage de l'outil.
+        return _lus.obtenir(cle_fichier(chemin), lambda: DefinitionCircuit.lire(chemin)), chemin

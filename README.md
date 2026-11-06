@@ -63,7 +63,7 @@ how to find it:
   the internet.
 * **The game files are read in place, read-only.** Nothing is copied, moved,
   changed or deleted.
-* What the tool writes — your settings, your corner maps, your own logos — goes
+* What the tool writes — your settings, your thresholds, your corner maps, your own logos — goes
   to `%LOCALAPPDATA%\Telemetrie LMU`, and survives updates.
 
 ⚠️ Your telemetry files live inside the Steam folder: a *Verify integrity of
@@ -129,12 +129,15 @@ sentence is missing in one of the two languages. See
 
 | Path | Role |
 |---|---|
-| `lmu_telemetry/reader.py` | the only module that knows the game's `.duckdb` telemetry format |
-| `lmu_telemetry/resultats.py` | reads the game's results `.xml` files, for the car model |
-| `lmu_telemetry/session.py` | splits a session into laps: times, validity, notes |
-| `lmu_telemetry/comparaison.py` | aligns two laps on distance and computes the delta |
-| `lmu_telemetry/piste.py`, `virages.py` | track geometry, corner detection and per-corner metrics |
-| `lmu_telemetry/regularite.py` | consistency analysis and ideal lap |
+| `lmu_telemetry/sources/reader.py` | the only module that knows the game's `.duckdb` telemetry format |
+| `lmu_telemetry/sources/resultats.py` | reads the game's results `.xml` files, for the car model |
+| `lmu_telemetry/domaine/session.py` | splits a session into laps: times, validity, notes |
+| `lmu_telemetry/domaine/comparaison.py` | aligns two laps on distance and computes the delta |
+| `lmu_telemetry/domaine/piste.py`, `virages.py` | track geometry, corner detection and per-corner metrics |
+| `lmu_telemetry/domaine/regularite.py` | consistency analysis and ideal lap |
+| `lmu_telemetry/sources/memoire_lmu.py` | reads the game's live shared memory, read-only and without its lock |
+| `lmu_telemetry/domaine/circuits.py` | finds or detects the corner map of a track |
+| `lmu_telemetry/parametres.py` | the adjustable thresholds and their settings file |
 | `lmu_telemetry/web/` | local server and web interface, charts drawn by hand on canvas |
 | `lmu_telemetry/lanceur.py` | what happens when the `.exe` is double-clicked |
 | `docs/` | how everything was found and measured, step by step (in French) |

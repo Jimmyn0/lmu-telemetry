@@ -63,6 +63,10 @@ def fichier_reglages() -> Path:
     return donnees() / "reglages.json"
 
 
+def fichier_parametres() -> Path:
+    return donnees() / "parametres.json"
+
+
 def lire_reglages() -> dict:
     """Réglages enregistrés. Un fichier absent ou abîmé vaut « aucun réglage »."""
     try:

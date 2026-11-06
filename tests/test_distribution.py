@@ -22,7 +22,7 @@ from lmu_telemetry import emplacements
 from lmu_telemetry.errors import DossierIntrouvable
 from lmu_telemetry.domaine.session import Session
 from lmu_telemetry.domaine.virages import DefinitionCircuit, Virage, fichier_definition
-from lmu_telemetry.web import serveur
+from lmu_telemetry.web import reponses, serveur
 
 VDF_RECENT = r'''"libraryfolders"
 {
@@ -230,7 +230,7 @@ def test_logos_de_l_utilisateur_prioritaires(tmp_path) -> None:
     (perso / "BMW.svg").write_bytes(b"perso")
     (perso / "notes.txt").write_text("pas un logo")
     contexte = serveur.Contexte(logos_fournis=fournis, dossier_logos=perso)
-    logos = serveur._logos(contexte)
+    logos = reponses.logos(contexte)
     assert logos == {"BMW": perso / "BMW.svg", "Ford": fournis / "Ford.png"}
 
 
@@ -238,7 +238,6 @@ def test_decoupage_livre_recopie_chez_l_utilisateur(session_test: Path, tmp_path
     """Le découpage de référence est recopié dans les données de l'utilisateur
     la première fois : c'est cette copie qu'il retouchera, et elle survit au
     remplacement du .exe."""
-    serveur._cache_virages.clear()
     session = Session.ouvrir(session_test)
     fournis = tmp_path / "fournis"
     perso = tmp_path / "perso"
@@ -249,7 +248,7 @@ def test_decoupage_livre_recopie_chez_l_utilisateur(session_test: Path, tmp_path
     ).enregistrer(fichier_definition(fournis, session.info.trace))
 
     contexte = serveur.Contexte(dossier_virages=perso, virages_fournis=fournis)
-    definition, chemin = serveur._definition(contexte, session)
+    definition, chemin = reponses.definition(contexte, session)
     assert chemin.parent == perso and chemin.is_file()
     assert definition.virages[0].nom == "Livré"
 

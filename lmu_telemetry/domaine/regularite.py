@@ -60,8 +60,9 @@ from pathlib import Path
 
 import numpy as np
 
-from .donnees_tour import DonneesTour, charger
 from ..errors import ErreurTelemetrie
+from ..parametres import SeuilsVirage
+from .donnees_tour import DonneesTour, charger_tours
 from .session import Session
 from .virages import DefinitionCircuit, Virage, mesurer, secteurs
 
@@ -293,7 +294,10 @@ class Regularite:
 
 
 def analyser(
-    chemin: Path | str, definition: DefinitionCircuit, maximum_tours: int = 40
+    chemin: Path | str,
+    definition: DefinitionCircuit,
+    maximum_tours: int = 40,
+    seuils: SeuilsVirage = SeuilsVirage(),
 ) -> Regularite:
     """Mesure la régularité d'une session, sur ses tours valides.
 
@@ -307,13 +311,13 @@ def analyser(
             "serveur.erreur.regularite_peu_de_tours", n=len(numeros), minimum=TOURS_MINIMUM
         )
 
-    tours = [charger(chemin, n) for n in numeros]
+    tours = charger_tours(chemin, numeros)
     portions = secteurs(definition)
 
     passages: dict[int, list[PassageVirage]] = {v.numero: [] for v in definition.virages}
     for tour in tours:
         temps = _temps_par_portion(tour, portions)
-        mesures = {m.virage.numero: m for m in mesurer(tour, definition)}
+        mesures = {m.virage.numero: m for m in mesurer(tour, definition, seuils=seuils)}
         for virage, duree in zip(definition.virages, temps):
             mesure = mesures.get(virage.numero)
             if mesure is None or duree is None:
