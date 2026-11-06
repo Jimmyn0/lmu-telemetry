@@ -270,5 +270,13 @@
   "serveur.erreur.requete_incomplete": "Requête incomplète : {detail}",
   "serveur.erreur.inattendue": "L'outil a rencontré un problème inattendu. Ce n'est pas de ta faute : signale-le à qui t'a donné l'outil, en précisant ce que tu faisais.\n\nDétail technique : {detail}",
   "serveur.erreur.port_occupe": "Le port {port} est déjà utilisé : l'outil tourne peut-être déjà dans\nune autre fenêtre. Sinon, choisis un autre port, par exemple :\n  python -m lmu_telemetry web --port {suivant}",
-  "serveur.erreur.brute": "{texte}"
+  "serveur.erreur.brute": "{texte}",
+  "coach.blocage_avant": "{virage} : roues avant bloquées, dose le frein en fin de freinage",
+  "coach.blocage_arriere": "{virage} : roues arrière bloquées, relâche un peu le frein en entrée",
+  "coach.roue_libre_avant": "{virage} : roue libre de {duree} s avant de freiner",
+  "coach.correction": "{virage} : grosse correction de volant, braque d'un seul geste",
+  "coach.patinage": "{virage} : patinage en sortie, ouvre les gaz plus doucement",
+  "coach.gaz_hesitant": "{virage} : accélère d'un seul geste, sans relever le pied",
+  "coach.frein_brutal": "{virage} : relâche le frein plus progressivement",
+  "coach.roue_libre_virage": "{virage} : {duree} s sans pédale, reprends les gaz plus tôt"
 }

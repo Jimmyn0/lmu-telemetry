@@ -52,8 +52,59 @@ class SeuilsVirage:
 
 
 @dataclass(frozen=True)
+class SeuilsCoach:
+    """Ce qui décide d'un conseil."""
+
+    ecart_groupe: float = 100.0
+    """Distance (m) en dessous de laquelle deux virages n'en font qu'un pour le conseil."""
+
+    hors_piste_tolere: float = 0.2
+    """Temps (s) hors piste au-delà duquel un passage n'est pas jugé."""
+
+    vitesse_minimale: float = 30.0
+    """Vitesse (km/h) sous laquelle un passage n'est pas jugé : tête-à-queue, arrêt."""
+
+    roue_libre_avant: float = 0.25
+    """Temps (s) sans pédale entre le lever de pied et le frein."""
+
+    roue_libre_virage: float = 1.5
+    """Temps (s) sans pédale entre la fin du freinage et les gaz."""
+
+    chute_frein: float = 60.0
+    """Baisse du frein (points de pédale), sur `fenetre_chute`, jugée trop brutale."""
+
+    fenetre_chute: float = 0.1
+    """Voir `chute_frein`."""
+
+    creux_gaz: float = 40.0
+    """Recul de l'accélérateur en sortie (points de pédale) jugé hésitant."""
+
+    correction: float = 10.0
+    """Retour de volant à contresens (% de braquage) jugé trop grand."""
+
+    vitesse_correction: float = 20.0
+    """Vitesse (% de braquage par seconde) à partir de laquelle c'est une correction."""
+
+    bruit_volant: float = 3.0
+    """Mouvement de volant (% de braquage) trop petit pour être un geste."""
+
+    blocage: float = 25.0
+    """Glissement (%) d'une roue au freinage, tenu pendant `duree_blocage`."""
+
+    duree_blocage: float = 0.15
+    """Voir `blocage`."""
+
+    patinage: float = 20.0
+    """Glissement (%) d'une roue arrière à l'accélération, tenu pendant `duree_patinage`."""
+
+    duree_patinage: float = 0.1
+    """Voir `patinage`."""
+
+
+@dataclass(frozen=True)
 class Parametres:
     virages: SeuilsVirage = field(default_factory=SeuilsVirage)
+    coach: SeuilsCoach = field(default_factory=SeuilsCoach)
 
 
 #: Dernière lecture du fichier : il peut être retouché pendant que l'outil tourne.
@@ -114,12 +165,22 @@ def lire() -> Parametres:
 
 
 def creer_modele() -> None:
-    """Écrit le fichier s'il n'existe pas : ce qu'on y lit est ce qui se règle.
+    """Tient le fichier à jour : ce qu'on y lit est ce qui se règle.
+
+    Il est créé s'il n'existe pas. S'il existe, les réglages apparus depuis y sont
+    ajoutés, sans toucher à ceux qui y sont déjà. Un fichier mal formé reste tel
+    quel : c'est `lire` qui le signale.
 
     Un échec n'empêche rien : l'outil fonctionne avec ses valeurs par défaut.
     """
     chemin = emplacements.fichier_parametres()
-    if chemin.exists():
+    try:
+        actuel = json.loads(chemin.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        actuel = {}
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(actuel, dict):
         return
     contenu = {
         "_aide": (
@@ -128,6 +189,13 @@ def creer_modele() -> None:
         ),
         **asdict(Parametres()),
     }
+    for nom, reglages in actuel.items():
+        if isinstance(reglages, dict) and isinstance(contenu.get(nom), dict):
+            contenu[nom].update(reglages)
+        else:
+            contenu[nom] = reglages
+    if contenu == actuel:
+        return
     provisoire = chemin.with_suffix(".tmp")
     try:
         chemin.parent.mkdir(parents=True, exist_ok=True)

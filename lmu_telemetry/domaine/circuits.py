@@ -36,22 +36,47 @@ _lus: CacheBorne[tuple[str, int, int], DefinitionCircuit] = CacheBorne(32)
 _verrou = threading.Lock()
 
 
+def _lire(chemin: Path, fourni: Path) -> DefinitionCircuit:
+    """Le découpage d'un fichier, complété des noms de virages livrés avec l'outil."""
+
+    def lire() -> DefinitionCircuit:
+        definition = DefinitionCircuit.lire(chemin)
+        return definition.avec_noms_de(DefinitionCircuit.lire(fourni)) if fourni.is_file() else definition
+
+    return _lus.obtenir(cle_fichier(chemin), lire)
+
+
+def _chercher(trace: str, dossier_utilisateur: Path, dossier_fournis: Path) -> DefinitionCircuit | None:
+    """Le découpage déjà connu d'un tracé. À appeler sous `_verrou`."""
+    chemin = fichier_definition(dossier_utilisateur, trace)
+    # Un découpage livré avec l'outil est recopié chez l'utilisateur la première
+    # fois : c'est la copie qu'il retouchera, et elle survivra au remplacement de
+    # l'outil par une nouvelle version.
+    fourni = fichier_definition(dossier_fournis, trace)
+    if not chemin.exists() and fourni.is_file():
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(fourni, chemin)
+    return _lire(chemin, fourni) if chemin.exists() else None
+
+
+def definition_connue(
+    trace: str, dossier_utilisateur: Path, dossier_fournis: Path
+) -> DefinitionCircuit | None:
+    """Le découpage d'un tracé, s'il existe. Le direct n'a pas de tours à découper."""
+    with _verrou:
+        return _chercher(trace, dossier_utilisateur, dossier_fournis)
+
+
 def definition_circuit(
     session: Session, dossier_utilisateur: Path, dossier_fournis: Path
 ) -> tuple[DefinitionCircuit, Path]:
     """Découpage du circuit d'une session, et le fichier qui le contient."""
-    chemin = fichier_definition(dossier_utilisateur, session.info.trace)
+    trace = session.info.trace
+    chemin = fichier_definition(dossier_utilisateur, trace)
     with _verrou:
-        # Un découpage livré avec l'outil est recopié chez l'utilisateur la
-        # première fois : c'est la copie qu'il retouchera, et elle survivra au
-        # remplacement de l'outil par une nouvelle version.
-        fourni = fichier_definition(dossier_fournis, session.info.trace)
-        if not chemin.exists() and fourni.is_file():
-            chemin.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(fourni, chemin)
-        cle = cle_fichier(chemin)
-        if cle is not None:
-            return _lus.obtenir(cle, lambda: DefinitionCircuit.lire(chemin)), chemin
+        definition = _chercher(trace, dossier_utilisateur, dossier_fournis)
+        if definition is not None:
+            return definition, chemin
 
         numeros = [t.numero for t in session.tours_valides if t.chrono][:TOURS_DETECTION]
         if not numeros:
@@ -59,4 +84,4 @@ def definition_circuit(
         detecter(charger_tours(session.chemin, numeros)).enregistrer(chemin)
         # Relu plutôt que gardé tel quel : le fichier arrondit au décimètre, et
         # le découpage ne doit pas changer au redémarrage de l'outil.
-        return _lus.obtenir(cle_fichier(chemin), lambda: DefinitionCircuit.lire(chemin)), chemin
+        return _lire(chemin, fichier_definition(dossier_fournis, trace)), chemin

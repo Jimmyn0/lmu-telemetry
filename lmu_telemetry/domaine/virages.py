@@ -50,7 +50,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -105,6 +105,9 @@ LONGUEUR_TOUR_MINIMALE = 100.0
 #: Canaux dont se déduisent les mesures d'un virage.
 CANAUX_MESURES = ("Ground Speed", "Brake Pos", "Throttle Pos", CANAL_GAZ_BRUT)
 
+#: Écart (m) au-delà duquel deux virages de même numéro ne sont pas le même virage.
+TOLERANCE_NOM = 10.0
+
 #: Remarque « pris sans freiner » : la page l'affiche comme une étiquette dans
 #: la case du virage, et non comme une remarque, d'où une clé nommée.
 SANS_FREINER = "serveur.virage.sans_freiner"
@@ -153,6 +156,23 @@ class DefinitionCircuit:
     """False dès que le fichier a été retouché à la main."""
 
     # ------------------------------------------------------------------
+
+    def avec_noms_de(self, autre: "DefinitionCircuit") -> "DefinitionCircuit":
+        """Donne un nom aux virages qui n'en ont pas, d'après une autre définition.
+
+        Un découpage recopié chez l'utilisateur avant que l'outil ne nomme les virages
+        ne se mettrait jamais à jour, puisque ce fichier n'est pas réécrit. Rien de ce
+        qui y figure n'est remplacé, et rien n'est écrit sur le disque.
+        """
+        noms = {v.numero: v for v in autre.virages}
+
+        def nomme(virage: Virage) -> Virage:
+            source = noms.get(virage.numero)
+            if virage.nom or source is None or abs(source.debut - virage.debut) > TOLERANCE_NOM:
+                return virage
+            return replace(virage, nom=source.nom)
+
+        return replace(self, virages=tuple(nomme(v) for v in self.virages))
 
     def enregistrer(self, chemin: Path) -> None:
         """Écrit le fichier d'un seul bloc.

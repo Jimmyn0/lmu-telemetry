@@ -24,7 +24,7 @@ from lmu_telemetry.domaine.virages import (
     mesurer,
 )
 from lmu_telemetry.errors import ErreurTelemetrie, FichierIllisible
-from lmu_telemetry.parametres import SeuilsVirage
+from lmu_telemetry.parametres import SeuilsCoach, SeuilsVirage
 from lmu_telemetry.sources.reader import FichierSession
 
 # ----------------------------------------------------------------------
@@ -168,6 +168,37 @@ def test_le_modele_n_ecrase_pas_les_reglages() -> None:
     _ecrire({"virages": {"frein": 7.5}})
     parametres.creer_modele()
     assert parametres.lire().virages.frein == 7.5
+
+
+def test_le_modele_ajoute_les_reglages_apparus_depuis() -> None:
+    _ecrire({"virages": {"frein": 7.5}})
+    parametres.creer_modele()
+    brut = json.loads(emplacements.fichier_parametres().read_text(encoding="utf-8"))
+    assert brut["virages"]["frein"] == 7.5
+    assert brut["virages"]["gaz"] == SeuilsVirage().gaz
+    assert brut["coach"]["creux_gaz"] == SeuilsCoach().creux_gaz
+    assert parametres.lire().virages.frein == 7.5
+
+
+def test_le_modele_laisse_une_faute_de_frappe_pour_que_lire_la_signale() -> None:
+    _ecrire({"virages": {"frien": 3}})
+    parametres.creer_modele()
+    with pytest.raises(ErreurTelemetrie, match="virages.frien"):
+        parametres.lire()
+
+
+def test_le_modele_ne_touche_pas_a_un_fichier_mal_forme() -> None:
+    chemin = emplacements.fichier_parametres()
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_text("{ pas du json", encoding="utf-8")
+    parametres.creer_modele()
+    assert chemin.read_text(encoding="utf-8") == "{ pas du json"
+
+
+def test_les_seuils_du_moteur_se_reglent() -> None:
+    _ecrire({"coach": {"creux_gaz": 55}})
+    assert parametres.lire().coach.creux_gaz == 55.0
+    assert parametres.lire().coach.correction == SeuilsCoach().correction
 
 
 def test_une_valeur_partielle_garde_les_autres() -> None:

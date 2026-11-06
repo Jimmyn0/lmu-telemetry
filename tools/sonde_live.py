@@ -34,14 +34,19 @@ import json
 import math
 import struct
 import time
-from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO
 
 import numpy as np
 
 from lmu_telemetry import emplacements
+from lmu_telemetry.sources.flux_memoire import (
+    ENTETE_CAPTURE,
+    TYPE_SCORING,
+    TYPE_TELEMETRIE,
+    TYPE_VEHICULE,
+    ecrire_enregistrement,
+)
 from lmu_telemetry.textes import console_utf8
 from lmu_telemetry.sources.memoire_lmu import (
     CHAMPS_ROUE,
@@ -75,35 +80,6 @@ IMAGES_MAXIMUM = 5
 #: glissement a un sens. À faible vitesse, le rapport ne veut plus rien dire.
 SEUIL_PEDALE = 0.2
 VITESSE_MINIMALE_ROUES = 15.0
-
-ENTETE_CAPTURE = b"LMUCAP1\n"
-ENREGISTREMENT = struct.Struct("<BdI")
-TYPE_TELEMETRIE, TYPE_VEHICULE, TYPE_SCORING = 1, 2, 3
-
-
-# ----------------------------------------------------------------------
-# Capture
-# ----------------------------------------------------------------------
-
-
-def ecrire_enregistrement(flux: BinaryIO, type_: int, instant: float, brut: bytes) -> None:
-    flux.write(ENREGISTREMENT.pack(type_, instant, len(brut)))
-    flux.write(brut)
-
-
-def relire_capture(chemin: Path) -> Iterator[tuple[int, float, bytes]]:
-    """Enregistrements d'une capture : (type, instant, bloc brut)."""
-    with chemin.open("rb") as flux:
-        if flux.read(len(ENTETE_CAPTURE)) != ENTETE_CAPTURE:
-            raise ValueError(f"{chemin} n'est pas une capture de la sonde")
-        while entete := flux.read(ENREGISTREMENT.size):
-            if len(entete) < ENREGISTREMENT.size:
-                return  # capture coupée en pleine écriture
-            type_, instant, longueur = ENREGISTREMENT.unpack(entete)
-            brut = flux.read(longueur)
-            if len(brut) < longueur:
-                return
-            yield type_, instant, brut
 
 
 # ----------------------------------------------------------------------

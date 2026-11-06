@@ -8,6 +8,7 @@ attendues se calculent donc à la main.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +18,8 @@ from lmu_telemetry.sources import catalogue
 from lmu_telemetry.domaine.donnees_tour import charger
 from lmu_telemetry.errors import ErreurTelemetrie, SessionEnCours
 from lmu_telemetry.domaine.session import Session
+from lmu_telemetry import emplacements
+from lmu_telemetry.domaine.circuits import definition_connue
 from lmu_telemetry.domaine.virages import (
     DefinitionCircuit,
     Virage,
@@ -335,3 +338,49 @@ def test_fichier_de_virages_mal_retouche(tmp_path) -> None:
         chemin.write_text(contenu, encoding="utf-8")
         with pytest.raises(ErreurTelemetrie, match="illisible"):
             DefinitionCircuit.lire(chemin)
+
+
+# ----------------------------------------------------------------------
+# Noms des virages
+# ----------------------------------------------------------------------
+
+
+def _circuit(*virages: Virage) -> DefinitionCircuit:
+    return DefinitionCircuit("Essai", 3000.0, virages)
+
+
+def test_un_decoupage_sans_noms_reprend_ceux_de_l_outil() -> None:
+    utilisateur = _circuit(Virage(1, 100.0, 200.0, 50.0), Virage(2, 500.0, 600.0, 50.0))
+    fourni = _circuit(Virage(1, 104.0, 200.0, 50.0, nom="Lesmo 1"))
+    resultat = utilisateur.avec_noms_de(fourni)
+    assert [v.nom for v in resultat.virages] == ["Lesmo 1", ""]
+    assert resultat.virages[0].debut == 100.0
+
+
+def test_un_nom_ecrit_a_la_main_reste() -> None:
+    utilisateur = _circuit(Virage(1, 100.0, 200.0, 50.0, nom="Le mien"))
+    fourni = _circuit(Virage(1, 100.0, 200.0, 50.0, nom="Lesmo 1"))
+    assert utilisateur.avec_noms_de(fourni).virages[0].nom == "Le mien"
+
+
+def test_un_virage_deplace_n_est_plus_le_meme() -> None:
+    utilisateur = _circuit(Virage(1, 100.0, 200.0, 50.0))
+    fourni = _circuit(Virage(1, 400.0, 500.0, 50.0, nom="Lesmo 1"))
+    assert utilisateur.avec_noms_de(fourni).virages[0].nom == ""
+
+
+def test_un_circuit_inconnu_n_a_pas_de_decoupage(tmp_path: Path) -> None:
+    assert definition_connue("Inconnu", tmp_path / "u", tmp_path / "f") is None
+
+
+def test_monza_arrive_nomme_chez_qui_avait_deja_son_decoupage(tmp_path: Path) -> None:
+    fournis = emplacements.virages_fournis()
+    trace = "Autodromo Nazionale Monza"
+    ancien = DefinitionCircuit.lire(fournis / f"{trace}.json")
+    sans_noms = tuple(replace(v, nom="") for v in ancien.virages)
+    replace(ancien, virages=sans_noms).enregistrer(tmp_path / f"{trace}.json")
+
+    definition = definition_connue(trace, tmp_path, fournis)
+    assert [v.nom for v in definition.virages][:3] == ["Rettifilo", "Rettifilo", "Curva Grande"]
+    relu = DefinitionCircuit.lire(tmp_path / f"{trace}.json")
+    assert relu.virages[0].nom == ""

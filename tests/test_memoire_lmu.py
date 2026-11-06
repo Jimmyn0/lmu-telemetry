@@ -20,6 +20,7 @@ from ctypes import wintypes
 import pytest
 
 from lmu_telemetry.sources import memoire_lmu as m
+from lmu_telemetry.sources import flux_memoire
 from tools import sonde_live as sonde
 
 _noms = itertools.count()
@@ -218,23 +219,23 @@ def test_une_ecriture_permanente_fait_abandonner_le_bloc(jeu, monkeypatch):
 def test_une_capture_se_relit_a_l_identique(tmp_path):
     chemin = tmp_path / "capture.bin"
     with chemin.open("wb") as flux:
-        flux.write(sonde.ENTETE_CAPTURE)
-        sonde.ecrire_enregistrement(flux, sonde.TYPE_TELEMETRIE, 1.5, b"abc")
-        sonde.ecrire_enregistrement(flux, sonde.TYPE_SCORING, 2.5, b"de")
-    assert list(sonde.relire_capture(chemin)) == [
-        (sonde.TYPE_TELEMETRIE, 1.5, b"abc"),
-        (sonde.TYPE_SCORING, 2.5, b"de"),
+        flux.write(flux_memoire.ENTETE_CAPTURE)
+        flux_memoire.ecrire_enregistrement(flux, flux_memoire.TYPE_TELEMETRIE, 1.5, b"abc")
+        flux_memoire.ecrire_enregistrement(flux, flux_memoire.TYPE_SCORING, 2.5, b"de")
+    assert list(flux_memoire.relire_capture(chemin)) == [
+        (flux_memoire.TYPE_TELEMETRIE, 1.5, b"abc"),
+        (flux_memoire.TYPE_SCORING, 2.5, b"de"),
     ]
 
 
 def test_une_capture_coupee_rend_ce_qu_elle_contient(tmp_path):
     chemin = tmp_path / "capture.bin"
     with chemin.open("wb") as flux:
-        flux.write(sonde.ENTETE_CAPTURE)
-        sonde.ecrire_enregistrement(flux, sonde.TYPE_TELEMETRIE, 1.5, b"abc")
-        flux.write(sonde.ENREGISTREMENT.pack(sonde.TYPE_SCORING, 2.5, 100))
+        flux.write(flux_memoire.ENTETE_CAPTURE)
+        flux_memoire.ecrire_enregistrement(flux, flux_memoire.TYPE_TELEMETRIE, 1.5, b"abc")
+        flux.write(flux_memoire.ENREGISTREMENT.pack(flux_memoire.TYPE_SCORING, 2.5, 100))
         flux.write(b"tronque")
-    assert len(list(sonde.relire_capture(chemin))) == 1
+    assert len(list(flux_memoire.relire_capture(chemin))) == 1
 
 
 def test_sans_jeu_la_sonde_le_dit_et_s_arrete(tmp_path):
@@ -294,8 +295,8 @@ def test_la_sonde_mesure_une_session_simulee(jeu, tmp_path):
 
     enregistre = json.loads((tmp_path / "rapport.json").read_text(encoding="utf-8"))
     assert enregistre["roulage_s"] >= 1.5
-    types = {t for t, _, _ in sonde.relire_capture(tmp_path / "capture.bin")}
-    assert types == {sonde.TYPE_TELEMETRIE, sonde.TYPE_VEHICULE, sonde.TYPE_SCORING}
+    types = {t for t, _, _ in flux_memoire.relire_capture(tmp_path / "capture.bin")}
+    assert types == {flux_memoire.TYPE_TELEMETRIE, flux_memoire.TYPE_VEHICULE, flux_memoire.TYPE_SCORING}
     assert (tmp_path / "image-1.bin").stat().st_size == m.TAILLE_MEMOIRE
 
 

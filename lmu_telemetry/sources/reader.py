@@ -399,6 +399,38 @@ class FichierSession:
         dehors = np.isin(surfaces, list(SURFACES_HORS_PISTE)).any(axis=1)
         return self.temps_canal(CANAL_SURFACES), dehors
 
+    def intervalles_stands(self) -> list[tuple[float, float]]:
+        """Périodes où la voiture est aux stands, d'après `In Pits`.
+
+        `In Pits` vaut 1 dans la voie des stands et le garage, 0 en piste, et n'est
+        écrit qu'au changement : on reconstruit donc les intervalles.
+        """
+        ts, valeurs = self.evenement("In Pits")
+        if ts.size == 0:
+            return []
+        fin_session = self.t0 + self.duree
+        intervalles = []
+        for i, instant in enumerate(ts):
+            if valeurs[i]:
+                suivant = float(ts[i + 1]) if i + 1 < len(ts) else fin_session
+                intervalles.append((float(instant), suivant))
+        return intervalles
+
+    def instants_chocs(self) -> np.ndarray:
+        """Instants des chocs, d'après les passages à True de `LastImpactMagnitude`.
+
+        La valeur présente à t0 est l'état initial et non un choc : on l'écarte.
+        """
+        ts, valeurs = self.evenement("LastImpactMagnitude")
+        if ts.size == 0:
+            return np.empty(0)
+        montees = [
+            float(ts[i])
+            for i in range(len(ts))
+            if valeurs[i] and (i == 0 or not valeurs[i - 1]) and ts[i] > self.t0
+        ]
+        return np.array(montees)
+
     # ------------------------------------------------------------------
     # Utilitaires internes
     # ------------------------------------------------------------------
@@ -459,6 +491,24 @@ class FichierSession:
 # ----------------------------------------------------------------------
 # Fonctions libres
 # ----------------------------------------------------------------------
+
+
+def valeur_a_instant(
+    ts: np.ndarray, valeurs: np.ndarray, instant: float | None
+) -> float | None:
+    """Valeur écrite exactement à `instant`, à la tolérance d'horodatage près.
+
+    Renvoie None si rien n'a été écrit à cet instant, ou si la valeur est nulle
+    ou négative : le jeu écrit 0.0 comme valeur initiale de tous ces
+    événements, ce qui ne correspond à aucun temps réel.
+    """
+    if instant is None or ts.size == 0:
+        return None
+    candidats = np.nonzero(np.isclose(ts, instant, atol=1e-3))[0]
+    if candidats.size == 0:
+        return None
+    valeur = float(valeurs[candidats[-1]])
+    return valeur if valeur > 0 else None
 
 
 def chemin_journal(chemin: Path) -> Path:

@@ -49,7 +49,13 @@ from pathlib import Path
 import numpy as np
 
 from ..cache import CacheBorne
-from ..sources.reader import CANAL_SURFACES, FichierSession, InfoSession, cle_fichier
+from ..sources.reader import (
+    CANAL_SURFACES,
+    FichierSession,
+    InfoSession,
+    cle_fichier,
+    valeur_a_instant,
+)
 from ..textes import Message
 
 #: Vitesse (km/h) en dessous de laquelle on considère que la voiture s'est
@@ -274,8 +280,8 @@ def _construire_tours(fichier: FichierSession) -> list[Tour]:
     ts_s1, s1 = fichier.evenement("Last Sector1")
     ts_s2, s2 = fichier.evenement("Last Sector2")
 
-    stands = _intervalles_stands(fichier)
-    chocs = _instants_chocs(fichier)
+    stands = fichier.intervalles_stands()
+    chocs = fichier.instants_chocs()
     hors_piste = _intervalles_hors_piste(fichier)
     vitesse = fichier.canal("Ground Speed")
     freq_vitesse = fichier.canaux["Ground Speed"].frequence
@@ -285,7 +291,7 @@ def _construire_tours(fichier: FichierSession) -> list[Tour]:
         fin = float(ts_lap[i + 1]) if i + 1 < len(ts_lap) else None
 
         # Le chrono du tour i est écrit à l'instant où commence le tour i+1.
-        chrono = _valeur_a_instant(ts_chrono, chronos, fin) if fin is not None else None
+        chrono = valeur_a_instant(ts_chrono, chronos, fin) if fin is not None else None
         if chrono is not None and chrono <= 0:
             chrono = None
 
@@ -300,8 +306,8 @@ def _construire_tours(fichier: FichierSession) -> list[Tour]:
                 debut=float(debut),
                 fin=fin,
                 chrono=chrono,
-                cumul_s1=_valeur_a_instant(ts_s1, s1, fin),
-                cumul_s2=_valeur_a_instant(ts_s2, s2, fin),
+                cumul_s1=valeur_a_instant(ts_s1, s1, fin),
+                cumul_s2=valeur_a_instant(ts_s2, s2, fin),
                 stands=_recouvre(stands, float(debut), borne),
                 contacts=int(np.count_nonzero((chocs > debut) & (chocs <= borne))),
                 duree_hors_piste=_duree_recouvrement(hors_piste, float(debut), borne),
@@ -364,40 +370,6 @@ def _assembler_tour(**champs) -> Tour:
 # ----------------------------------------------------------------------
 
 
-def _intervalles_stands(fichier: FichierSession) -> list[tuple[float, float]]:
-    """Périodes où la voiture est aux stands, d'après `In Pits`.
-
-    `In Pits` vaut 1 dans la voie des stands et le garage, 0 en piste, et n'est
-    écrit qu'au changement : on reconstruit donc les intervalles.
-    """
-    ts, valeurs = fichier.evenement("In Pits")
-    if ts.size == 0:
-        return []
-    fin_session = fichier.t0 + fichier.duree
-    intervalles = []
-    for i, instant in enumerate(ts):
-        if valeurs[i]:
-            suivant = float(ts[i + 1]) if i + 1 < len(ts) else fin_session
-            intervalles.append((float(instant), suivant))
-    return intervalles
-
-
-def _instants_chocs(fichier: FichierSession) -> np.ndarray:
-    """Instants des chocs, d'après les passages à True de `LastImpactMagnitude`.
-
-    La valeur présente à t0 est l'état initial et non un choc : on l'écarte.
-    """
-    ts, valeurs = fichier.evenement("LastImpactMagnitude")
-    if ts.size == 0:
-        return np.empty(0)
-    montees = [
-        float(ts[i])
-        for i in range(len(ts))
-        if valeurs[i] and (i == 0 or not valeurs[i - 1]) and ts[i] > fichier.t0
-    ]
-    return np.array(montees)
-
-
 def _intervalles_hors_piste(fichier: FichierSession) -> list[tuple[float, float]]:
     """Périodes où au moins une roue est sur l'herbe, la terre ou le gravier.
 
@@ -419,24 +391,6 @@ def _intervalles_hors_piste(fichier: FichierSession) -> list[tuple[float, float]
 # ----------------------------------------------------------------------
 # Petits utilitaires
 # ----------------------------------------------------------------------
-
-
-def _valeur_a_instant(
-    ts: np.ndarray, valeurs: np.ndarray, instant: float | None
-) -> float | None:
-    """Valeur écrite exactement à `instant`, à la tolérance d'horodatage près.
-
-    Renvoie None si rien n'a été écrit à cet instant, ou si la valeur est nulle
-    ou négative : le jeu écrit 0.0 comme valeur initiale de tous ces
-    événements, ce qui ne correspond à aucun temps réel.
-    """
-    if instant is None or ts.size == 0:
-        return None
-    candidats = np.nonzero(np.isclose(ts, instant, atol=1e-3))[0]
-    if candidats.size == 0:
-        return None
-    valeur = float(valeurs[candidats[-1]])
-    return valeur if valeur > 0 else None
 
 
 def _recouvre(intervalles: list[tuple[float, float]], debut: float, fin: float) -> bool:

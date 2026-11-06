@@ -3,21 +3,27 @@
     python -m lmu_telemetry sessions            liste les sessions du disque
     python -m lmu_telemetry tours <fichier>     détaille les tours d'une session
     python -m lmu_telemetry info <fichier>      structure brute d'un fichier
+    python -m lmu_telemetry rejouer <fichier>   les conseils qu'une session aurait donnés
+    python -m lmu_telemetry direct              les conseils en direct, jeu lancé
 
 Un `<fichier>` peut être un chemin complet, ou simplement le numéro affiché
-dans la première colonne de `sessions`.
+dans la première colonne de `sessions`. `rejouer` accepte aussi le dossier d'une
+capture de la sonde, seule à voir le blocage et le patinage.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
+from . import emplacements, parametres
 from .sources import catalogue
 from .errors import DossierIntrouvable, ErreurTelemetrie, FichierIntrouvable
 from .sources.reader import FichierSession
 from .textes import console_utf8
+from .domaine.circuits import definition_circuit, definition_connue
 from .domaine.session import Session
 
 
@@ -169,6 +175,95 @@ def cmd_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _afficher_evenement(evenement: object) -> None:
+    """Une ligne par conseil et par tour, au fil de la session."""
+    from .coach.moteur import BilanPassage, TourTermine
+
+    if isinstance(evenement, BilanPassage) and evenement.conseil is not None:
+        minutes, secondes = divmod(evenement.passage.temps_sortie, 60)
+        print(f"  {int(minutes):3}:{secondes:04.1f}  {evenement.conseil.message}", flush=True)
+    elif isinstance(evenement, TourTermine):
+        temps = chrono(evenement.chrono) if evenement.chrono else "non chronométré"
+        print(f"Tour {evenement.tour} : {temps}", flush=True)
+
+
+def cmd_rejouer(args: argparse.Namespace) -> int:
+    from .coach.moteur import BilanPassage
+    from .coach.rejeu import identite_capture, ouvrir, rejouer
+
+    chemin = Path(args.fichier) if Path(args.fichier).exists() else _resoudre(args.fichier, args.dossier)
+    source = ouvrir(chemin)
+    virages, fournis = emplacements.virages_utilisateur(), emplacements.virages_fournis()
+    if source.roues:
+        trace, modele = identite_capture(chemin)
+        definition = definition_connue(trace, virages, fournis)
+        if definition is None:
+            raise ErreurTelemetrie(f"Aucun découpage en virages pour « {trace} ».")
+    else:
+        session = Session.ouvrir(chemin)
+        trace, modele = session.info.trace, session.info.voiture
+        definition, _ = definition_circuit(session, virages, fournis)
+
+    print(f"Session : {trace}, {modele}")
+    if not source.roues:
+        print("Ce fichier ne voit pas les roues : ni blocage ni patinage.")
+    print()
+    passages = conseils = ecartes = 0
+    for evenement in rejouer(source.flux(), definition, parametres.lire(), args.vitesse):
+        _afficher_evenement(evenement)
+        if isinstance(evenement, BilanPassage):
+            passages += 1
+            conseils += evenement.conseil is not None
+            ecartes += evenement.ecarte is not None
+    print(f"\n{passages} passage(s), {conseils} conseil(s), {ecartes} écarté(s) : "
+          "stands, sortie de piste, choc ou arrêt.")
+    return 0
+
+
+def cmd_direct(args: argparse.Namespace) -> int:
+    from .coach.moteur import Moteur, Rupture
+    from .sources.flux_memoire import flux_direct
+    from .sources.memoire_lmu import CHAMPS_SCORING, LecteurMemoire, MemoireAbsente, decoder
+
+    def attendre_memoire() -> LecteurMemoire:
+        print("En attente de Le Mans Ultimate…", flush=True)
+        while True:
+            try:
+                return LecteurMemoire()
+            except MemoireAbsente:
+                time.sleep(1.0)
+
+    def moteur_du_circuit(memoire: LecteurMemoire) -> Moteur:
+        """Le moteur du circuit en cours : attend qu'une voiture soit en piste."""
+        while (lecture := memoire.lire()) is None:
+            time.sleep(0.5)
+        trace = decoder(lecture.scoring, {"circuit": CHAMPS_SCORING["circuit"]})["circuit"]
+        definition = definition_connue(
+            trace, emplacements.virages_utilisateur(), emplacements.virages_fournis()
+        )
+        if definition is None:
+            raise ErreurTelemetrie(
+                f"Aucun découpage en virages pour « {trace} » : "
+                "ouvre une session de ce circuit dans l'outil pour le créer."
+            )
+        print(f"Circuit : {trace}. Ctrl+C pour arrêter.", flush=True)
+        reglages = parametres.lire()
+        return Moteur(definition, reglages.coach, reglages.virages)
+
+    try:
+        with attendre_memoire() as memoire:
+            moteur = moteur_du_circuit(memoire)
+            for echantillon in flux_direct(memoire):
+                for evenement in moteur.traiter(echantillon):
+                    _afficher_evenement(evenement)
+                    # Une nouvelle session peut se dérouler sur un autre circuit.
+                    if isinstance(evenement, Rupture):
+                        moteur = moteur_du_circuit(memoire)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
 def cmd_web(args: argparse.Namespace) -> int:
     from .web.serveur import demarrer
 
@@ -204,6 +299,21 @@ def construire_parseur() -> argparse.ArgumentParser:
     p = sous.add_parser("info", help="structure brute d'un fichier")
     p.add_argument("fichier", help="chemin du fichier, ou numéro affiché par `sessions`")
     p.set_defaults(fonction=cmd_info)
+
+    p = sous.add_parser("rejouer", help="les conseils qu'une session aurait donnés")
+    p.add_argument(
+        "fichier",
+        help="chemin du fichier, numéro affiché par `sessions`, ou dossier d'une capture",
+    )
+    p.add_argument(
+        "--vitesse",
+        type=float,
+        help="vitesse de lecture, 1 pour le temps réel (défaut : le plus vite possible)",
+    )
+    p.set_defaults(fonction=cmd_rejouer)
+
+    p = sous.add_parser("direct", help="les conseils en direct, pendant que tu roules")
+    p.set_defaults(fonction=cmd_direct)
 
     p = sous.add_parser("web", help="ouvrir l'interface graphique dans le navigateur")
     p.add_argument("--port", type=int, default=8770)

@@ -11,8 +11,10 @@ un seul endroit. Les clés du serveur commencent toutes par `serveur.`.
 
 Les valeurs sont insérées telles quelles : les nombres y sont donc déjà mis en
 forme (« 1.8 », pas 1.8123), pour que les deux langues affichent la même chose.
-Elles finissent dans du texte brut, jamais dans du HTML : un chemin ou un nom de
-voiture venu d'un fichier ne peut rien injecter.
+Seule exception, un `float` : c'est une durée de conseil, écrite comme on la lit
+dans chaque langue, « 0,4 s » ou « 0.4 s ». Les valeurs finissent dans du texte
+brut, jamais dans du HTML : un chemin ou un nom de voiture venu d'un fichier ne
+peut rien injecter.
 """
 
 from __future__ import annotations
@@ -47,11 +49,18 @@ def traduire(cle: str, langue: str, valeurs: dict | None = None) -> str:
     """
     valeurs = valeurs or {}
     modele = _textes(langue).get(cle) or _textes("fr").get(cle, cle)
-    return re.sub(
-        r"\{(\w+)\}",
-        lambda m: str(valeurs[m.group(1)]) if m.group(1) in valeurs else m.group(0),
-        modele,
-    )
+
+    def remplir(trouve: re.Match) -> str:
+        nom = trouve.group(1)
+        if nom not in valeurs:
+            return trouve.group(0)
+        valeur = valeurs[nom]
+        if isinstance(valeur, float):
+            ecrit = f"{valeur:.1f}"
+            return ecrit.replace(".", ",") if langue == "fr" else ecrit
+        return str(valeur)
+
+    return re.sub(r"\{(\w+)\}", remplir, modele)
 
 
 def texte(cle: str, **valeurs: object) -> str:
