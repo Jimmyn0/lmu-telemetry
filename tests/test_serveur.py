@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from lmu_telemetry.session import Session
-from lmu_telemetry.virages import DefinitionCircuit, Virage, fichier_definition
+from lmu_telemetry.domaine.session import Session
+from lmu_telemetry.domaine.virages import DefinitionCircuit, Virage, fichier_definition
 from lmu_telemetry.web import serveur
 
 

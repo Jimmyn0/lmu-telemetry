@@ -16,10 +16,12 @@ from pathlib import Path
 
 import pytest
 
-from lmu_telemetry import catalogue, emplacements
+from lmu_telemetry.sources import catalogue
+
+from lmu_telemetry import emplacements
 from lmu_telemetry.errors import DossierIntrouvable
-from lmu_telemetry.session import Session
-from lmu_telemetry.virages import DefinitionCircuit, Virage, fichier_definition
+from lmu_telemetry.domaine.session import Session
+from lmu_telemetry.domaine.virages import DefinitionCircuit, Virage, fichier_definition
 from lmu_telemetry.web import serveur
 
 VDF_RECENT = r'''"libraryfolders"

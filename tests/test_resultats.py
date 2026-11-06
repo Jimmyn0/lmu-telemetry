@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from lmu_telemetry import pays, resultats
+from lmu_telemetry.domaine import pays
+
+from lmu_telemetry.sources import resultats
 from lmu_telemetry.errors import DossierIntrouvable
 
 # Un fichier de résultats réduit à ce dont on se sert, mais avec la même

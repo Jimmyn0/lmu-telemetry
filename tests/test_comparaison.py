@@ -7,11 +7,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lmu_telemetry import catalogue
-from lmu_telemetry.comparaison import comparer, comparer_fichiers
-from lmu_telemetry.donnees_tour import TourIntrouvable, charger
+from lmu_telemetry.sources import catalogue
+from lmu_telemetry.domaine.comparaison import comparer, comparer_fichiers
+from lmu_telemetry.domaine.donnees_tour import TourIntrouvable, charger
 from lmu_telemetry.errors import ErreurTelemetrie, SessionEnCours
-from lmu_telemetry.session import Session
+from lmu_telemetry.domaine.session import Session
 from tests.fixtures import construire as constructeur
 
 # La session synthétique : voir tests/fixtures/construire.py.

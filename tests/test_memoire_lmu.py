@@ -19,7 +19,7 @@ from ctypes import wintypes
 
 import pytest
 
-from lmu_telemetry import memoire_lmu as m
+from lmu_telemetry.sources import memoire_lmu as m
 from tools import sonde_live as sonde
 
 _noms = itertools.count()

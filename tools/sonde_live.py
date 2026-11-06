@@ -43,7 +43,7 @@ from typing import BinaryIO
 import numpy as np
 
 from lmu_telemetry import emplacements
-from lmu_telemetry.memoire_lmu import (
+from lmu_telemetry.sources.memoire_lmu import (
     CHAMPS_ROUE,
     CHAMPS_SCORING,
     CHAMPS_TELEMETRIE,

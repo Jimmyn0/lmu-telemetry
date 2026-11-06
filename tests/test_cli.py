@@ -34,7 +34,7 @@ def test_date_du_nom_de_fichier_est_en_utc(tmp_path: Path) -> None:
     s'affichait à 12 h 12 dans la liste, alors que le détail de la session — qui
     lit la métadonnée, elle correctement marquée — affichait bien 14 h 12.
     """
-    from lmu_telemetry.catalogue import lister
+    from lmu_telemetry.sources.catalogue import lister
 
     (tmp_path / "Circuit de test_P_2026-09-08T12_12_19Z.duckdb").write_bytes(b"")
     repere = lister(tmp_path)[0]

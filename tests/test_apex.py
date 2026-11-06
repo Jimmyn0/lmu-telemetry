@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lmu_telemetry.virages import (
+from lmu_telemetry.domaine.virages import (
     ANGLE_MINIMAL,
     ECART_FUSION,
     RAYON_MAXIMAL,
@@ -220,7 +220,7 @@ def test_nom_ecrit_a_la_main_complete_le_numero() -> None:
 
 
 def test_sens_survit_a_lenregistrement(tmp_path) -> None:
-    from lmu_telemetry.virages import DefinitionCircuit
+    from lmu_telemetry.domaine.virages import DefinitionCircuit
 
     definition = DefinitionCircuit(
         circuit="Test",
@@ -243,7 +243,7 @@ def test_ancien_fichier_sans_sens_reste_lisible(tmp_path) -> None:
     illisibles : on perd l'information, pas le découpage."""
     import json
 
-    from lmu_telemetry.virages import DefinitionCircuit
+    from lmu_telemetry.domaine.virages import DefinitionCircuit
 
     chemin = tmp_path / "Ancien.json"
     chemin.write_text(

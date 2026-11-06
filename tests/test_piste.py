@@ -12,11 +12,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lmu_telemetry import catalogue
-from lmu_telemetry.donnees_tour import charger
+from lmu_telemetry.sources import catalogue
+from lmu_telemetry.domaine.donnees_tour import charger
 from lmu_telemetry.errors import ErreurTelemetrie, SessionEnCours
-from lmu_telemetry.piste import _sur_piste, construire
-from lmu_telemetry.session import Session
+from lmu_telemetry.domaine.piste import _sur_piste, construire
+from lmu_telemetry.domaine.session import Session
 from tests.fixtures import construire as constructeur
 
 
@@ -90,7 +90,7 @@ def test_une_sortie_ne_deplace_plus_laxe(session_test: Path) -> None:
     tour, ce qui déplace l'axe que ce tour déduit, et on vérifie que l'axe
     commun ne bouge pas dès lors que la portion est signalée hors piste.
     """
-    from lmu_telemetry.donnees_tour import CANAL_HORS_PISTE
+    from lmu_telemetry.domaine.donnees_tour import CANAL_HORS_PISTE
 
     tours = [charger(session_test, 1), charger(session_test, 3)]
     fin = min(t.longueur for t in tours)
@@ -288,7 +288,7 @@ def test_un_bord_aberrant_est_ecarte(session_test: Path) -> None:
 def test_trou_comble_a_travers_la_ligne() -> None:
     """Le tour est une boucle : un trou qui chevauche la ligne se comble entre
     la dernière mesure et la première, pas en figeant la valeur du bout."""
-    from lmu_telemetry.piste import _completer
+    from lmu_telemetry.domaine.piste import _completer
 
     bord = np.full(100, np.nan)
     bord[10:21] = 5.0
@@ -300,6 +300,6 @@ def test_trou_comble_a_travers_la_ligne() -> None:
 
 
 def test_bord_jamais_mesure() -> None:
-    from lmu_telemetry.piste import _completer
+    from lmu_telemetry.domaine.piste import _completer
 
     assert _completer(np.full(50, np.nan), np.arange(50, dtype=float)) is None

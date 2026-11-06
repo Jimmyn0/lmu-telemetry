@@ -17,7 +17,7 @@ from lmu_telemetry.errors import (
     SchemaInconnu,
     SessionEnCours,
 )
-from lmu_telemetry.reader import FichierSession
+from lmu_telemetry.sources.reader import FichierSession
 from tests.fixtures import construire as constructeur
 
 

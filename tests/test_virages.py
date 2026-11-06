@@ -13,11 +13,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lmu_telemetry import catalogue
-from lmu_telemetry.donnees_tour import charger
+from lmu_telemetry.sources import catalogue
+from lmu_telemetry.domaine.donnees_tour import charger
 from lmu_telemetry.errors import ErreurTelemetrie, SessionEnCours
-from lmu_telemetry.session import Session
-from lmu_telemetry.virages import (
+from lmu_telemetry.domaine.session import Session
+from lmu_telemetry.domaine.virages import (
     DefinitionCircuit,
     Virage,
     detecter,
@@ -324,7 +324,7 @@ def test_fichier_de_virages_mal_retouche(tmp_path) -> None:
     """Un champ effacé ou un nombre mal écrit en retouchant le fichier à la
     main donne un message qui désigne le fichier, pas une erreur Python."""
     from lmu_telemetry.errors import ErreurTelemetrie
-    from lmu_telemetry.virages import DefinitionCircuit
+    from lmu_telemetry.domaine.virages import DefinitionCircuit
 
     for contenu in (
         '{"longueur": 1000, "virages": []}',

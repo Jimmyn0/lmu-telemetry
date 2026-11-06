@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from lmu_telemetry.errors import SessionEnCours
-from lmu_telemetry.session import TOLERANCE_CHRONO, Session
+from lmu_telemetry.domaine.session import TOLERANCE_CHRONO, Session
 from tests.fixtures import construire as constructeur
 
 

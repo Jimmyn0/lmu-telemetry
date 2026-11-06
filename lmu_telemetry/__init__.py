@@ -6,8 +6,8 @@
 __version__ = "1.1.0"
 
 from .errors import ErreurTelemetrie
-from .reader import ROUES, FichierSession, InfoCanal, InfoEvenement, InfoSession
-from .session import Session, Tour
+from .sources.reader import ROUES, FichierSession, InfoCanal, InfoEvenement, InfoSession
+from .domaine.session import Session, Tour
 
 __all__ = [
     "__version__",

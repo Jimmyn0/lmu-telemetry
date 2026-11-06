@@ -13,14 +13,14 @@ import numpy as np
 import pytest
 
 from lmu_telemetry.errors import ErreurTelemetrie
-from lmu_telemetry.regularite import (
+from lmu_telemetry.domaine.regularite import (
     PassageVirage,
     Regularite,
     StatistiquesVirage,
     analyser,
 )
-from lmu_telemetry.virages import DefinitionCircuit, Virage, detecter
-from lmu_telemetry.donnees_tour import charger
+from lmu_telemetry.domaine.virages import DefinitionCircuit, Virage, detecter
+from lmu_telemetry.domaine.donnees_tour import charger
 from tests.fixtures import construire as constructeur
 
 

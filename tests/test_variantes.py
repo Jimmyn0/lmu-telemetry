@@ -16,9 +16,9 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from lmu_telemetry.reader import FichierSession
-from lmu_telemetry.virages import DefinitionCircuit, detecter, fichier_definition
-from lmu_telemetry.donnees_tour import charger
+from lmu_telemetry.sources.reader import FichierSession
+from lmu_telemetry.domaine.virages import DefinitionCircuit, detecter, fichier_definition
+from lmu_telemetry.domaine.donnees_tour import charger
 from tests.fixtures import construire as constructeur
 
 

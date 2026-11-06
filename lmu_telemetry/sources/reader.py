@@ -53,7 +53,7 @@ from typing import Mapping
 import duckdb
 import numpy as np
 
-from .errors import (
+from ..errors import (
     DonneeManquante,
     FichierIntrouvable,
     SchemaInconnu,

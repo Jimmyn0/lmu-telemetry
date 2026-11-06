@@ -46,7 +46,7 @@ def dossier_lmu() -> Path | None:
     une machine où le jeu n'est pas installé — les tests de logique métier, eux,
     tournent partout.
     """
-    from lmu_telemetry import catalogue
+    from lmu_telemetry.sources import catalogue
     from lmu_telemetry.errors import DossierIntrouvable
 
     try:

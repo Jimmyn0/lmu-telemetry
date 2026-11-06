@@ -18,8 +18,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lmu_telemetry.donnees_tour import CANAL_BRAQUAGE, CANAL_VOLANT, _ajouter_volant
-from lmu_telemetry.reader import InfoSession, _debattement
+from lmu_telemetry.domaine.donnees_tour import CANAL_BRAQUAGE, CANAL_VOLANT, _ajouter_volant
+from lmu_telemetry.sources.reader import InfoSession, _debattement
 
 
 def _setup(valeur: str) -> str:
@@ -141,9 +141,9 @@ def test_debattement_present_sur_toutes_les_vraies_sessions(dossier_lmu) -> None
     if dossier_lmu is None:
         pytest.skip("Le Mans Ultimate n'est pas installé sur cette machine")
 
-    from lmu_telemetry import catalogue
+    from lmu_telemetry.sources import catalogue
     from lmu_telemetry.errors import ErreurTelemetrie
-    from lmu_telemetry.reader import FichierSession
+    from lmu_telemetry.sources.reader import FichierSession
 
     lus = manquants = 0
     for fichier in catalogue.lister(dossier_lmu)[:40]:

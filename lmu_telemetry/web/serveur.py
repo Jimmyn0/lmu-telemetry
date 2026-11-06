@@ -38,12 +38,16 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
-from .. import __version__, catalogue, emplacements, pays, resultats, textes
-from ..comparaison import comparer_fichiers
-from ..donnees_tour import charger
-from ..piste import construire as construire_piste
-from ..regularite import analyser
-from ..virages import (
+from .. import __version__, emplacements, textes
+
+from ..sources import catalogue, resultats
+
+from ..domaine import pays
+from ..domaine.comparaison import comparer_fichiers
+from ..domaine.donnees_tour import charger
+from ..domaine.piste import construire as construire_piste
+from ..domaine.regularite import analyser
+from ..domaine.virages import (
     DefinitionCircuit,
     detecter,
     fichier_definition,
@@ -52,8 +56,8 @@ from ..virages import (
 )
 from ..errors import DossierIntrouvable, ErreurTelemetrie
 from ..textes import Message
-from ..reader import FichierSession
-from ..session import Session
+from ..sources.reader import FichierSession
+from ..domaine.session import Session
 
 STATIQUE = Path(__file__).parent / "statique"
 

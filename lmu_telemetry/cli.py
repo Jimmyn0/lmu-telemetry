@@ -14,10 +14,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import catalogue
+from .sources import catalogue
 from .errors import DossierIntrouvable, ErreurTelemetrie, FichierIntrouvable
-from .reader import FichierSession
-from .session import Session
+from .sources.reader import FichierSession
+from .domaine.session import Session
 
 
 # ----------------------------------------------------------------------
