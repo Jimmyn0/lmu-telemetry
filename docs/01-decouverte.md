@@ -156,7 +156,8 @@ Il ne faut donc jamais supposer que deux canaux ont la même longueur.
 | Retour de force | `FFB Output`, `Steering Shaft Torque` | 100 Hz | % / Nm |
 
 Bonus non demandés mais utiles plus tard : `TC`, `ABS`, `ABSLevel`, `TCLevel`,
-`TCSlipAngle`, `Wheel Speed` ×4 (100 Hz — permettra de mesurer le blocage de roue),
+`TCSlipAngle`, `Wheel Speed` ×4 (100 Hz — *corrigé depuis : ne montre pas le blocage de
+roue, voir [12-memoire-partagee.md](12-memoire-partagee.md)*),
 `Turbo Boost Pressure`, `Regen Rate`, `Virtual Energy`.
 
 ### Absents
