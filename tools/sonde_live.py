@@ -63,7 +63,7 @@ from lmu_telemetry.sources.memoire_lmu import (
 )
 
 #: Fréquence de sondage, en Hz. Le double du débit annoncé par le jeu (100 Hz) :
-#: en dessous, on ne pourrait pas le mesurer. L'overlay lira, lui, à 50 Hz.
+#: en dessous, on ne pourrait pas le mesurer. Le direct lit, lui, à 50 Hz.
 FREQUENCE_SONDAGE = 200
 
 #: Temps passé à rouler (s) après lequel la sonde s'arrête d'elle-même.

@@ -1,13 +1,10 @@
 """Le flux d'échantillons d'un fichier `.duckdb`, comme si la session se déroulait.
 
-Le but est de donner au moteur ce qu'il aurait reçu en direct, ni plus ni moins :
+Le but est de donner ce que le direct aurait donné, ni plus ni moins :
 
 * une valeur par canal, tenue jusqu'à la suivante, sans rien interpoler ;
-* la distance à 5 Hz alors que le fichier la donne à 10 Hz, pour que l'estimation
-  entre deux mises à jour travaille comme en piste ;
+* la distance à 5 Hz alors que le fichier la donne à 10 Hz, comme en piste ;
 * pas de `roues` : le fichier ne les a pas, voir `echantillon.py`.
-
-Comparé à une capture de la même session, ce flux donne les mêmes passages.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Les trois sources du moteur : fichier, capture et mémoire du jeu.
+"""Les trois sources de la lecture du jeu : fichier, capture et mémoire du jeu.
 
 Une capture et le direct passent par la même conversion : la tester sur des blocs
 bruts vaut pour les deux. La session de test sert au rejeu d'un fichier.
@@ -12,11 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from lmu_telemetry.cli import main
-from lmu_telemetry.coach.moteur import BilanPassage, TourTermine
-from lmu_telemetry.coach.rejeu import identite_capture, ouvrir, rejouer
-from lmu_telemetry.domaine.session import Session
-from lmu_telemetry.domaine.virages import DefinitionCircuit, Virage
 from lmu_telemetry.sources import memoire_lmu as m
 from lmu_telemetry.sources.echantillon import FREQUENCE_LECTURE
 from lmu_telemetry.sources.flux_fichier import flux_fichier
@@ -102,45 +97,6 @@ def test_les_stands_le_hors_piste_et_les_chocs(echantillons):
     assert a_l_instant(echantillons, 356.0).dernier_choc == 355.0
     assert a_l_instant(echantillons, 500.0).dernier_choc == 360.0
     assert any(e.hors_piste for e in echantillons)
-
-
-def definition_de_test() -> DefinitionCircuit:
-    debut = fixture.VITESSE_RAPIDE / 3.6 * fixture.VIRAGE_LENT_S[0]
-    return DefinitionCircuit(
-        "Circuit de test",
-        fixture.LONGUEUR_TOUR,
-        (Virage(1, debut, debut + 200.0, 50.0, sens=1),),
-    )
-
-
-def test_le_rejeu_retrouve_les_tours_de_la_session(session_test: Path):
-    evenements = list(rejouer(flux_fichier(session_test), definition_de_test()))
-    tours = [e for e in evenements if isinstance(e, TourTermine)]
-    session = Session.ouvrir(session_test)
-    assert [(t.tour, t.chrono) for t in tours] == [
-        (t.numero, t.chrono) for t in session.tours if t.complet
-    ]
-
-
-def test_le_rejeu_juge_le_virage_de_chaque_tour(session_test: Path):
-    bilans = [
-        e for e in rejouer(flux_fichier(session_test), definition_de_test())
-        if isinstance(e, BilanPassage)
-    ]
-    assert {b.passage.tour for b in bilans} >= {1, 2, 4, 5}
-
-
-def test_la_commande_rejouer(session_test: Path, capsys: pytest.CaptureFixture, monkeypatch):
-    from lmu_telemetry import emplacements
-
-    definition_de_test().enregistrer(
-        emplacements.virages_utilisateur() / "Circuit de test.json"
-    )
-    assert main(["rejouer", str(session_test)]) == 0
-    sortie = capsys.readouterr().out
-    assert "Tour 1 : 1:30.000" in sortie
-    assert "Tour 2 : non chronométré" in sortie
-    assert "ni blocage ni patinage" in sortie
 
 
 # ----------------------------------------------------------------------
@@ -260,62 +216,6 @@ def test_une_capture_passe_par_la_meme_conversion(tmp_path: Path):
     assert flux[0].roues is not None
     assert flux[0].distance == 1500.0
     assert flux[1].distance is None
-
-
-def test_une_capture_s_ouvre_par_son_fichier_ou_son_dossier(tmp_path: Path):
-    ecrire_capture(tmp_path / "capture.bin")
-    for chemin in (tmp_path, tmp_path / "capture.bin"):
-        source = ouvrir(chemin)
-        assert source.roues
-        assert len(list(source.flux())) == 2
-    assert identite_capture(tmp_path) == ("Monza", "BMW M4 GT3")
-
-
-def test_un_fichier_du_jeu_ne_voit_pas_les_roues(session_test: Path):
-    assert not ouvrir(session_test).roues
-
-
-class FauxLecteur:
-    """Une mémoire déjà ouverte, sur le circuit de test."""
-
-    def __enter__(self) -> "FauxLecteur":
-        return self
-
-    def __exit__(self, *_exc: object) -> None:
-        pass
-
-    def lire(self) -> m.Lecture:
-        brut = bloc(m.TAILLE_SCORING, m.CHAMPS_SCORING, circuit=b"Circuit de test")
-        return lecture(s=bytes(brut))
-
-
-def test_la_commande_direct_change_de_moteur_avec_la_session(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
-):
-    from lmu_telemetry import emplacements
-    from lmu_telemetry.sources import flux_memoire
-    from lmu_telemetry.sources.echantillon import Echantillon
-
-    definition_de_test().enregistrer(emplacements.virages_utilisateur() / "Circuit de test.json")
-
-    def faux_flux(_memoire):
-        yield Echantillon(10.0, 1, 0.0, 200.0, 0, 0, 0, distance=100.0, temps_distance=10.0)
-        # L'horloge repart de zéro : nouvelle session.
-        yield Echantillon(1.0, 0, 0.0, 0.0, 0, 0, 0, distance=5.0, temps_distance=1.0)
-        raise KeyboardInterrupt
-
-    monkeypatch.setattr(m, "LecteurMemoire", FauxLecteur)
-    monkeypatch.setattr(flux_memoire, "flux_direct", faux_flux)
-    assert main(["direct"]) == 0
-    assert capsys.readouterr().out.count("Circuit : Circuit de test") == 2
-
-
-def test_la_commande_direct_sans_decoupage_le_dit(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
-):
-    monkeypatch.setattr(m, "LecteurMemoire", FauxLecteur)
-    assert main(["direct"]) == 1
-    assert "Circuit de test" in capsys.readouterr().err
 
 
 def test_le_direct_lit_le_jeu_sans_se_repeter():

@@ -87,6 +87,9 @@ from ..errors import ErreurTelemetrie
 
 NOM_MEMOIRE = "LMU_Data"
 
+#: Le processus du jeu.
+NOM_JEU = "Le Mans Ultimate.exe"
+
 #: Taille de `SharedMemoryLayout`, alignement de fin compris.
 TAILLE_MEMOIRE = 324_824
 
@@ -195,6 +198,8 @@ _DECALAGE_JOUEUR = CHAMPS_VEHICULE["joueur"][0]
 
 _FILE_MAP_READ = 0x0004
 _ERREUR_FICHIER_ABSENT = 2
+_TH32CS_SNAPPROCESS = 0x00000002
+_POIGNEE_INVALIDE = ctypes.c_void_p(-1).value
 
 
 class MemoireAbsente(ErreurTelemetrie):
@@ -234,8 +239,29 @@ class _Infos(ctypes.Structure):
     ]
 
 
+class _Processus(ctypes.Structure):
+    """`PROCESSENTRY32W`."""
+
+    _fields_ = [
+        ("dwSize", wintypes.DWORD),
+        ("cntUsage", wintypes.DWORD),
+        ("th32ProcessID", wintypes.DWORD),
+        ("th32DefaultHeapID", ctypes.c_size_t),
+        ("th32ModuleID", wintypes.DWORD),
+        ("cntThreads", wintypes.DWORD),
+        ("th32ParentProcessID", wintypes.DWORD),
+        ("pcPriClassBase", wintypes.LONG),
+        ("dwFlags", wintypes.DWORD),
+        ("szExeFile", wintypes.WCHAR * 260),
+    ]
+
+
 def _noyau() -> ctypes.WinDLL:
     noyau = ctypes.WinDLL("kernel32", use_last_error=True)
+    noyau.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    noyau.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    noyau.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Processus)]
+    noyau.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Processus)]
     noyau.OpenFileMappingW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
     noyau.OpenFileMappingW.restype = wintypes.HANDLE
     noyau.MapViewOfFile.argtypes = [
@@ -253,6 +279,32 @@ def _noyau() -> ctypes.WinDLL:
     noyau.VirtualQuery.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     noyau.VirtualQuery.restype = ctypes.c_size_t
     return noyau
+
+
+def identifiant_jeu() -> int | None:
+    """L'identifiant du processus du jeu, s'il tourne.
+
+    Que la mémoire existe ne prouve rien : elle survit au jeu tant qu'un autre programme
+    la tient ouverte, et SimHub le fait. On y lit alors, sans fin, la dernière image de
+    la dernière session, comme si la voiture était encore en piste.
+
+    Rien n'ouvre le processus : un jeu sous anti-triche pourrait le refuser.
+    """
+    noyau = _noyau()
+    instantane = noyau.CreateToolhelp32Snapshot(_TH32CS_SNAPPROCESS, 0)
+    if instantane == _POIGNEE_INVALIDE:
+        return None
+    try:
+        processus = _Processus()
+        processus.dwSize = ctypes.sizeof(_Processus)
+        suite = noyau.Process32FirstW(instantane, ctypes.byref(processus))
+        while suite:
+            if processus.szExeFile.lower() == NOM_JEU.lower():
+                return processus.th32ProcessID
+            suite = noyau.Process32NextW(instantane, ctypes.byref(processus))
+        return None
+    finally:
+        noyau.CloseHandle(instantane)
 
 
 def decoder(brut: bytes, champs: dict[str, tuple[int, str]], base: int = 0) -> dict:

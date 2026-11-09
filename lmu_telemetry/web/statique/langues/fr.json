@@ -35,21 +35,18 @@
 
   "nav.resultats": "Résultats",
   "nav.telemetrie": "Télémétrie",
-  "nav.overlay": "Overlay",
   "nav.temps": "Temps au tour",
   "nav.bascule": "Afficher ou masquer la colonne",
 
-  "overlay.absent": "Le Mans Ultimate n'est pas lancé",
-  "overlay.absent_texte": "Lance le jeu pour que l'outil puisse le lire. Si tu es déjà en jeu, active Paramètres › Gameplay › Enable Plugins, puis redémarre-le.",
-  "overlay.format_inconnu": "Le jeu a changé de format",
-  "overlay.format_inconnu_texte": "Une mise à jour de Le Mans Ultimate a modifié sa mémoire partagée. Procure-toi la dernière version de l'outil.",
-  "overlay.detecte": "Le jeu est détecté",
-  "overlay.menu": "Jeu détecté, en attente d'une session",
-  "overlay.en_piste": "En piste",
-  "overlay.apercu": "Aperçu",
-  "overlay.exemple_virage": "Virage 1",
-  "overlay.exemple_conseil": "Roue libre de 0,4 s avant de freiner",
-  "overlay.bientot": "Les conseils en direct arrivent dans la prochaine étape : un message court après chaque virage, par-dessus le jeu.",
+  "nav.ingenieur": "Ingénieur",
+  "ingenieur.absent": "Le Mans Ultimate n'est pas lancé",
+  "ingenieur.absent_texte": "Lance le jeu pour que l'outil puisse le lire. Si tu es déjà en jeu, active Paramètres › Gameplay › Enable Plugins, puis redémarre-le.",
+  "ingenieur.format_inconnu": "Le jeu a changé de format",
+  "ingenieur.format_inconnu_texte": "Une mise à jour de Le Mans Ultimate a modifié sa mémoire partagée. Procure-toi la dernière version de l'outil.",
+  "ingenieur.detecte": "Le jeu est détecté",
+  "ingenieur.menu": "Jeu détecté, en attente d'une session",
+  "ingenieur.en_piste": "En piste",
+  "ingenieur.bientot": "L'ingénieur de course arrive : une voix radio qui te parle pendant la course, des drapeaux jaunes aux écarts et aux secteurs.",
 
   "page.titre": "Télémétrie — Le Mans Ultimate",
 
@@ -270,13 +267,5 @@
   "serveur.erreur.requete_incomplete": "Requête incomplète : {detail}",
   "serveur.erreur.inattendue": "L'outil a rencontré un problème inattendu. Ce n'est pas de ta faute : signale-le à qui t'a donné l'outil, en précisant ce que tu faisais.\n\nDétail technique : {detail}",
   "serveur.erreur.port_occupe": "Le port {port} est déjà utilisé : l'outil tourne peut-être déjà dans\nune autre fenêtre. Sinon, choisis un autre port, par exemple :\n  python -m lmu_telemetry web --port {suivant}",
-  "serveur.erreur.brute": "{texte}",
-  "coach.blocage_avant": "{virage} : roues avant bloquées, dose le frein en fin de freinage",
-  "coach.blocage_arriere": "{virage} : roues arrière bloquées, relâche un peu le frein en entrée",
-  "coach.roue_libre_avant": "{virage} : roue libre de {duree} s avant de freiner",
-  "coach.correction": "{virage} : grosse correction de volant, braque d'un seul geste",
-  "coach.patinage": "{virage} : patinage en sortie, ouvre les gaz plus doucement",
-  "coach.gaz_hesitant": "{virage} : accélère d'un seul geste, sans relever le pied",
-  "coach.frein_brutal": "{virage} : relâche le frein plus progressivement",
-  "coach.roue_libre_virage": "{virage} : {duree} s sans pédale, reprends les gaz plus tôt"
+  "serveur.erreur.brute": "{texte}"
 }

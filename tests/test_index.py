@@ -275,6 +275,7 @@ def test_le_jeu_absent_se_dit_sans_erreur(monkeypatch) -> None:
     def absente():
         raise MemoireAbsente("LMU_Data")
 
+    monkeypatch.setattr(reponses, "identifiant_jeu", lambda: 1234)
     monkeypatch.setattr(reponses, "LecteurMemoire", absente)
     assert reponses.jeu() == {"detecte": False, "format_inconnu": False}
 
@@ -283,11 +284,14 @@ def test_un_format_de_memoire_inconnu_se_signale(monkeypatch) -> None:
     def trop_petite():
         raise MemoireInattendue(1024)
 
+    monkeypatch.setattr(reponses, "identifiant_jeu", lambda: 1234)
     monkeypatch.setattr(reponses, "LecteurMemoire", trop_petite)
     assert reponses.jeu() == {"detecte": False, "format_inconnu": True}
 
 
 def test_le_jeu_en_menu_est_detecte_sans_circuit(monkeypatch) -> None:
+    monkeypatch.setattr(reponses, "identifiant_jeu", lambda: 1234)
+
     class Memoire:
         def __enter__(self):
             return self

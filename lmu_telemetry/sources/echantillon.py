@@ -1,7 +1,7 @@
-"""Ce que le moteur de conseils reçoit, d'où que ça vienne.
+"""Ce que l'outil lit du jeu en roulant, d'où que ça vienne.
 
-Trois sources alimentent le moteur : la mémoire partagée du jeu en direct, une
-capture de la sonde, et un fichier `.duckdb` rejoué. Toutes produisent le même
+Trois sources donnent la voiture du joueur : la mémoire partagée du jeu en direct,
+une capture de la sonde, et un fichier `.duckdb` rejoué. Toutes produisent le même
 flux d'`Echantillon`, à la même cadence et dans les mêmes unités : ce qui a été
 vérifié sur un enregistrement vaut donc pour le direct.
 
@@ -14,7 +14,7 @@ rotation des roues mais la vitesse du sol (voir docs/12-memoire-partagee.md).
 Un rejeu de `.duckdb` ne peut donc voir ni blocage ni patinage.
 
 La distance suit partout le rythme du direct, où `mLapDist` n'arrive qu'à 5 Hz :
-un rejeu fait donc travailler l'estimation de `coach/suivi.py` comme en piste.
+un rejeu la donne au même rythme qu'en piste.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 #: Fréquence de lecture, en Hz. Les pédales n'existent qu'à 50 Hz dans les
-#: fichiers du jeu : lire plus vite n'apporterait rien aux détecteurs.
+#: fichiers du jeu : lire plus vite n'apporterait rien.
 FREQUENCE_LECTURE = 50
 
 

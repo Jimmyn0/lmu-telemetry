@@ -326,3 +326,22 @@ def test_la_vitesse_vient_de_la_vitesse_locale():
     assert sonde._vitesse({"vitesse_locale": (3.0, 100.0, -4.0)}) == pytest.approx(
         math.hypot(3.0, 100.0, -4.0)
     )
+
+
+# ----------------------------------------------------------------------
+# Le jeu lui-même
+# ----------------------------------------------------------------------
+
+
+def test_identifiant_jeu_ne_trouve_pas_un_jeu_absent(monkeypatch):
+    monkeypatch.setattr(m, "NOM_JEU", "Programme inexistant.exe")
+    assert m.identifiant_jeu() is None
+
+
+def test_identifiant_jeu_reconnait_un_processus(monkeypatch):
+    """La mémoire ne suffit pas : SimHub la garde ouverte une fois le jeu fermé."""
+    import sys
+    from pathlib import Path
+
+    monkeypatch.setattr(m, "NOM_JEU", Path(sys.executable).name)
+    assert m.identifiant_jeu() is not None

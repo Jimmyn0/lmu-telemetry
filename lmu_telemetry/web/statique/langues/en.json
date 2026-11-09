@@ -35,21 +35,18 @@
 
   "nav.resultats": "Results",
   "nav.telemetrie": "Telemetry",
-  "nav.overlay": "Overlay",
   "nav.temps": "Lap times",
   "nav.bascule": "Show or hide the side column",
 
-  "overlay.absent": "Le Mans Ultimate is not running",
-  "overlay.absent_texte": "Start the game so the tool can read it. If it is already running, turn on Settings › Gameplay › Enable Plugins, then restart it.",
-  "overlay.format_inconnu": "The game changed its format",
-  "overlay.format_inconnu_texte": "A Le Mans Ultimate update changed its shared memory. Get the latest version of the tool.",
-  "overlay.detecte": "The game is detected",
-  "overlay.menu": "Game detected, waiting for a session",
-  "overlay.en_piste": "On track",
-  "overlay.apercu": "Preview",
-  "overlay.exemple_virage": "Turn 1",
-  "overlay.exemple_conseil": "0.4 s coasting before braking",
-  "overlay.bientot": "Live coaching comes in the next step: a short message after each corner, on top of the game.",
+  "nav.ingenieur": "Engineer",
+  "ingenieur.absent": "Le Mans Ultimate is not running",
+  "ingenieur.absent_texte": "Start the game so the tool can read it. If it is already running, turn on Settings › Gameplay › Enable Plugins, then restart it.",
+  "ingenieur.format_inconnu": "The game changed its format",
+  "ingenieur.format_inconnu_texte": "A Le Mans Ultimate update changed its shared memory. Get the latest version of the tool.",
+  "ingenieur.detecte": "The game is detected",
+  "ingenieur.menu": "Game detected, waiting for a session",
+  "ingenieur.en_piste": "On track",
+  "ingenieur.bientot": "The race engineer is coming: a radio voice that talks to you during the race, from yellow flags to gaps and sectors.",
 
   "page.titre": "Telemetry — Le Mans Ultimate",
 
@@ -270,13 +267,5 @@
   "serveur.erreur.requete_incomplete": "Incomplete request: {detail}",
   "serveur.erreur.inattendue": "The tool ran into an unexpected problem. It is not your fault: report it to whoever gave you the tool, saying what you were doing.\n\nTechnical detail: {detail}",
   "serveur.erreur.port_occupe": "Port {port} is already in use: the tool may already be running in\nanother window. Otherwise, pick another port, for example:\n  python -m lmu_telemetry web --port {suivant}",
-  "serveur.erreur.brute": "{texte}",
-  "coach.blocage_avant": "{virage}: front wheels locked, ease off late in the braking zone",
-  "coach.blocage_arriere": "{virage}: rear wheels locked, ease off the brake on entry",
-  "coach.roue_libre_avant": "{virage}: {duree} s coasting before the brakes",
-  "coach.correction": "{virage}: big steering correction, turn in with one smooth input",
-  "coach.patinage": "{virage}: wheelspin on exit, open the throttle more gently",
-  "coach.gaz_hesitant": "{virage}: apply the throttle in one go, without lifting",
-  "coach.frein_brutal": "{virage}: release the brake more gradually",
-  "coach.roue_libre_virage": "{virage}: {duree} s off both pedals, get on the throttle sooner"
+  "serveur.erreur.brute": "{texte}"
 }

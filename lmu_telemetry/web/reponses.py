@@ -33,6 +33,7 @@ from ..sources.memoire_lmu import (
     MemoireAbsente,
     MemoireInattendue,
     decoder,
+    identifiant_jeu,
 )
 from ..stockage.index import Index, ResumeSession, balayage
 
@@ -300,6 +301,8 @@ def circuits(contexte: Contexte) -> dict:
 
 def jeu() -> dict:
     """Le jeu tourne-t-il, et sa mémoire partagée est-elle accessible ?"""
+    if identifiant_jeu() is None:
+        return {"detecte": False, "format_inconnu": False}
     try:
         with LecteurMemoire() as memoire:
             lecture = memoire.lire()

@@ -1,7 +1,9 @@
 # Étape 15 — Le moteur de conseils
 
-**Statut : moteur, détecteurs et rejeu terminés.** L'overlay viendra ensuite, et la référence
-personnelle après lui. Fait le 2026-11-06, seuils calés sur Monza en GT3.
+**Statut : abandonné le 2026-11-09.** Les conseils, affichés par-dessus le jeu, n'ont pas convaincu
+à l'essai en piste : le projet passe à un ingénieur de course qui parle. Le code est sur la branche
+locale `archive/conseils`. Seule la lecture du jeu reste dans l'outil (`sources/`). Les mesures
+ci-dessous restent valables.
 
 ---
 

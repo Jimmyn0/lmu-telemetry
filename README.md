@@ -114,13 +114,6 @@ py -m venv .venv
 
 `python -m lmu_telemetry web` opens the same page in your browser instead.
 
-The tool can also spot driving mistakes corner by corner: coasting, abrupt brake
-release, hesitant throttle, big steering corrections, lock-ups and wheelspin. The
-in-game overlay does not exist yet, but `python -m lmu_telemetry rejouer <n>` shows
-what it would say about a recorded session, and `python -m lmu_telemetry direct`
-prints the advice while you drive. Thresholds live in the `coach` section of
-`parametres.json`.
-
 **Tests** — they run without the game, on a synthetic session built by
 `tests/fixtures/construire.py`:
 

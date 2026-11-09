@@ -2,7 +2,7 @@
 
 Une capture de la sonde contient les blocs bruts de la mémoire, tels quels. Les
 relire passe donc par la même conversion que le direct, jusqu'au dernier octet :
-c'est ce qui permet de vérifier le moteur sans le jeu, roues comprises.
+c'est ce qui permet de tout vérifier sans le jeu, roues comprises.
 """
 
 from __future__ import annotations

@@ -190,32 +190,10 @@ C'est la façon normale de se servir de l'outil :
 
 L'outil s'ouvre dans sa propre fenêtre, et la fermer l'arrête. Tu y trouves quatre
 onglets : **Résultats** (tes sessions, leurs tours, leur régularité), **Télémétrie**
-(deux tours superposés), **Overlay** et **Temps au tour** (tes records par circuit).
+(deux tours superposés), **Ingénieur** et **Temps au tour** (tes records par circuit).
+L'onglet Ingénieur dit si le jeu est détecté, en attendant l'ingénieur de course.
 
 `python -m lmu_telemetry web` ouvre la même page dans le navigateur, sans fenêtre.
-
-### Les conseils après chaque virage
-
-L'outil sait repérer les fautes de pilotage virage par virage : roue libre, frein
-relâché trop vite, gaz hésitants, grosse correction de volant, blocage et patinage.
-L'overlay qui les affichera en piste n'existe pas encore, mais on peut déjà voir ce
-qu'il dirait d'une session enregistrée :
-
-```
-.venv\Scripts\python.exe -m lmu_telemetry rejouer 5
-```
-
-Le numéro est celui de la commande `sessions`. Jeu lancé, `direct` écrit les conseils
-pendant que tu roules :
-
-```
-.venv\Scripts\python.exe -m lmu_telemetry direct
-```
-
-Les fichiers de télémétrie ne voient pas la rotation des roues : `rejouer` sur un
-fichier ne parle donc ni de blocage ni de patinage. Les seuils se règlent dans la
-section `coach` de `parametres.json`. Le détail est dans
-[docs/15-moteur-de-conseils.md](docs/15-moteur-de-conseils.md).
 
 Au tout premier lancement, l'outil lit toutes tes sessions en tâche de fond, ce qui
 peut prendre une à deux minutes : la liste se complète pendant ce temps. Ce qu'il en

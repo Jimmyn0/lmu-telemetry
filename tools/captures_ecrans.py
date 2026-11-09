@@ -44,7 +44,7 @@ ECRANS = [
     ("tours", 'document.querySelector(\'[data-vue="tours"]\')?.click()'),
     ("telemetrie", 'document.querySelector("#comparer-tours")?.click() ?? document.querySelector(\'[data-onglet="telemetrie"]\').click()'),
     ("telemetrie-bas", 'document.querySelector("#ecran-telemetrie").scrollTo(0, 99999)'),
-    ("overlay", ONGLET.format("overlay")),
+    ("ingenieur", ONGLET.format("ingenieur")),
     ("temps", ONGLET.format("temps")),
     ("reglages", 'document.querySelector("#ouvrir-reglages").click()'),
 ]

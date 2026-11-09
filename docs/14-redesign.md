@@ -1,7 +1,7 @@
 # Étape 14 — Le redesign
 
 **Statut : cadre, Résultats (tours et régularité), Télémétrie et Temps au tour terminés.**
-Les écrans 01 à 06 viendront après l'overlay. Fait le 2026-11-06, d'après les maquettes du
+Les écrans 01 à 06 viendront après l'ingénieur de course. Fait le 2026-11-06, d'après les maquettes du
 dossier `InterfaceDesign`.
 
 ---
@@ -119,7 +119,7 @@ avec les maquettes recadrées sur leur fenêtre. Couleurs moyennes mesurées dan
 
 | Où | Écart | Quand |
 |---|---|---|
-| Résultats | Classement, Lap Chart, Position Chart, Statistiques, Incidents, Chat | Après l'overlay |
+| Résultats | Classement, Lap Chart, Position Chart, Statistiques, Incidents, Chat | Après l'ingénieur de course |
 | Résultats | Choisir une voiture du classement, voir ses détails, la comparer | Avec ces écrans |
 | Colonne des sessions | Étiquettes Victoire, nuit, en ligne, filtre « en ligne » | Avec ces écrans : il faut lire les XML |
 | Entête de session | Boutons favori et carburant | Sans fonction pour l'instant |
