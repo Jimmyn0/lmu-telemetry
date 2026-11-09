@@ -167,30 +167,70 @@ CHAMPS_ROUE = {
     "temperature_optimale": (236, "<f"),
 }
 
+#: Le scoring de chaque voiture, joueur compris. Ce qui sert à l'ingénieur de course :
+#: place, écarts, secteurs, stands, pénalités, drapeaux. Les temps de secteur sont
+#: cumulés depuis la ligne, comme dans les fichiers.
 CHAMPS_VEHICULE = {
     "id": (0, "<i"),
+    "pilote": (4, "32s"),
+    "voiture": (36, "64s"),
     "tours_boucles": (100, "<h"),
+    "secteur": (102, "<b"),
+    "arrivee": (103, "<b"),
     "distance_tour": (104, "<d"),
     "ecart_lateral": (112, "<d"),
     "bord_piste": (120, "<d"),
+    "meilleur_s1": (128, "<d"),
+    "meilleur_s2": (136, "<d"),
     "meilleur_tour": (144, "<d"),
+    "dernier_s1": (152, "<d"),
+    "dernier_s2": (160, "<d"),
     "dernier_tour": (168, "<d"),
+    "courant_s1": (176, "<d"),
+    "courant_s2": (184, "<d"),
+    "arrets": (192, "<h"),
+    "penalites": (194, "<h"),
     "joueur": (196, "<?"),
+    "controle": (197, "<b"),
     "aux_stands": (198, "<?"),
+    "place": (199, "<B"),
     "classe": (200, "32s"),
+    "ecart_devant": (232, "<d"),
+    "tours_devant": (240, "<i"),
+    "ecart_leader": (244, "<d"),
+    "tours_leader": (252, "<i"),
+    "debut_tour": (256, "<d"),
+    "position": (264, "<3d"),
+    "vitesse_locale": (288, "<3d"),
+    "etat_stands": (457, "<B"),
+    "temps_dans_tour": (464, "<d"),
+    "tour_estime": (472, "<d"),
+    "drapeau": (504, "<B"),
+    "sous_jaune": (505, "<?"),
     "compte_tour": (506, "<B"),
+    "au_garage": (507, "<?"),
 }
 
+#: Après `longueur_tour` vient un pointeur, de 8 octets : tout ce qui suit est décalé
+#: d'autant par rapport à la version 32 bits de la structure.
 CHAMPS_SCORING = {
     "circuit": (0, "64s"),
     "session": (64, "<i"),
     "temps": (68, "<d"),
+    "fin": (76, "<d"),
+    "tours_maximum": (84, "<i"),
     "longueur_tour": (88, "<d"),
     "vehicules": (104, "<i"),
     "phase": (108, "<B"),
+    "drapeau_jaune": (109, "<b"),
+    "drapeaux_secteurs": (110, "<3b"),
+    "feux": (113, "<B"),
     "en_piste": (115, "<?"),
     "pluie": (220, "<d"),
+    "temperature_air": (228, "<d"),
+    "temperature_piste": (236, "<d"),
     "humidite_moyenne": (332, "<d"),
+    "temps_restant": (340, "<f"),
 }
 
 #: Décalage de `mIsPlayer` dans un `VehicleScoringInfoV01`.
@@ -321,6 +361,14 @@ def decoder(brut: bytes, champs: dict[str, tuple[int, str]], base: int = 0) -> d
         else:
             valeurs[nom] = lu[0] if len(lu) == 1 else lu
     return valeurs
+
+
+def decoder_plateau(brut: bytes) -> list[dict]:
+    """Le scoring de toutes les voitures d'une copie faite par `LecteurMemoire.plateau`."""
+    return [
+        decoder(brut, CHAMPS_VEHICULE, i * TAILLE_VEHICULE)
+        for i in range(len(brut) // TAILLE_VEHICULE)
+    ]
 
 
 def decoder_roues(brut: bytes) -> list[dict]:
@@ -470,6 +518,19 @@ class LecteurMemoire:
             return None
         nombre = decoder(scoring, {"n": CHAMPS_SCORING["vehicules"]})["n"]
         return Lecture(telemetrie, self._vehicule_joueur(nombre), scoring)
+
+    def plateau(self, nombre: int) -> bytes | None:
+        """Le scoring des `nombre` premières voitures, d'une seule copie cohérente.
+
+        Le tableau fait 584 octets par voiture : 23 ko pour 40 voitures, de quoi le
+        copier deux fois à chaque mise à jour du scoring sans gêner personne.
+        """
+        nombre = max(0, min(nombre, EMPLACEMENTS))
+        return self._copier(DEBUT_VEHICULES, nombre * TAILLE_VEHICULE) if nombre else None
+
+    def voitures_telemetrie(self) -> int:
+        """Nombre de voitures dont la télémétrie complète est publiée."""
+        return ctypes.string_at(self._adresse + DEBUT_ENTETE_TELEMETRIE, 1)[0]
 
     def version_jeu(self) -> int:
         """`gameVersion`, tel que le jeu le publie."""

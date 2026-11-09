@@ -17,6 +17,7 @@ from lmu_telemetry.sources.echantillon import FREQUENCE_LECTURE
 from lmu_telemetry.sources.flux_fichier import flux_fichier
 from lmu_telemetry.sources.flux_memoire import (
     ENTETE_CAPTURE,
+    TYPE_PLATEAU,
     TYPE_SCORING,
     TYPE_TELEMETRIE,
     TYPE_VEHICULE,
@@ -205,6 +206,8 @@ def ecrire_capture(chemin: Path) -> None:
         ecrire_enregistrement(flux, TYPE_SCORING, 0.0, scoring())
         ecrire_enregistrement(flux, TYPE_VEHICULE, 0.0, vehicule())
         ecrire_enregistrement(flux, TYPE_TELEMETRIE, 0.01, telemetrie(12.5))
+        # Le plateau n'est pas de la télémétrie : il ne doit pas en devenir.
+        ecrire_enregistrement(flux, TYPE_PLATEAU, 0.015, vehicule() * 3)
         ecrire_enregistrement(flux, TYPE_TELEMETRIE, 0.02, telemetrie(12.51))
 
 

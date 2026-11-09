@@ -107,3 +107,24 @@ Trois autres champs le remplacent :
 Le journal du jeu couvrant les trois sessions de mesure, soit 29 minutes, ne contient aucune
 erreur `Failed to acquire SharedMemoryLock`, avec SimHub ouvert en même temps. La seule
 occurrence relevée date de la veille, avant que cet outil existe.
+
+## Les autres voitures, vérifiées en course
+
+L'ingénieur de course a besoin de tout le plateau : places, écarts, temps par secteur, stands,
+pénalités, drapeaux. Les trois premières sondes ont été faites seul en piste, avec une seule voiture
+en mémoire.
+
+La sonde relève maintenant le scoring de toutes les voitures, à chaque mise à jour, et en fait le
+bilan dans `rapport.json`. `sonde-course.bat` la lance pour 15 minutes de roulage, le temps d'une
+course contre l'IA.
+
+Course de sonde du 2026-11-09 : Monza, 38 voitures (11 Hypercar, 13 LMP2, 14 GT3), 10 minutes au
+temps, 4 019 mises à jour du classement. La mémoire publie les 38 voitures, chacune avec sa
+télémétrie. Les écarts y sont mis à jour cinq fois par seconde, et les temps de secteur au passage
+même de la ligne. Les drapeaux de secteur, les stands, les pénalités et l'arrivée de chacun sont
+lisibles.
+
+Les décalages des nouveaux champs viennent des en-têtes. Recoupés sur une image prise le 2026-11-06 :
+nom du pilote, voiture, catégorie, place, températures et temps restant y sont cohérents. Le temps
+restant vaut bien la fin de session moins l'horloge. Un piège au passage : un pointeur de 8 octets suit
+`mLapDist` dans le scoring, et tout ce qui vient après est décalé d'autant.

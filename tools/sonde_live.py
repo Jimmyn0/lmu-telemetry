@@ -11,6 +11,9 @@ que les en-têtes ne disent pas :
 * la rotation des roues montre-t-elle le blocage et le patinage ? Le canal
   `Wheel Speed` des fichiers ne les montre pas ;
 * quels champs le jeu laisse-t-il à zéro ?
+* que dit la mémoire des autres voitures et des drapeaux ? C'est ce dont l'ingénieur
+  de course a besoin : places, écarts, secteurs, stands, pénalités, drapeaux jaunes.
+  `sonde-course.bat` la lance pour une course entière.
 
 Il ne fait que lire : voir `memoire_lmu.py`. Il s'arrête tout seul après
 `--roulage` secondes passées à rouler, ou sur Ctrl+C.
@@ -34,6 +37,7 @@ import json
 import math
 import struct
 import time
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -42,6 +46,7 @@ import numpy as np
 from lmu_telemetry import emplacements
 from lmu_telemetry.sources.flux_memoire import (
     ENTETE_CAPTURE,
+    TYPE_PLATEAU,
     TYPE_SCORING,
     TYPE_TELEMETRIE,
     TYPE_VEHICULE,
@@ -59,6 +64,7 @@ from lmu_telemetry.sources.memoire_lmu import (
     Lecture,
     MemoireAbsente,
     decoder,
+    decoder_plateau,
     decoder_roues,
 )
 
@@ -111,6 +117,86 @@ def _frequence(instants: list[float]) -> float | None:
     return round(1.0 / ecart, 2) if ecart > 0 else None
 
 
+class Plateau:
+    """Ce que la mémoire dit des autres voitures, résumé au fil de la session.
+
+    Une course de 15 minutes à 20 voitures donne 90 000 lignes de scoring : on n'en
+    garde que des compteurs. La capture, elle, garde tout.
+    """
+
+    def __init__(self) -> None:
+        self.mises_a_jour = 0
+        self.voitures_max = 0
+        self.telemetries_max = 0
+        self.places: set[int] = set()
+        self.phases: Counter = Counter()
+        self.drapeau_jaune: Counter = Counter()
+        self.drapeaux_secteurs: Counter = Counter()
+        self.drapeaux: Counter = Counter()
+        self.controles: Counter = Counter()
+        self.sous_jaune = 0
+        self.ecarts_renseignes = 0
+        self.ecarts_attendus = 0
+        self.tours_autres = 0
+        self.secteurs_autres = 0
+        self.entrees_stands = 0
+        self.penalites = 0
+        self.temps_restant: list[float] = []
+        self._voitures: dict[int, dict] = {}
+
+    def ajouter(self, scoring: dict, voitures: list[dict], telemetries: int) -> None:
+        self.mises_a_jour += 1
+        self.voitures_max = max(self.voitures_max, len(voitures))
+        self.telemetries_max = max(self.telemetries_max, telemetries)
+        self.phases[scoring["phase"]] += 1
+        self.drapeau_jaune[scoring["drapeau_jaune"]] += 1
+        self.drapeaux_secteurs[str(tuple(scoring["drapeaux_secteurs"]))] += 1
+        if self.mises_a_jour % 50 == 1:
+            self.temps_restant.append(round(scoring["temps_restant"], 1))
+        for voiture in voitures:
+            self.places.add(voiture["place"])
+            self.drapeaux[voiture["drapeau"]] += 1
+            self.controles[voiture["controle"]] += 1
+            self.sous_jaune += voiture["sous_jaune"]
+            if voiture["place"] > 1:
+                self.ecarts_attendus += 1
+                self.ecarts_renseignes += voiture["ecart_devant"] > 0
+            avant = self._voitures.get(voiture["id"])
+            if avant is not None and not voiture["joueur"]:
+                self.tours_autres += voiture["dernier_tour"] != avant["dernier_tour"]
+                self.secteurs_autres += (
+                    voiture["courant_s1"] != avant["courant_s1"]
+                    or voiture["courant_s2"] != avant["courant_s2"]
+                )
+            if avant is not None:
+                self.entrees_stands += voiture["aux_stands"] and not avant["aux_stands"]
+                self.penalites += max(0, voiture["penalites"] - avant["penalites"])
+            self._voitures[voiture["id"]] = voiture
+
+    def rapport(self) -> dict:
+        return {
+            "mises_a_jour": self.mises_a_jour,
+            "voitures_max": self.voitures_max,
+            "telemetries_max": self.telemetries_max,
+            "places": sorted(self.places),
+            "phases": dict(self.phases),
+            "drapeau_jaune": dict(self.drapeau_jaune),
+            "drapeaux_secteurs": dict(self.drapeaux_secteurs),
+            "drapeaux": dict(self.drapeaux),
+            "controles": dict(self.controles),
+            "sous_jaune": self.sous_jaune,
+            "part_ecarts_renseignes": round(self.ecarts_renseignes / self.ecarts_attendus, 3)
+            if self.ecarts_attendus
+            else None,
+            "tours_des_autres": self.tours_autres,
+            "secteurs_des_autres": self.secteurs_autres,
+            "entrees_stands": self.entrees_stands,
+            "penalites": self.penalites,
+            "temps_restant": self.temps_restant[:20],
+            "pilotes": sorted(v["pilote"] for v in self._voitures.values())[:60],
+        }
+
+
 class Bilan:
     """Accumule ce qui a été lu, et en tire le rapport."""
 
@@ -123,6 +209,7 @@ class Bilan:
         self.identite: dict = {}
         self.circuits_concordent: bool | None = None
         self.roulage = 0.0
+        self.plateau = Plateau()
 
     def ajouter_telemetrie(self, lecture: Lecture) -> None:
         telemetrie = decoder(lecture.telemetrie, CHAMPS_TELEMETRIE)
@@ -135,6 +222,7 @@ class Bilan:
             self.telemetrie.clear()
             self.roues.clear()
             self.vehicules.clear()
+            self.plateau = Plateau()
         if self.telemetrie:
             pas = telemetrie["temps"] - self.telemetrie[-1]["temps"]
             if 0 < pas < 1 and _vitesse(telemetrie) > VITESSE_ROULAGE:
@@ -297,6 +385,7 @@ class Bilan:
             "erreur_distance_m": self._estimation_distance(),
             "glissements": self._glissements(),
             "champs_nuls": self._champs_nuls(),
+            "plateau": self.plateau.rapport(),
         }
 
 
@@ -317,6 +406,14 @@ def resume(rapport: dict) -> str:
     ]
     if rapport["erreur_distance_m"]:
         lignes.append(f"Erreur de distance estimée (m) : {rapport['erreur_distance_m']}")
+    plateau = rapport.get("plateau")
+    if plateau and plateau["mises_a_jour"]:
+        lignes.append(
+            f"Plateau : {plateau['voitures_max']} voiture(s), dont "
+            f"{plateau['telemetries_max']} avec leur télémétrie ; "
+            f"{plateau['tours_des_autres']} tours des autres vus, "
+            f"drapeaux jaunes : {plateau['drapeau_jaune']}"
+        )
     return "\n".join(lignes)
 
 
@@ -393,6 +490,13 @@ def sonder(
                     if lecture.scoring != dernier_scoring:
                         dernier_scoring = lecture.scoring
                         ecrire_enregistrement(capture, TYPE_SCORING, instant, lecture.scoring)
+                        scoring = decoder(lecture.scoring, CHAMPS_SCORING)
+                        plateau = memoire.plateau(scoring["vehicules"])
+                        if plateau is not None:
+                            ecrire_enregistrement(capture, TYPE_PLATEAU, instant, plateau)
+                            bilan.plateau.ajouter(
+                                scoring, decoder_plateau(plateau), memoire.voitures_telemetrie()
+                            )
                     if lecture.vehicule is not None:
                         distance = struct.unpack_from("<d", lecture.vehicule, 104)[0]
                         if distance != derniere_distance:

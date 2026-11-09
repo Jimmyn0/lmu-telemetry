@@ -296,7 +296,15 @@ def test_la_sonde_mesure_une_session_simulee(jeu, tmp_path):
     enregistre = json.loads((tmp_path / "rapport.json").read_text(encoding="utf-8"))
     assert enregistre["roulage_s"] >= 1.5
     types = {t for t, _, _ in flux_memoire.relire_capture(tmp_path / "capture.bin")}
-    assert types == {flux_memoire.TYPE_TELEMETRIE, flux_memoire.TYPE_VEHICULE, flux_memoire.TYPE_SCORING}
+    assert types == {
+        flux_memoire.TYPE_TELEMETRIE,
+        flux_memoire.TYPE_VEHICULE,
+        flux_memoire.TYPE_SCORING,
+        flux_memoire.TYPE_PLATEAU,
+    }
+    # La fausse mémoire compte trois voitures, le joueur à la troisième place du tableau.
+    assert rapport["plateau"]["voitures_max"] == 3
+    assert rapport["plateau"]["mises_a_jour"] > 0
     assert (tmp_path / "image-1.bin").stat().st_size == m.TAILLE_MEMOIRE
 
 
@@ -345,3 +353,62 @@ def test_identifiant_jeu_reconnait_un_processus(monkeypatch):
 
     monkeypatch.setattr(m, "NOM_JEU", Path(sys.executable).name)
     assert m.identifiant_jeu() is not None
+
+
+# ----------------------------------------------------------------------
+# Les autres voitures
+# ----------------------------------------------------------------------
+
+
+def test_le_plateau_donne_toutes_les_voitures(jeu):
+    for indice, (place, pilote) in enumerate(((2, b"Alice"), (3, b"Bruno"), (1, b"Moi"))):
+        base = m.DEBUT_VEHICULES + indice * m.TAILLE_VEHICULE
+        jeu.champ(base, m.CHAMPS_VEHICULE, "place", place)
+        jeu.champ(base, m.CHAMPS_VEHICULE, "pilote", pilote)
+        jeu.champ(base, m.CHAMPS_VEHICULE, "ecart_devant", 1.25 * (place - 1))
+    with m.LecteurMemoire(jeu.nom) as memoire:
+        voitures = m.decoder_plateau(memoire.plateau(3))
+        assert memoire.plateau(0) is None
+    assert [v["pilote"] for v in voitures] == ["Alice", "Bruno", "Moi"]
+    assert [v["place"] for v in voitures] == [2, 3, 1]
+    assert [v["joueur"] for v in voitures] == [False, False, True]
+    assert voitures[1]["ecart_devant"] == 2.5
+
+
+def _voiture(id_: int, **valeurs) -> dict:
+    voiture = {
+        "id": id_, "pilote": f"P{id_}", "place": id_, "drapeau": 0, "controle": 1,
+        "sous_jaune": False, "ecart_devant": 1.0, "joueur": id_ == 1, "dernier_tour": 90.0,
+        "courant_s1": 30.0, "courant_s2": 60.0, "aux_stands": False, "penalites": 0,
+    }
+    voiture.update(valeurs)
+    return voiture
+
+
+def _scoring(**valeurs) -> dict:
+    scoring = {"phase": 5, "drapeau_jaune": 0, "drapeaux_secteurs": (11, 11, 11), "temps_restant": 600.0}
+    scoring.update(valeurs)
+    return scoring
+
+
+def test_le_plateau_compte_ce_qui_change_chez_les_autres():
+    plateau = sonde.Plateau()
+    plateau.ajouter(_scoring(), [_voiture(1), _voiture(2)], 2)
+    plateau.ajouter(
+        _scoring(drapeau_jaune=1, drapeaux_secteurs=(11, 1, 11)),
+        [
+            _voiture(1, dernier_tour=91.0),
+            _voiture(2, dernier_tour=89.5, courant_s1=29.0, aux_stands=True, penalites=1),
+        ],
+        2,
+    )
+    rapport = plateau.rapport()
+    assert rapport["voitures_max"] == 2
+    # Le tour du joueur ne compte pas : seuls ceux des autres disent si la mémoire les publie.
+    assert rapport["tours_des_autres"] == 1
+    assert rapport["secteurs_des_autres"] == 1
+    assert rapport["entrees_stands"] == 1
+    assert rapport["penalites"] == 1
+    assert rapport["drapeau_jaune"] == {0: 1, 1: 1}
+    assert rapport["drapeaux_secteurs"]["(11, 1, 11)"] == 1
+    assert rapport["part_ecarts_renseignes"] == 1.0

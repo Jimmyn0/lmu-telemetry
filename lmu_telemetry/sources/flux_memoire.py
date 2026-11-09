@@ -30,7 +30,8 @@ from .reader import SURFACES_HORS_PISTE
 
 ENTETE_CAPTURE = b"LMUCAP1\n"
 ENREGISTREMENT = struct.Struct("<BdI")
-TYPE_TELEMETRIE, TYPE_VEHICULE, TYPE_SCORING = 1, 2, 3
+#: Le plateau, ce sont les blocs de scoring de toutes les voitures, mis bout à bout.
+TYPE_TELEMETRIE, TYPE_VEHICULE, TYPE_SCORING, TYPE_PLATEAU = 1, 2, 3, 4
 
 #: Ce que le flux lit de chaque bloc : décoder les noms de voiture et de circuit
 #: à chaque échantillon ne servirait à rien.
@@ -127,7 +128,7 @@ def flux_capture(chemin: Path) -> Iterator[Echantillon]:
             vehicule = brut
         elif type_ == TYPE_SCORING:
             scoring = brut
-        elif scoring is not None:
+        elif type_ == TYPE_TELEMETRIE and scoring is not None:
             echantillon = convertisseur.convertir(Lecture(brut, vehicule, scoring))
             if echantillon is not None:
                 yield echantillon
