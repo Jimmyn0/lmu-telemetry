@@ -65,7 +65,7 @@ def resultats_test(tmp_path: Path) -> Path:
         dossier,
         "a-01P1.xml",
         [
-            ("Jimmy Larbi#1", "Manthey DK Engineering 2026 #91:WEC",
+            ("Pilote Test#1", "Manthey DK Engineering 2026 #91:WEC",
              "Porsche 911 GT3 R LMGT3", "GT3"),
             ("Autre Pilote#2", "Team WRT 2026 #32:WEC", "BMW M4 LMGT3", "GT3"),
         ],
@@ -197,6 +197,7 @@ def test_dossier_force_inexistant_est_signale(tmp_path: Path) -> None:
         ("Autódromo José Carlos Pace", "BR"),
         ("Lusail International Circuit", "QA"),
         ("Sebring International Raceway", "US"),
+        ("Michelin Raceway Road Atlanta", "US"),
         # Circuits installés avec le jeu mais jamais roulés ici.
         ("Circuit de Barcelona-Catalunya", "ES"),
         ("Silverstone Circuit", "GB"),

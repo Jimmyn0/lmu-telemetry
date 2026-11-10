@@ -5,9 +5,11 @@
 #
 # Choix faits ici :
 #
-# * UN SEUL FICHIER (.exe autonome) : c'est ce qu'on envoie à un ami. Il
-#   s'extrait dans un dossier temporaire à chaque lancement, d'où quelques
-#   secondes de démarrage.
+# * UN DOSSIER, `GhostLine`, plutôt qu'un seul fichier. Un .exe autonome se
+#   décompresse dans un dossier temporaire à chaque lancement, puis y charge la
+#   fenêtre (.NET, WebView2) depuis des fichiers tout neufs : 21 s avant qu'elle
+#   s'ouvre, contre 3 à 4 s pour le dossier (mesuré le 2026-11-10). On envoie le
+#   dossier, zippé.
 # * PAS DE FENÊTRE DE CONSOLE : l'outil a sa propre fenêtre, et la fermer l'arrête.
 # * PAS DE COMPRESSION UPX : elle rend le .exe plus petit mais le fait
 #   beaucoup plus souvent prendre pour un virus par les antivirus.
@@ -38,11 +40,11 @@ version = VSVersionInfo(
     kids=[
         StringFileInfo([
             StringTable("040C04B0", [
-                StringStruct("FileDescription", "Télémétrie LMU"),
-                StringStruct("ProductName", "Télémétrie LMU"),
+                StringStruct("FileDescription", "GhostLine for LMU"),
+                StringStruct("ProductName", "GhostLine for LMU"),
                 StringStruct("FileVersion", __version__),
                 StringStruct("ProductVersion", __version__),
-                StringStruct("OriginalFilename", "Telemetrie-LMU.exe"),
+                StringStruct("OriginalFilename", "GhostLine.exe"),
             ])
         ]),
         VarFileInfo([VarStruct("Translation", [0x040C, 1200])]),
@@ -54,8 +56,8 @@ a = Analysis(
     pathex=[str(RACINE)],
     datas=[
         # La page web, et les ressources livrées : découpages de référence et
-        # logos libres de droits. Pas les logos personnels, qui vivent dans
-        # le dossier de données de chacun.
+        # logos des constructeurs (voir ressources/logos/SOURCES.md). Pas les
+        # logos qu'un utilisateur dépose dans son dossier de données.
         (str(RACINE / "lmu_telemetry" / "web" / "statique"), "lmu_telemetry/web/statique"),
         (str(RACINE / "lmu_telemetry" / "ressources"), "lmu_telemetry/ressources"),
     ],
@@ -66,11 +68,13 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
-    name="Telemetrie-LMU",
+    [],
+    exclude_binaries=True,
+    name="GhostLine",
     icon=str(RACINE / "lmu_telemetry" / "ressources" / "icone.ico"),
     version=version,
     console=False,
     upx=False,
 )
+# Le dossier : le .exe, et à côté de lui ses bibliothèques et ses fichiers (`_internal`).
+coll = COLLECT(exe, a.binaries, a.datas, upx=False, name="GhostLine")

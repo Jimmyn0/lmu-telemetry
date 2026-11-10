@@ -1,12 +1,16 @@
 """Les seuils réglables, et le fichier qui permet de les changer.
 
 Les valeurs par défaut sont écrites ici. Le fichier
-`%LOCALAPPDATA%\\Telemetrie LMU\\parametres.json` les remplace : il est créé au
+`%LOCALAPPDATA%\\GhostLine\\parametres.json` les remplace : il est créé au
 premier lancement avec toutes les valeurs, pour qu'on voie ce qui se règle.
 
 Une clé mal orthographiée ou une valeur qui n'est pas un nombre donne un message
 qui désigne le fichier. L'ignorer laisserait croire qu'un réglage a été pris en
 compte alors qu'il ne l'est pas.
+
+Les sections qu'une version précédente de l'outil écrivait, et qui ne règlent plus
+rien, sont une autre affaire : ce n'est pas une faute de l'utilisateur. Elles sont
+ignorées à la lecture, et `creer_modele` les retire du fichier.
 
 Les constantes de détection des virages (`virages.RAYON_MAXIMAL`...) ne sont pas
 ici : elles décrivent la géométrie d'un circuit et ont été calées par mesure, ce
@@ -56,6 +60,12 @@ class Parametres:
     virages: SeuilsVirage = field(default_factory=SeuilsVirage)
 
 
+#: Sections écrites par une version précédente, qui ne règlent plus rien : les conseils
+#: de pilotage et leur overlay, retirés le 2026-11-09. Un fichier écrit à l'époque les
+#: contient encore.
+SECTIONS_RETIREES = frozenset({"coach", "overlay"})
+
+
 #: Dernière lecture du fichier : il peut être retouché pendant que l'outil tourne.
 _lus: CacheBorne[tuple, Parametres] = CacheBorne(2)
 
@@ -88,8 +98,8 @@ def _interpreter(brut: object) -> Parametres:
     sections = {f.name: f for f in fields(Parametres)}
     valeurs = {}
     for nom, contenu in brut.items():
-        if nom.startswith("_"):
-            continue  # `_aide`
+        if nom.startswith("_") or nom in SECTIONS_RETIREES:
+            continue  # `_aide`, et ce qu'une version précédente a laissé
         if nom not in sections:
             raise _erreur(f"section inconnue : « {nom} »")
         valeurs[nom] = _section(sections[nom].default_factory, nom, contenu)
@@ -117,8 +127,8 @@ def creer_modele() -> None:
     """Tient le fichier à jour : ce qu'on y lit est ce qui se règle.
 
     Il est créé s'il n'existe pas. S'il existe, les réglages apparus depuis y sont
-    ajoutés, sans toucher à ceux qui y sont déjà. Un fichier mal formé reste tel
-    quel : c'est `lire` qui le signale.
+    ajoutés, sans toucher à ceux qui y sont déjà, et les sections retirées en sont
+    enlevées. Un fichier mal formé reste tel quel : c'est `lire` qui le signale.
 
     Un échec n'empêche rien : l'outil fonctionne avec ses valeurs par défaut.
     """
@@ -139,6 +149,8 @@ def creer_modele() -> None:
         **asdict(Parametres()),
     }
     for nom, reglages in actuel.items():
+        if nom in SECTIONS_RETIREES:
+            continue
         if isinstance(reglages, dict) and isinstance(contenu.get(nom), dict):
             contenu[nom].update(reglages)
         else:

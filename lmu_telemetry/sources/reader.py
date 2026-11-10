@@ -146,6 +146,10 @@ class InfoSession:
     #: conservé parce qu'il donne la démultiplication de la direction.
     angle_roues_max: float | None = None
 
+    #: L'heure qu'il est dans le jeu au départ, « 21:00:00 » : de quoi savoir si l'on
+    #: roulait de nuit. None si le fichier ne la donne pas.
+    heure_jeu: str | None = None
+
     @property
     def demultiplication(self) -> float | None:
         """Tours de volant par degré de roue : 14,4:1 sur la 911 GT3 R."""
@@ -250,6 +254,7 @@ class FichierSession:
                 setup_brut=m.get("CarSetup"),
                 debattement_volant=debattement,
                 angle_roues_max=roues,
+                heure_jeu=m.get("SessionTime"),
             )
         return self._info
 

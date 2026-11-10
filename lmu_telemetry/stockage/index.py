@@ -38,7 +38,7 @@ from ..sources.catalogue import FichierRepere
 from ..sources.reader import cle_fichier
 
 #: À augmenter quand une colonne change : l'index se reconstruit alors de lui-même.
-VERSION_SCHEMA = 1
+VERSION_SCHEMA = 2
 
 #: Nombre de sessions écrites à la fois. Écrire une par une obligerait le disque à
 #: confirmer chaque ligne, et un arrêt ne perd au pire que ce paquet.
@@ -67,6 +67,7 @@ class ResumeSession:
     voiture: str | None = None
     categorie: str | None = None
     meteo: str | None = None
+    heure_jeu: str | None = None
     duree: float | None = None
     longueur: float | None = None
     tours: int = 0
@@ -105,6 +106,7 @@ def resumer(chemin: Path) -> ResumeSession | None:
         voiture=session.info.voiture,
         categorie=session.info.categorie,
         meteo=session.info.meteo,
+        heure_jeu=session.info.heure_jeu,
         duree=session.duree,
         longueur=session.longueur,
         tours=len(session.tours),

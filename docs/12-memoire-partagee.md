@@ -1,8 +1,10 @@
 # Étape 12 — La mémoire partagée, vérifiée sur le jeu en marche
 
-**Statut : terminée.** Mesuré le 2026-11-06, jeu en version 1.4200, sur trois sessions de
-5 minutes à Monza : Mercedes-AMG LMGT3, Ferrari 499P, puis Ferrari 296 LMGT3 Evo pour un tour
-propre. Outil : `tools/sonde_live.py`. Les tableaux portent sur les deux premières.
+**Statut : abandonné le 2026-11-10**, avec l'ingénieur de course (étape 17) : la lecture du jeu
+en direct est retirée de l'outil, sans archive (`memoire_lmu.py`, les flux et les sondes n'existent
+plus). Les mesures ci-dessous restent valables. Mesuré le 2026-11-06, jeu en version 1.4200, sur
+trois sessions de 5 minutes à Monza : Mercedes-AMG LMGT3, Ferrari 499P, puis Ferrari 296 LMGT3 Evo
+pour un tour propre. Outil : `tools/sonde_live.py`. Les tableaux portent sur les deux premières.
 
 ---
 
@@ -122,7 +124,8 @@ Course de sonde du 2026-11-09 : Monza, 38 voitures (11 Hypercar, 13 LMP2, 14 GT3
 temps, 4 019 mises à jour du classement. La mémoire publie les 38 voitures, chacune avec sa
 télémétrie. Les écarts y sont mis à jour cinq fois par seconde, et les temps de secteur au passage
 même de la ligne. Les drapeaux de secteur, les stands, les pénalités et l'arrivée de chacun sont
-lisibles.
+lisibles. Les conventions relevées (numéros de secteur, valeurs des drapeaux, états aux stands, écarts
+calculés par LMU) sont dans `docs/17-ingenieur.md`.
 
 Les décalages des nouveaux champs viennent des en-têtes. Recoupés sur une image prise le 2026-11-06 :
 nom du pilote, voiture, catégorie, place, températures et temps restant y sont cohérents. Le temps

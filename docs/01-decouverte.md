@@ -55,7 +55,7 @@ Exemple de `metadata` réel :
 
 ```
 Version           = 1
-DriverName        = Jimmy Larbi
+DriverName        = Prénom Nom
 RecordingTime     = 2026-09-08T12_12_19Z
 SessionTime       = 15:05:13
 SessionType       = Practice

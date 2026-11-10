@@ -13,7 +13,6 @@ from lmu_telemetry.errors import SessionEnCours
 from lmu_telemetry.domaine.donnees_tour import bilan, charger
 from lmu_telemetry.domaine.session import Session
 from lmu_telemetry.sources import catalogue
-from lmu_telemetry.sources.memoire_lmu import MemoireAbsente, MemoireInattendue
 from lmu_telemetry.stockage import index as module_index
 from lmu_telemetry.stockage.index import Index, ResumeSession, balayage, contour, resumer
 from lmu_telemetry.web import reponses
@@ -264,46 +263,3 @@ def test_un_tour_se_compare_seul(session_test: Path) -> None:
     assert resultat["ecart_final"] == 0
     assert resultat["reference"]["numero"] == resultat["compare"]["numero"] == 1
     assert len(resultat["reference"]["temps"]) == resultat["distance"]["nombre"]
-
-
-# ----------------------------------------------------------------------
-# L'état du jeu
-# ----------------------------------------------------------------------
-
-
-def test_le_jeu_absent_se_dit_sans_erreur(monkeypatch) -> None:
-    def absente():
-        raise MemoireAbsente("LMU_Data")
-
-    monkeypatch.setattr(reponses, "identifiant_jeu", lambda: 1234)
-    monkeypatch.setattr(reponses, "LecteurMemoire", absente)
-    assert reponses.jeu() == {"detecte": False, "format_inconnu": False}
-
-
-def test_un_format_de_memoire_inconnu_se_signale(monkeypatch) -> None:
-    def trop_petite():
-        raise MemoireInattendue(1024)
-
-    monkeypatch.setattr(reponses, "identifiant_jeu", lambda: 1234)
-    monkeypatch.setattr(reponses, "LecteurMemoire", trop_petite)
-    assert reponses.jeu() == {"detecte": False, "format_inconnu": True}
-
-
-def test_le_jeu_en_menu_est_detecte_sans_circuit(monkeypatch) -> None:
-    monkeypatch.setattr(reponses, "identifiant_jeu", lambda: 1234)
-
-    class Memoire:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_):
-            pass
-
-        def lire(self):
-            return None
-
-        def version_jeu(self):
-            return 14200
-
-    monkeypatch.setattr(reponses, "LecteurMemoire", Memoire)
-    assert reponses.jeu() == {"detecte": True, "version": 14200, "en_piste": False}

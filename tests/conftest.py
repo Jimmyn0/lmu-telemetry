@@ -22,11 +22,21 @@ def donnees_isolees(tmp_path_factory, monkeypatch) -> Path:
     """Les tests ne touchent jamais au vrai dossier de données de l'utilisateur.
 
     Sans ça, un test qui choisit un dossier de télémétrie ou recopie un
-    découpage écrirait dans `%LOCALAPPDATA%\\Telemetrie LMU` pour de bon.
+    découpage écrirait dans `%LOCALAPPDATA%\\GhostLine` pour de bon.
     """
     dossier = tmp_path_factory.mktemp("donnees")
     monkeypatch.setenv("LMU_DONNEES", str(dossier))
     return dossier
+
+
+@pytest.fixture(autouse=True)
+def groupe_hors_ligne(monkeypatch) -> None:
+    """Les tests ne parlent jamais au service du groupe en ligne : seulement à celui
+    qu'ils lancent sur ce PC (`service/local.mjs`), par `LMU_SERVICE_GROUPE`."""
+    from lmu_telemetry.groupe import reglages
+
+    monkeypatch.setattr(reglages, "SERVICE", "")
+    monkeypatch.delenv(reglages.VARIABLE_SERVICE, raising=False)
 
 
 @pytest.fixture(scope="session")

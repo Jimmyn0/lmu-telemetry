@@ -4,7 +4,7 @@
 // l'index, que le serveur complète en tâche de fond : tant qu'il reste des sessions
 // à lire, on redemande, et les cartes se précisent pendant qu'on les regarde.
 
-import { $, api, badgeClasse, badgeType, dateCourte, erreur, etat } from "/commun.js";
+import { $, api, badgeClasse, badgeType, contourSvg, dateCourte, erreur, etat } from "/commun.js";
 import { drapeau, echapper, nomDuPays } from "/emblemes.js";
 import { chrono, circuitDe, codeType, filtrerSessions, trierSessions } from "/format.js";
 import { ICONES } from "/icones.js";
@@ -19,7 +19,7 @@ const PAR_PAQUET = 30;
 // (voir `.liste-laterale` dans style.css).
 const PART_LISIBLE = 0.56;
 
-const filtres = { circuit: "", tri: "date", masquerVides: true, ouverts: false };
+const filtres = { circuit: "", tri: "date", masquerVides: true, enLigne: false, ouverts: false };
 let limite = PAR_PAQUET;
 let suivi = null;
 
@@ -27,6 +27,7 @@ export async function chargerSessions() {
   const reponse = await api("/api/sessions");
   etat.sessions = reponse.sessions;
   etat.restant = reponse.restant;
+  etat.contours = reponse.contours || {};
   clearTimeout(suivi);
   if (reponse.restant > 0) {
     suivi = setTimeout(() => chargerSessions().then(rafraichirSiVisible).catch(() => {}), 1500);
@@ -52,12 +53,13 @@ function carte(s) {
   const actif = etat.sessionChoisie === s.id;
   return `<button type="button" class="carte-session type-${code}${actif ? " actif" : ""}"
       data-id="${echapper(s.id)}">
+    ${contourSvg(etat.contours[s.trace])}
     <span class="ligne-titre">${drapeau(s.pays)}
       <span class="nom">${echapper(circuitDe(s))}</span>${badgeType(s.type)}</span>
     <span class="pays">${echapper(s.pays ? nomDuPays(s.pays) : "")}</span>
     <span class="filet" title="${t("sessions.part_valides")}"><i style="width:${part}%"></i></span>
     <span class="date">${ICONES.calendrier}${dateCourte(s.date)}</span>
-    <span class="bas">${badgeClasse(classe)}
+    <span class="bas">${badgeClasse(classe)}${etiquettes(s)}
       <span class="espace"></span>
       ${s.indisponible ? `<span class="badge alerte">${t("sessions.illisible")}</span>` : ""}
       ${s.journal ? `<span class="badge alerte" title="${t("session.non_refermee")}">!</span>` : ""}
@@ -65,6 +67,20 @@ function carte(s) {
       ${s.tours ? `<span class="badge compteur" title="${t("sessions.col.tours")}">${s.tours}</span>` : ""}
     </span>
   </button>`;
+}
+
+// Ce que les fichiers de résultats et la télémétrie disent de la séance : une victoire,
+// un départ de nuit, une séance en ligne.
+function etiquettes(s) {
+  return [
+    s.victoire ? `<span class="badge victoire">${t("sessions.victoire")}</span>` : "",
+    s.nuit
+      ? `<span class="badge icone-seule nuit" title="${t("sessions.nuit")}">${ICONES.lune}</span>`
+      : "",
+    s.en_ligne
+      ? `<span class="badge icone-seule en-ligne" title="${t("sessions.en_ligne")}">${ICONES.en_ligne}</span>`
+      : "",
+  ].join("");
 }
 
 function optionsCircuits() {
@@ -113,6 +129,8 @@ export const barreSessions = {
           <select id="circuit">${optionsCircuits()}</select></label>
         <label class="case"><input type="checkbox" id="avec-tours"
           ${filtres.masquerVides ? "checked" : ""}> ${t("sessions.masquer_vides")}</label>
+        <label class="case"><input type="checkbox" id="en-ligne"
+          ${filtres.enLigne ? "checked" : ""}> ${t("sessions.filtre_en_ligne")}</label>
       </div>
       ${etat.restant
         ? `<div class="note avancement"><span class="roue"></span>${tp("sessions.lecture", etat.restant)}</div>`
@@ -159,6 +177,11 @@ export const barreSessions = {
       limite = PAR_PAQUET;
       barreSessions.afficher();
     };
+    $("#en-ligne").onchange = (e) => {
+      filtres.enLigne = e.target.checked;
+      limite = PAR_PAQUET;
+      barreSessions.afficher();
+    };
   },
 
   /**
@@ -178,6 +201,7 @@ export const barreSessions = {
     if (ecartee) {
       filtres.circuit = "";
       filtres.masquerVides = false;
+      filtres.enLigne = false;
       rang = rangDe();
     }
     if (ecartee || rang >= limite) {

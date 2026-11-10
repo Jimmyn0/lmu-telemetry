@@ -1,0 +1,11 @@
+# Le service du groupe sur Cloudflare : voir docs/20-groupe.md, « Mettre le service en ligne ».
+
+name = "lmu-groupe"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lmu-groupe"
+# Donné par `npx wrangler d1 create lmu-groupe --location=weur` (2026-11-10).
+database_id = "05437cb2-cf8a-43a2-8f0a-c9bff13152b1"

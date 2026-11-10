@@ -8,9 +8,10 @@
 1. les outils de construction (PyInstaller), installés s'ils manquent ;
 2. les tests — on ne distribue pas une version qui ne les passe pas ;
 3. PyInstaller, selon la recette `telemetrie-lmu.spec` ;
-4. l'archive `dist/Telemetrie-LMU-<version>.zip`, qui contient le .exe et ses
-   modes d'emploi, `distribution/LISEZ-MOI.txt` et `distribution/README.txt`
-   (en anglais) : c'est elle qu'on envoie.
+4. l'archive `dist/GhostLine-<version>.zip`, qui contient le dossier
+   `GhostLine` : le .exe, ses bibliothèques (`_internal`) et ses modes d'emploi,
+   `distribution/LISEZ-MOI.txt` et `distribution/README.txt` (en anglais).
+   C'est elle qu'on envoie.
 
 Un double-clic sur ce fichier le lance avec le Python de Windows, qui n'a pas
 les bibliothèques du projet : il plantait à la première ligne, et la fenêtre
@@ -34,7 +35,9 @@ RACINE = Path(__file__).resolve().parent.parent
 PYTHON_PROJET = RACINE / ".venv" / "Scripts" / "python.exe"
 DIST = RACINE / "dist"
 TRAVAIL = RACINE / "build"
-NOM = "Telemetrie-LMU"
+NOM = "GhostLine"
+#: Le dossier à distribuer : le .exe, et ses bibliothèques à côté de lui.
+DOSSIER = DIST / NOM
 AUTOMATIQUE = "--automatique" in sys.argv
 
 
@@ -60,11 +63,11 @@ def construire() -> None:
     sys.path.insert(0, str(RACINE))
     from lmu_telemetry import __version__
 
-    print(f"Construction de Télémétrie LMU {__version__}")
+    print(f"Construction de GhostLine for LMU {__version__}")
 
     # Windows interdit de remplacer un .exe en cours d'exécution : PyInstaller
     # échouait alors tout au bout, sur un « Accès refusé » incompréhensible.
-    exe = DIST / f"{NOM}.exe"
+    exe = DOSSIER / f"{NOM}.exe"
     if exe.exists():
         try:
             # Ouvrir en écriture sans rien écrire : refusé si le .exe tourne.
@@ -73,7 +76,7 @@ def construire() -> None:
         except PermissionError:
             raise Echec(
                 "Le .exe est en cours d'utilisation : ferme la fenêtre de l'outil\n"
-                "(Télémétrie LMU), puis relance la construction."
+                "(GhostLine), puis relance la construction."
             ) from None
 
     etape("1/4  Outils de construction")
@@ -95,23 +98,23 @@ def construire() -> None:
         "--workpath", TRAVAIL,
         RACINE / "telemetrie-lmu.spec",
     ])
-    exe = DIST / f"{NOM}.exe"
     if not exe.is_file():
         raise Echec(f"PyInstaller n'a pas produit {exe}")
 
     etape("4/4  Archive à partager")
-    # Les deux modes d'emploi : en français et en anglais.
-    guides = [RACINE / "distribution" / "LISEZ-MOI.txt", RACINE / "distribution" / "README.txt"]
+    # Les deux modes d'emploi, en français et en anglais, à côté du .exe.
+    for guide in (RACINE / "distribution" / "LISEZ-MOI.txt", RACINE / "distribution" / "README.txt"):
+        shutil.copyfile(guide, DOSSIER / guide.name)
+    # Le dossier entier : on le décompresse tel quel, `GhostLine\GhostLine.exe` dedans.
     archive = DIST / f"{NOM}-{__version__}.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zip_:
-        zip_.write(exe, exe.name)
-        for guide in guides:
-            zip_.write(guide, guide.name)
-    for guide in guides:
-        shutil.copyfile(guide, DIST / guide.name)
+        for fichier in sorted(DOSSIER.rglob("*")):
+            if fichier.is_file():
+                zip_.write(fichier, fichier.relative_to(DIST))
 
     mo = 1024 * 1024
-    print(f"Le .exe      : {exe}  ({exe.stat().st_size / mo:.0f} Mo)")
+    taille = sum(f.stat().st_size for f in DOSSIER.rglob("*") if f.is_file())
+    print(f"Le dossier   : {DOSSIER}  ({taille / mo:.0f} Mo, {exe.name} dedans)")
     print(f"À partager   : {archive}  ({archive.stat().st_size / mo:.0f} Mo)")
     print("\nTerminé.")
     if not AUTOMATIQUE and sys.platform == "win32":

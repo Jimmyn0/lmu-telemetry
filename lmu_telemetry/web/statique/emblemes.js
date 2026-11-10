@@ -8,12 +8,12 @@
 // décalage des diagonales du drapeau britannique sont volontairement omis :
 // ils sont invisibles à cette taille et alourdiraient le fichier pour rien.
 //
-// Les LOGOS DE MARQUE, eux, ne sont pas dessinés ici. Ce sont des marques
-// déposées : une imitation faite à la main serait approximative et douteuse.
-// On affiche donc une pastille aux couleurs du constructeur. Si tu veux les
-// vrais logos, dépose des fichiers image dans le dossier `logos/` à côté de
-// `virages/`, nommés d'après la marque — `Porsche.png`, `Ferrari.svg`… — et
-// ils remplaceront automatiquement la pastille.
+// Les LOGOS DE MARQUE, eux, ne sont pas dessinés ici : une imitation faite à la
+// main serait approximative et douteuse. Ce sont des fichiers, livrés avec l'outil
+// (`ressources/logos`, leur provenance dans `SOURCES.md`) ou déposés par
+// l'utilisateur dans le dossier `logos/` de ses données, qui l'emportent. Une
+// marque sans logo (ADESS, ou une marque nouvelle) a une pastille à ses
+// initiales, cerclée de la couleur du constructeur.
 
 import { locale } from "/i18n.js";
 
@@ -261,7 +261,7 @@ export function embleme(marque) {
     .map((mot) => mot[0])
     .join("")
     .toUpperCase();
-  return `<span class="pastille" style="background:${couleur}" title="${echapper(marque)}">${echapper(initiales)}</span>`;
+  return `<span class="pastille" style="--couleur-marque:${couleur}" title="${echapper(marque)}">${echapper(initiales)}</span>`;
 }
 
 // Libellé complet d'une voiture : « Porsche 911 GT3 R LMGT3 », l'engagement

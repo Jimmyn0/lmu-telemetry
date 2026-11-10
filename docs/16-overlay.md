@@ -1,8 +1,9 @@
 # Étape 16 — L'overlay
 
-**Statut : abandonné le 2026-11-09, après l'essai en piste.** Le code est sur la branche locale
-`archive/conseils`. Seule la détection du jeu reste dans l'outil, voir « Un jeu fermé peut sembler en
-piste ».
+**Statut : abandonné le 2026-11-09, après l'essai en piste.** Son code était sur la branche
+locale `archive/conseils`, supprimée le 2026-11-10. La détection du jeu, gardée un temps (voir
+« Un jeu fermé peut sembler en piste »), est partie avec l'ingénieur de course le même jour
+(étape 17).
 
 ---
 

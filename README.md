@@ -1,4 +1,4 @@
-# LMU Telemetry — lap analysis for Le Mans Ultimate
+# GhostLine for LMU — lap analysis for Le Mans Ultimate
 
 🇫🇷 *Version française : [LISEZ-MOI.md](LISEZ-MOI.md)*
 
@@ -41,7 +41,8 @@ diagnosis — only measured facts.
 ## Getting started
 
 1. [Download](https://github.com/Jimmyn0/lmu-telemetry/releases/latest) the
-   `.zip`, unzip it, and double-click `Telemetrie-LMU.exe`. Nothing to install.
+   `.zip`, unzip it, and double-click `GhostLine.exe` in the `GhostLine`
+   folder. Nothing to install.
 2. The tool opens in its own window. Closing it stops the tool.
 3. Pick a session, then two laps, and hit **Compare**. The very first start reads
    all your sessions in the background, which can take a minute or two; after
@@ -62,13 +63,16 @@ how to find it:
 
 ## Privacy and safety
 
-* **Nothing leaves your computer.** The tool runs a small web server that only
-  listens on your own machine (`127.0.0.1`), and the page loads nothing from
-  the internet.
+* **Nothing leaves your computer unless you join a group.** The tool runs a
+  small web server that only listens on your own machine (`127.0.0.1`), and the
+  page loads nothing from the internet. In a group, only your online qualifying
+  and race results, and the telemetry of your best laps, go to the group
+  service.
 * **The game files are read in place, read-only.** Nothing is copied, moved,
   changed or deleted.
 * What the tool writes — your settings, your thresholds, your corner maps, your own logos — goes
-  to `%LOCALAPPDATA%\Telemetrie LMU`, and survives updates.
+  to `%LOCALAPPDATA%\GhostLine`, and survives updates. The tool was called LMU
+  Telemetry until 10 November 2026: its old folder takes the new name on first launch.
 
 ⚠️ Your telemetry files live inside the Steam folder: a *Verify integrity of
 game files* or a major update may erase them. Copy that folder somewhere else
@@ -78,22 +82,29 @@ from time to time if you care about your history.
 
 New versions are published on the
 [Releases](https://github.com/Jimmyn0/lmu-telemetry/releases) page. Replace the
-old `.exe` with the new one: your settings and corner maps are kept. The version
+old `GhostLine` folder with the new one: your settings and corner maps are kept. The version
 number is shown in the settings (the gear at the top right); see
 [NOTES-DE-VERSION.md](NOTES-DE-VERSION.md) for what changed (in French).
 
 ## Manufacturer logos
 
-Only logos free of copyright (from Wikimedia Commons) ship with the tool; the
-other brands get a coloured badge. To see their logos anyway, drop your own
-image files in `%LOCALAPPDATA%\Telemetrie LMU\logos`, named after the brand as
-the tool displays it: `Porsche.png`, `Ferrari.png`, `Aston Martin.png`… Dark
-logos are automatically lightened so they stay visible on the dark background.
+The logos of the 20 brands in the game that have one ship with the tool
+(`lmu_telemetry/ressources/logos/`, with each file's origin and licence in
+`SOURCES.md`); only ADESS, which has none anywhere, gets a badge with its
+initials. These logos are trademarks of their owners, shown only to recognise
+the cars: the tool is not affiliated with any manufacturer, nor with the game.
+A manufacturer who asks will have its logo removed.
+
+To replace one, or add one for a new brand, drop an image file in
+`%LOCALAPPDATA%\GhostLine\logos`, named after the brand as the tool displays
+it: `Porsche.png`, `Ferrari.png`, `Aston Martin.png`… Yours take precedence.
+Dark logos are automatically lightened so they stay visible on the dark
+background.
 
 ## Corner maps
 
 Each track is split into corners once, from the curvature of the track, and
-saved as an editable JSON file in `%LOCALAPPDATA%\Telemetrie LMU\virages`. You
+saved as an editable JSON file in `%LOCALAPPDATA%\GhostLine\virages`. You
 can move the boundaries, remove a corner, or give it a name — what you write is
 never overwritten. At Monza, the detection finds exactly the 11 official
 corners.
@@ -124,7 +135,7 @@ py -m venv .venv
 
 **Build the `.exe`** — double-click `construire-exe.bat`. It installs
 PyInstaller, runs the tests (a failing version is never built), then produces
-`dist/Telemetrie-LMU.exe` and the `.zip` to share.
+the `dist/GhostLine` folder and the `.zip` to share.
 
 **Translations** — every piece of text lives in
 `lmu_telemetry/web/statique/langues/fr.json` and `en.json`. A test fails if a
@@ -141,7 +152,6 @@ sentence is missing in one of the two languages. See
 | `lmu_telemetry/domaine/comparaison.py` | aligns two laps on distance and computes the delta |
 | `lmu_telemetry/domaine/piste.py`, `virages.py` | track geometry, corner detection and per-corner metrics |
 | `lmu_telemetry/domaine/regularite.py` | consistency analysis and ideal lap |
-| `lmu_telemetry/sources/memoire_lmu.py` | reads the game's live shared memory, read-only and without its lock |
 | `lmu_telemetry/domaine/circuits.py` | finds or detects the corner map of a track |
 | `lmu_telemetry/parametres.py` | the adjustable thresholds and their settings file |
 | `lmu_telemetry/stockage/index.py` | remembers what each session contains, so the list is instant |

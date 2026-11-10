@@ -3,30 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Télémétrie — Le Mans Ultimate</title>
+<title>GhostLine for LMU</title>
 <link rel="stylesheet" href="/style.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23a25ee8'/%3E%3Cstop offset='1' stop-color='%2322c55e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='30' height='30' rx='8' fill='url(%23d)'/%3E%3Cpath d='M5 20 L10 20 L13 11 L17 23 L20 15 L25 15' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' rx='8' fill='%231b2533'/%3E%3Cpath d='M5 18C11.5 18 11.5 8 20 8' fill='none' stroke='%23ee8a35' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M5 24C13 24 13 13 24 13' fill='none' stroke='%23a25ee8' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='20' cy='8' r='2.3' fill='%23fff'/%3E%3Ccircle cx='24' cy='13' r='2.3' fill='%23fff'/%3E%3C/svg%3E">
 </head>
 <body>
 
 <header id="barre-titre">
-  <!-- Emblème maison : une courbe de télémétrie, pas le logo du jeu. -->
-  <svg class="embleme" viewBox="0 0 30 30" aria-hidden="true">
-    <defs>
-      <linearGradient id="degrade-embleme" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#a25ee8"/><stop offset="1" stop-color="#22c55e"/>
-      </linearGradient>
-    </defs>
-    <rect width="30" height="30" rx="8" fill="url(#degrade-embleme)"/>
-    <path d="M5 20 L10 20 L13 11 L17 23 L20 15 L25 15" fill="none" stroke="#fff"
-          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
+  <!-- Le nom de l'outil et son emblème, maison, pas le logo du jeu : deux trajectoires et
+       leurs voitures, le tour comparé en orange et la référence en violet. Même dessin que
+       tools/icone.py. -->
+  <div class="marque">
+    <svg class="embleme" viewBox="0 0 30 30" aria-hidden="true">
+      <rect width="30" height="30" rx="8" fill="#1b2533"/>
+      <path d="M5 18C11.5 18 11.5 8 20 8" fill="none" stroke="#ee8a35" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M5 24C13 24 13 13 24 13" fill="none" stroke="#a25ee8" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="20" cy="8" r="2.3" fill="#fff"/>
+      <circle cx="24" cy="13" r="2.3" fill="#fff"/>
+    </svg>
+    <span class="nom-appli">GhostLine<small>for LMU</small></span>
+  </div>
   <button id="bascule-laterale" class="bouton-barre" type="button" data-t-title="nav.bascule"></button>
   <nav id="onglets">
     <button type="button" data-onglet="resultats" data-t="nav.resultats">Résultats</button>
     <button type="button" data-onglet="telemetrie" data-t="nav.telemetrie">Télémétrie</button>
-    <button type="button" data-onglet="ingenieur" data-t="nav.ingenieur">Ingénieur</button>
     <button type="button" data-onglet="temps" data-t="nav.temps">Temps au tour</button>
+    <button type="button" data-onglet="leaderboard" data-t="nav.leaderboard">Leaderboard</button>
   </nav>
   <div class="espace"></div>
   <button id="ouvrir-reglages" class="bouton-barre" type="button" data-t-title="reglages.titre"></button>
@@ -43,10 +45,16 @@
 
   <main id="contenu">
 
-    <!-- Résultats : une session, ses tours et sa régularité -->
+    <!-- Résultats : une session, son classement, ses tours et sa régularité -->
     <section id="ecran-resultats" hidden>
       <div id="entete-session"></div>
       <div id="sous-onglets" class="barre-onglets" hidden>
+        <button type="button" data-vue="classement" data-t="session.onglet_classement">Classement</button>
+        <button type="button" data-vue="rythme" data-t="session.onglet_rythme">Rythme</button>
+        <button type="button" data-vue="positions" data-t="session.onglet_positions">Positions</button>
+        <button type="button" data-vue="statistiques" data-t="session.onglet_statistiques">Statistiques</button>
+        <button type="button" data-vue="incidents" data-t="session.onglet_incidents">Incidents</button>
+        <button type="button" data-vue="chat" data-t="session.onglet_chat">Chat</button>
         <button type="button" data-vue="tours" data-t="session.onglet_tours">Tours</button>
         <button type="button" data-vue="regularite" data-t="session.onglet_regularite">Régularité</button>
       </div>
@@ -121,11 +129,11 @@
       </div>
     </section>
 
-    <!-- Ingénieur : l'état du jeu, en attendant l'ingénieur de course -->
-    <section id="ecran-ingenieur" hidden></section>
-
     <!-- Temps au tour : les records par circuit -->
     <section id="ecran-temps" hidden></section>
+
+    <!-- Leaderboard : les meilleurs tours et les courses de chaque pilote du groupe -->
+    <section id="ecran-leaderboard" hidden></section>
 
     <!-- Choisir le dossier de télémétrie, quand il n'a pas été trouvé tout seul -->
     <section id="ecran-dossier" hidden>

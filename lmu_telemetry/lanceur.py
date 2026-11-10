@@ -119,7 +119,16 @@ def lancer(langue: str, ouvrir_fenetre: bool = True) -> int:
     return 0
 
 
+def reprendre_ancien_dossier() -> None:
+    """L'outil s'appelait « Télémétrie LMU » : son dossier de données prend le nouveau
+    nom, avant que quoi que ce soit ne l'ouvre. Pas si l'outil tourne déjà : il s'en
+    sert encore, et c'est sa fenêtre qu'on va ramener."""
+    if not outil_deja_ouvert(PORT):
+        emplacements.migrer_ancien_dossier()
+
+
 def main() -> int:
+    reprendre_ancien_dossier()
     console_utf8()
     langue = langue_preferee()
     try:

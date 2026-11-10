@@ -19,7 +19,7 @@ from lmu_telemetry.domaine.donnees_tour import charger
 from lmu_telemetry.errors import ErreurTelemetrie, SessionEnCours
 from lmu_telemetry.domaine.session import Session
 from lmu_telemetry import emplacements
-from lmu_telemetry.domaine.circuits import definition_connue
+from lmu_telemetry.domaine.circuits import definition_depuis_tours
 from lmu_telemetry.domaine.virages import (
     DefinitionCircuit,
     Virage,
@@ -369,10 +369,6 @@ def test_un_virage_deplace_n_est_plus_le_meme() -> None:
     assert utilisateur.avec_noms_de(fourni).virages[0].nom == ""
 
 
-def test_un_circuit_inconnu_n_a_pas_de_decoupage(tmp_path: Path) -> None:
-    assert definition_connue("Inconnu", tmp_path / "u", tmp_path / "f") is None
-
-
 def test_monza_arrive_nomme_chez_qui_avait_deja_son_decoupage(tmp_path: Path) -> None:
     fournis = emplacements.virages_fournis()
     trace = "Autodromo Nazionale Monza"
@@ -380,7 +376,8 @@ def test_monza_arrive_nomme_chez_qui_avait_deja_son_decoupage(tmp_path: Path) ->
     sans_noms = tuple(replace(v, nom="") for v in ancien.virages)
     replace(ancien, virages=sans_noms).enregistrer(tmp_path / f"{trace}.json")
 
-    definition = definition_connue(trace, tmp_path, fournis)
+    # Un découpage déjà connu sert tel quel : il n'y a rien à détecter, donc pas besoin de tours.
+    definition, _ = definition_depuis_tours(trace, [], tmp_path, fournis)
     assert [v.nom for v in definition.virages][:3] == ["Rettifilo", "Rettifilo", "Curva Grande"]
     relu = DefinitionCircuit.lire(tmp_path / f"{trace}.json")
     assert relu.virages[0].nom == ""

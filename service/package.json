@@ -1,0 +1,9 @@
+{
+  "name": "lmu-groupe",
+  "private": true,
+  "type": "module",
+  "description": "Le service du groupe de GhostLine for LMU : un Worker Cloudflare et sa base D1.",
+  "scripts": {
+    "local": "node local.mjs"
+  }
+}

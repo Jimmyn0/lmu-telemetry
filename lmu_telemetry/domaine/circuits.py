@@ -16,7 +16,7 @@ from pathlib import Path
 from ..cache import CacheBorne
 from ..errors import ErreurTelemetrie
 from ..sources.reader import cle_fichier
-from .donnees_tour import charger_tours
+from .donnees_tour import DonneesTour, charger_tours
 from .session import Session
 from .virages import DefinitionCircuit, detecter, fichier_definition
 
@@ -59,12 +59,19 @@ def _chercher(trace: str, dossier_utilisateur: Path, dossier_fournis: Path) -> D
     return _lire(chemin, fourni) if chemin.exists() else None
 
 
-def definition_connue(
-    trace: str, dossier_utilisateur: Path, dossier_fournis: Path
-) -> DefinitionCircuit | None:
-    """Le découpage d'un tracé, s'il existe. Le direct n'a pas de tours à découper."""
+def definition_depuis_tours(
+    trace: str, tours: list[DonneesTour], dossier_utilisateur: Path, dossier_fournis: Path
+) -> tuple[DefinitionCircuit, Path]:
+    """Découpage d'un tracé quand on n'a que des tours, pas de session de ce PC : la
+    comparaison de deux records d'amis. Le découpage connu d'abord ; à défaut, détecté sur
+    ces tours, et enregistré comme celui d'une session."""
+    chemin = fichier_definition(dossier_utilisateur, trace)
     with _verrou:
-        return _chercher(trace, dossier_utilisateur, dossier_fournis)
+        definition = _chercher(trace, dossier_utilisateur, dossier_fournis)
+        if definition is not None:
+            return definition, chemin
+        detecter(tours[:TOURS_DETECTION]).enregistrer(chemin)
+        return _lire(chemin, fichier_definition(dossier_fournis, trace)), chemin
 
 
 def definition_circuit(

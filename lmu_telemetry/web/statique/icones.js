@@ -7,6 +7,9 @@ const icone = (contenu, plein = false) =>
 
 export const ICONES = {
   menu: icone(`<path d="M3 6h18M3 12h18M3 18h18"/>`),
+  groupe: icone(
+    `<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2s4.9 1.9 5.5 5.2"/><circle cx="16.8" cy="9.2" r="2.5"/><path d="M15.6 14.4c2.5-.2 4.4 1.4 4.9 4.4"/>`
+  ),
   reglages: icone(
     `<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" fill="var(--fond-barre)" stroke="none"/><path fill="currentColor" stroke="none" d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4.9a7.6 7.6 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1L6.6 6l-2 3.4 2 1.6a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-.9a7.6 7.6 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.4.9 2-3.4-2-1.6ZM13 15.4a3.5 3.5 0 1 1 0-6.8 3.5 3.5 0 0 1 0 6.8Z"/>`
   ),
@@ -27,4 +30,6 @@ export const ICONES = {
   gauche: icone(`<path d="M9 18V8h9"/><path d="m12 11-3-3-3 3" transform="rotate(-90 9 8) translate(0 0)"/>`),
   avertissement: icone(`<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v5M12 17.5v.5"/>`),
   jeu: icone(`<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M8 11v3M6.5 12.5h3M15.5 11.5h.01M18 13.5h.01"/>`),
+  lune: icone(`<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>`),
+  en_ligne: icone(`<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M9 16a4.5 4.5 0 0 1 6 0"/><path d="M12 19.5h.01"/>`),
 };

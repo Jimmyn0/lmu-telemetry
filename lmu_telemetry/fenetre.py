@@ -37,7 +37,7 @@ import time
 from ctypes import wintypes
 from dataclasses import dataclass
 
-TITRE = "Télémétrie LMU"
+TITRE = "GhostLine for LMU"
 
 #: Taille d'ouverture, celle des maquettes, et taille en deçà de laquelle la page
 #: n'a plus la place d'afficher ses colonnes.

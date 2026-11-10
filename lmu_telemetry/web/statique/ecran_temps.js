@@ -4,7 +4,7 @@
 // par circuit, mais les temps affichés sont toujours ceux d'un seul tracé.
 
 import {
-  $, api, badgeClasse, badgeType, dateJour, erreur, etat, etatVide, navigation,
+  $, api, badgeClasse, badgeType, contourSvg, dateJour, erreur, etat, etatVide, navigation,
 } from "/commun.js";
 import { drapeau, echapper, embleme } from "/emblemes.js";
 import { chrono, familleClasse, meilleursParClasse } from "/format.js";
@@ -41,15 +41,6 @@ function circuitsAffiches() {
     return liste.sort((a, b) => total(b) - total(a));
   }
   return liste.sort((a, b) => a.circuit.localeCompare(b.circuit, langue()));
-}
-
-// Le tracé du circuit tient lieu d'image de fond : il ne doit rien à personne, et il
-// dit mieux où l'on est.
-function contourSvg(points) {
-  if (!points) return "";
-  const chemin = points.map(([x, y]) => `${(x * 100).toFixed(1)},${(y * 100).toFixed(1)}`).join(" ");
-  return `<svg class="contour" viewBox="-4 -4 108 108" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">
-    <polygon points="${chemin}"/></svg>`;
 }
 
 function carteCircuit(c) {

@@ -17,6 +17,8 @@ export const etat = {
   sessionChoisie: null,
   telemetrie: null,
   circuits: null,
+  // Le contour de chaque tracé connu de la télémétrie, ramené à [0, 1].
+  contours: {},
   sansDossier: false,
 };
 
@@ -113,6 +115,15 @@ export function fleche(sens) {
   const fleches = { gauche: ["↰", "sens.gauche"], droite: ["↱", "sens.droite"] };
   const f = fleches[sens];
   return f ? ` <span class="sens" title="${t(f[1])}">${f[0]}</span>` : "";
+}
+
+// Le tracé du circuit tient lieu d'image de fond : il ne doit rien à personne, et il
+// dit mieux où l'on est. Sans contour connu, pas de fond.
+export function contourSvg(points) {
+  if (!points) return "";
+  const chemin = points.map(([x, y]) => `${(x * 100).toFixed(1)},${(y * 100).toFixed(1)}`).join(" ");
+  return `<svg class="contour" viewBox="-4 -4 108 108" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">
+    <polygon points="${chemin}"/></svg>`;
 }
 
 /** Un écran vide, en chargement ou en erreur : toujours la même présentation. */

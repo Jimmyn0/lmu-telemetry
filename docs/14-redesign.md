@@ -1,7 +1,8 @@
 # Étape 14 — Le redesign
 
 **Statut : cadre, Résultats (tours et régularité), Télémétrie et Temps au tour terminés.**
-Les écrans 01 à 06 viendront après l'ingénieur de course. Fait le 2026-11-06, d'après les maquettes du
+Les écrans 01 à 06 ont suivi l'ingénieur de course : tous faits (voir
+[18-classement.md](18-classement.md)). Fait le 2026-11-06, d'après les maquettes du
 dossier `InterfaceDesign`.
 
 ---
@@ -119,24 +120,22 @@ avec les maquettes recadrées sur leur fenêtre. Couleurs moyennes mesurées dan
 
 | Où | Écart | Quand |
 |---|---|---|
-| Résultats | Classement, Lap Chart, Position Chart, Statistiques, Incidents, Chat | Après l'ingénieur de course |
-| Résultats | Choisir une voiture du classement, voir ses détails, la comparer | Avec ces écrans |
-| Colonne des sessions | Étiquettes Victoire, nuit, en ligne, filtre « en ligne » | Avec ces écrans : il faut lire les XML |
 | Entête de session | Boutons favori et carburant | Sans fonction pour l'instant |
 | Télémétrie | Boutons favori et enregistrer, poignées pour réordonner les courbes | Enregistrer viendra avec l'export de tours |
 | Colonne de gauche | Les cartes s'estompent vers le bas, moins que sur la maquette au survol | Choix de lisibilité |
 
-## À venir : choisir une voiture du classement
+## Choisir une voiture du classement
 
 Demandé le 2026-11-06 : cliquer sur une voiture du classement pour voir ses détails et, si possible,
-la comparer. À faire avec les écrans 01 à 06. Ce que les fichiers permettent, vérifié sur une course
-de 20 voitures et 192 tours :
+la comparer. Fait le 2026-11-09 avec les écrans 01 à 06 : la fiche d'une voiture, et son rythme
+comparé au tien (voir [18-classement.md](18-classement.md)). Ce que les fichiers permettent,
+vérifié sur une course de 20 voitures et 192 tours :
 
 | Source | Sur les autres voitures | Ce que ça permet |
 |---|---|---|
 | XML de résultats | Pilote, équipe, voiture, catégorie, numéro, grille, classement, arrêts, arrivée. Par tour : chrono, S1 à S3, position, vitesse de pointe, pneus, stands | Fiche de la voiture, ses tours, comparaison tour par tour : chronos, secteurs, écart, position |
 | `.duckdb` | Rien : seule la voiture du joueur y figure | Aucune courbe de vitesse, de freinage ou de trajectoire |
-| Mémoire partagée | Inconnu : les trois sondes ont été faites seul en piste | À sonder en course. Des courbes ne seraient possibles que pour les sessions captées en direct |
+| Mémoire partagée | Tout le plateau, chaque voiture avec sa télémétrie (course de sonde du 2026-11-09, voir [12-memoire-partagee.md](12-memoire-partagee.md)) | Des courbes des autres, seulement pour les séances captées en direct |
 
 ## Les écrans sans maquette
 

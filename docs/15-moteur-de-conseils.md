@@ -1,9 +1,10 @@
 # Étape 15 — Le moteur de conseils
 
 **Statut : abandonné le 2026-11-09.** Les conseils, affichés par-dessus le jeu, n'ont pas convaincu
-à l'essai en piste : le projet passe à un ingénieur de course qui parle. Le code est sur la branche
-locale `archive/conseils`. Seule la lecture du jeu reste dans l'outil (`sources/`). Les mesures
-ci-dessous restent valables.
+à l'essai en piste : le projet passe à un ingénieur de course qui parle. Le moteur ne reste que
+dans l'historique de v2 (commit 5ce6593) : la branche locale `archive/conseils`, qui gardait aussi
+l'overlay, a été supprimée le 2026-11-10. La lecture du jeu, gardée pour l'ingénieur de course,
+est partie avec lui le même jour (étape 17). Les mesures ci-dessous restent valables.
 
 ---
 

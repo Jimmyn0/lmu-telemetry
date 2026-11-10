@@ -2,7 +2,43 @@
 
 Une entrée par version distribuée, la plus récente en haut. Le numéro est
 celui de `lmu_telemetry/__init__.py` : le dernier chiffre augmente pour une
-correction, celui du milieu pour un ajout.
+correction, celui du milieu pour un ajout, le premier pour un grand changement.
+
+---
+
+## 2.0.0 — 10/11/2026
+
+**L'outil s'appelle GhostLine for LMU, et il se partage entre amis.**
+
+* **Nouveau nom, nouveau logo** : `GhostLine.exe`. Tes réglages, tes découpages
+  et tes logos suivent tout seuls : au premier lancement, le dossier
+  `%LOCALAPPDATA%\Telemetrie LMU` devient `%LOCALAPPDATA%\GhostLine`. Supprime
+  l'ancien `Telemetrie-LMU.exe`.
+* **Un dossier plutôt qu'un seul fichier** : décompresse le zip, puis lance
+  `GhostLine.exe` dans le dossier `GhostLine`, à garder entier. L'outil s'ouvre
+  en 3 à 4 secondes ; en un seul fichier, il lui en aurait fallu 21.
+* **Nouvelle interface**, dans sa propre fenêtre sans bordure : onglets
+  Résultats, Télémétrie, Temps au tour et Leaderboard. La liste des sessions
+  s'affiche tout de suite, même avec des centaines de fichiers. Plus de fenêtre
+  noire : un problème s'affiche dans une boîte de dialogue, et un second
+  lancement ramène la fenêtre déjà ouverte.
+* **Le classement de chaque séance**, tiré des résultats que le jeu écrit :
+  classement et fiche de chaque voiture, rythme de deux pilotes, évolution des
+  positions, statistiques, incidents (contacts, limites de piste, pénalités) et
+  chat des séances en ligne. Dans la liste, les séances gagnées, de nuit et en
+  ligne sont marquées.
+* **Temps au tour** : tes records, circuit par circuit.
+* **Leaderboard entre amis** : les qualifs et les courses en ligne de chacun,
+  une page par circuit (meilleurs tours, voitures, courses) et une fiche par
+  pilote. On rejoint un groupe avec un code, et la synchronisation se fait
+  toute seule.
+* **Se comparer aux amis** : la télémétrie des records se partage dans le
+  groupe. Deux tours se choisissent depuis le leaderboard (colonne
+  Réf. / Comp.) ou dans l'onglet Télémétrie, et se comparent jusqu'au virage
+  par virage.
+* **Les logos des 20 marques du jeu** sont livrés ; seul ADESS garde une
+  pastille à ses initiales.
+* Les seuils de mesure d'un virage se règlent dans `parametres.json`.
 
 ---
 

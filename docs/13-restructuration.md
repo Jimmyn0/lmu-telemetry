@@ -77,8 +77,10 @@ accidentelle lève une erreur au lieu de fausser une autre analyse.
 ## Les seuils
 
 `parametres.json`, créé au premier lancement, règle les seuils de mesure d'un virage. Une faute
-de frappe donne un message qui désigne le fichier. La v2 y ajoutera les seuils de détection
-d'erreurs.
+de frappe donne un message qui désigne le fichier. La v2 y avait ajouté les sections `coach` et
+`overlay` des conseils de pilotage. Ceux-ci retirés, ces sections sont ignorées à la lecture et
+enlevées au lancement suivant. Avant ce correctif, un fichier qui les contenait bloquait le
+tableau « Virage par virage » sur « section inconnue : « coach » ».
 
 Restent dans le code, parce qu'ils sont calés par mesure et ne sont pas des préférences : les
 constantes de détection des virages et les seuils d'annotation d'un tour (`SEUIL_QUASI_ARRET`,

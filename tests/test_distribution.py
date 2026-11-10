@@ -220,6 +220,17 @@ def test_les_ressources_livrees_existent() -> None:
     assert any(emplacements.logos_fournis().glob("*.png"))
 
 
+def test_chaque_logo_livre_dit_d_ou_il_vient() -> None:
+    """Chaque logo livré a sa ligne dans SOURCES.md (source et licence), et chaque
+    ligne son fichier : un logo ne s'ajoute pas sans dire d'où il vient."""
+    dossier = emplacements.logos_fournis()
+    fichiers = {p.stem for p in dossier.iterdir() if p.suffix.lower() in {".svg", ".png", ".webp", ".jpg", ".gif"}}
+    lignes = (dossier / "SOURCES.md").read_text(encoding="utf-8").splitlines()
+    marques = {l.split("|")[1].strip() for l in lignes if l.startswith("| ") and not l.startswith("| Marque ")}
+    assert fichiers == marques
+    assert len(fichiers) == 20
+
+
 def test_logos_de_l_utilisateur_prioritaires(tmp_path) -> None:
     fournis = tmp_path / "fournis"
     perso = tmp_path / "perso"

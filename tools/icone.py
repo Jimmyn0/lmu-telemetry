@@ -2,13 +2,14 @@
 
     .venv\\Scripts\\python.exe tools\\icone.py
 
-L'emblème est dessiné en SVG dans `index.html` : un carré arrondi dégradé
-indigo → rose, barré d'une courbe blanche. Windows veut un fichier .ico, qui
-n'est qu'une collection d'images PNG de plusieurs tailles. On redessine donc
-l'emblème pixel par pixel, avec numpy, plutôt que d'ajouter une bibliothèque
-d'images aux dépendances pour un fichier produit une fois.
+L'emblème est dessiné en SVG dans `index.html` : un carré arrondi sombre, deux
+trajectoires — le tour comparé en orange, la référence en violet — et une voiture
+blanche au bout de chacune. Windows veut un fichier .ico, qui n'est qu'une
+collection d'images PNG de plusieurs tailles. On redessine donc l'emblème pixel
+par pixel, avec numpy, plutôt que d'ajouter une bibliothèque d'images aux
+dépendances pour un fichier produit une fois.
 
-Chaque pixel est échantillonné 4 × 4 fois : sans ça, les bords et la courbe
+Chaque pixel est échantillonné 4 × 4 fois : sans ça, les bords et les courbes
 seraient en escalier.
 """
 
@@ -27,11 +28,35 @@ TAILLES = (16, 24, 32, 48, 64, 128, 256)
 # Mêmes valeurs que le SVG d'index.html, dans son repère de 30 × 30.
 COTE = 30.0
 RAYON_COIN = 8.0
-DEBUT = np.array([0x7C, 0x6C, 0xFF], dtype=float)
-FIN = np.array([0xE0, 0x52, 0xA0], dtype=float)
-COURBE = [(5, 20), (10, 20), (13, 11), (17, 23), (20, 15), (25, 15)]
-EPAISSEUR = 2.2
+FOND = (0x1B, 0x25, 0x33)
+#: Les deux trajectoires, dans l'ordre du dessin : leur couleur, et les quatre points
+#: de leur courbe de Bézier (le « C » du SVG).
+TRAJECTOIRES = [
+    ((0xEE, 0x8A, 0x35), [(5, 18), (11.5, 18), (11.5, 8), (20, 8)]),
+    ((0xA2, 0x5E, 0xE8), [(5, 24), (13, 24), (13, 13), (24, 13)]),
+]
+EPAISSEUR = 2.6
+#: Les deux voitures, au bout de leur trajectoire.
+VOITURES = [(20, 8), (24, 13)]
+RAYON_VOITURE = 2.3
 SUREC = 4
+
+
+def bezier(points: list[tuple[float, float]], pas: int = 32) -> np.ndarray:
+    """La courbe de Bézier cubique de ces quatre points, en `pas` segments."""
+    t = np.linspace(0.0, 1.0, pas + 1)[:, None]
+    p0, p1, p2, p3 = (np.array(p, dtype=float) for p in points)
+    return (1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1 + 3 * (1 - t) * t**2 * p2 + t**3 * p3
+
+
+def distance_au_trace(x: np.ndarray, y: np.ndarray, trace: np.ndarray) -> np.ndarray:
+    """Distance de chaque point au plus proche des segments du tracé."""
+    distance = np.full(x.shape, np.inf)
+    for (ax, ay), (bx, by) in zip(trace, trace[1:]):
+        vx, vy = bx - ax, by - ay
+        k = np.clip(((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy), 0, 1)
+        distance = np.minimum(distance, np.hypot(x - (ax + k * vx), y - (ay + k * vy)))
+    return distance
 
 
 def dessiner(taille: int) -> np.ndarray:
@@ -45,18 +70,13 @@ def dessiner(taille: int) -> np.ndarray:
     dy = np.maximum(np.abs(y - COTE / 2) - (COTE / 2 - RAYON_COIN), 0)
     dans_carre = np.hypot(dx, dy) <= RAYON_COIN
 
-    # Dégradé en diagonale, comme x1=0 y1=0 x2=1 y2=1 dans le SVG.
-    t = ((x + y) / (2 * COTE))[..., None]
-    couleur = DEBUT * (1 - t) + FIN * t
-
-    # Courbe : distance au plus proche des segments, traits et jonctions ronds.
-    distance = np.full(x.shape, np.inf)
-    for (ax, ay), (bx, by) in zip(COURBE, COURBE[1:]):
-        vx, vy = bx - ax, by - ay
-        k = np.clip(((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy), 0, 1)
-        distance = np.minimum(distance, np.hypot(x - (ax + k * vx), y - (ay + k * vy)))
-    sur_courbe = (distance <= EPAISSEUR / 2) & dans_carre
-    couleur[sur_courbe] = 255.0
+    couleur = np.empty(x.shape + (3,))
+    couleur[:] = FOND
+    # Les trajectoires, traits aux bouts ronds, puis les voitures par-dessus.
+    for teinte, points in TRAJECTOIRES:
+        couleur[(distance_au_trace(x, y, bezier(points)) <= EPAISSEUR / 2) & dans_carre] = teinte
+    for cx, cy in VOITURES:
+        couleur[(np.hypot(x - cx, y - cy) <= RAYON_VOITURE) & dans_carre] = 255.0
 
     rgba = np.zeros((n, n, 4))
     rgba[..., :3] = couleur

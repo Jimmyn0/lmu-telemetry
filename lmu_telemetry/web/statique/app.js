@@ -11,30 +11,29 @@ import {
   LANGUES_DISPONIBLES, definirLangue, langue, langueParDefaut, t, traduire, traduirePage,
 } from "/i18n.js";
 import { ecranDossier, surDossierChange } from "/ecran_dossier.js";
-import { arreterIngenieur, ouvrirIngenieur } from "/ecran_ingenieur.js";
+import { ecranLeaderboard, surLeaderboard } from "/ecran_leaderboard.js";
 import { ecranResultats, surResultats } from "/ecran_resultats.js";
 import { ecranTelemetrie, surTelemetrie } from "/ecran_telemetrie.js";
 import { ecranTemps, surTemps } from "/ecran_temps.js";
 import { preparerFenetre } from "/fenetre.js";
 import { barreSessions, chargerSessions } from "/barre_sessions.js";
 
-const ECRANS = ["resultats", "telemetrie", "ingenieur", "temps", "dossier"];
+const ECRANS = ["resultats", "telemetrie", "temps", "leaderboard", "dossier"];
 
-/** Montre un onglet. La colonne de gauche n'existe que pour deux d'entre eux. */
+/** Montre un onglet. La colonne de gauche n'existe que pour trois d'entre eux. */
 function aller(demande) {
   // Sans dossier de télémétrie, les onglets n'ont rien à montrer : l'écran qui permet
-  // de l'indiquer reste la seule issue. L'ingénieur, lui, ne lit que le jeu.
-  const onglet = etat.sansDossier && demande !== "ingenieur" ? "dossier" : demande;
+  // de l'indiquer reste la seule issue.
+  const onglet = etat.sansDossier ? "dossier" : demande;
   etat.onglet = onglet;
   for (const nom of ECRANS) $(`#ecran-${nom}`).hidden = nom !== onglet;
   for (const bouton of $$("#onglets button")) {
     bouton.classList.toggle("actif", bouton.dataset.onglet === onglet);
   }
-  const lateral = onglet === "resultats" || onglet === "temps";
+  const lateral = ["resultats", "temps", "leaderboard"].includes(onglet);
   document.body.classList.toggle("sans-laterale", !lateral);
   // Invisible plutôt que retiré : les onglets ne doivent pas bouger d'un écran à l'autre.
   $("#bascule-laterale").style.visibility = lateral ? "visible" : "hidden";
-  if (onglet !== "ingenieur") arreterIngenieur();
 
   erreur(null);
   if (onglet === "resultats") {
@@ -42,10 +41,10 @@ function aller(demande) {
     surResultats();
   } else if (onglet === "telemetrie") {
     surTelemetrie();
-  } else if (onglet === "ingenieur") {
-    ouvrirIngenieur();
   } else if (onglet === "temps") {
     surTemps();
+  } else if (onglet === "leaderboard") {
+    surLeaderboard();
   }
 }
 
@@ -94,7 +93,7 @@ async function afficherReglages() {
       <span>${t("reglages.donnees")}</span>
       <code>${echapper(version?.donnees || "—")}</code>
     </div>
-    <div class="note">Télémétrie LMU v${echapper(version?.version || "?")}</div>`;
+    <div class="note">GhostLine for LMU v${echapper(version?.version || "?")}</div>`;
 
   for (const bouton of panneau.querySelectorAll("[data-langue]")) {
     bouton.onclick = () => changerLangue(bouton.dataset.langue);
@@ -153,7 +152,7 @@ function rafraichir() {
   ecranResultats.rafraichir();
   ecranTelemetrie.rafraichir();
   ecranTemps.rafraichir();
-  if (etat.onglet === "ingenieur") ouvrirIngenieur();
+  ecranLeaderboard.rafraichir();
 }
 
 function poserIcones() {

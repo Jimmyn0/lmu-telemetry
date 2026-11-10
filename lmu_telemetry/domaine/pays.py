@@ -46,6 +46,7 @@ CIRCUITS = {
     "daytona": "US",
     "laguna seca": "US",
     "long beach": "US",
+    "road atlanta": "US",
     "sebring": "US",
     "fuji": "JP",
     "imola": "IT",

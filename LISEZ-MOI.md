@@ -1,4 +1,4 @@
-# Analyse de télémétrie — Le Mans Ultimate
+# GhostLine for LMU — analyse de télémétrie pour Le Mans Ultimate
 
 🇬🇧 *English version: [README.md](README.md)*
 
@@ -8,17 +8,20 @@ enregistrements que Le Mans Ultimate produit déjà tout seul.
 L'outil **montre**, il ne juge pas. Pas de conseil de réglage, pas de
 diagnostic automatique : uniquement des faits mesurés.
 
-> **Version 1.1.0 — les six étapes du brief sont terminées, et l'outil existe
-> en anglais.**
-> L'outil liste tes sessions, découpe chacune en tours, **compare deux tours**
-> (traces superposées, delta cumulé, vue de la route), donne le **détail virage
-> par virage** et analyse ta **régularité**. Il existe en **.exe autonome** à
-> partager. Historique des versions : [NOTES-DE-VERSION.md](NOTES-DE-VERSION.md).
+> **Version 2.0.0 — l'outil s'appelle GhostLine for LMU, et il se partage
+> entre amis.**
+> L'outil liste tes sessions avec leur **classement**, découpe chacune en tours,
+> **compare deux tours** (traces superposées, delta cumulé, vue de la route), y
+> compris avec ceux de tes amis, donne le **détail virage par virage**, analyse
+> ta **régularité** et tient un **leaderboard** entre amis. Il existe en **.exe
+> autonome** à partager. Historique des versions :
+> [NOTES-DE-VERSION.md](NOTES-DE-VERSION.md).
 
 **Télécharger l'outil :** [dernière version](https://github.com/Jimmyn0/lmu-telemetry/releases/latest)
-— prends le fichier `.zip`, il contient le `.exe` et son mode d'emploi.
+— prends le fichier `.zip` : il contient le dossier `GhostLine`, avec le `.exe`
+et son mode d'emploi.
 
-**Tu as reçu `Telemetrie-LMU.exe` ?** Tout ce qu'il te faut est dans
+**Tu as reçu le dossier `GhostLine` ?** Tout ce qu'il te faut est dans
 [distribution/LISEZ-MOI.txt](distribution/LISEZ-MOI.txt) : double-clic, et c'est parti. La suite de ce
 document s'adresse à qui a le code source.
 
@@ -79,8 +82,11 @@ vois une liste, tout fonctionne.
 
 ## Partager l'outil : le .exe
 
-Tes amis n'ont pas besoin de Python : ils reçoivent un seul fichier,
-`Telemetrie-LMU.exe`, qui contient tout.
+Tes amis n'ont pas besoin de Python : ils reçoivent un dossier, `GhostLine`,
+qui contient tout : `GhostLine.exe`, ses bibliothèques (`_internal`) et ses deux
+modes d'emploi. Pas un seul fichier : un .exe autonome se décompresse à chaque
+lancement dans un dossier temporaire, et mettait ainsi 21 s à s'ouvrir, contre
+3 à 4 s pour le dossier.
 
 ### Le construire
 
@@ -93,9 +99,8 @@ résultat : appuie sur Entrée pour la fermer. Le dossier `dist` contient :
 
 | Fichier | À quoi il sert |
 |---|---|
-| `Telemetrie-LMU.exe` | l'outil, pour toi |
-| `Telemetrie-LMU-1.1.0.zip` | **ce que tu envoies** : le .exe et ses deux modes d'emploi |
-| `LISEZ-MOI.txt`, `README.txt` | le mode d'emploi en français et en anglais, écrit pour quelqu'un qui n'a jamais vu l'outil |
+| `GhostLine\` | l'outil : `GhostLine.exe`, ses bibliothèques (`_internal`), et ses deux modes d'emploi en français et en anglais (`LISEZ-MOI.txt`, `README.txt`), écrits pour quelqu'un qui n'a jamais vu l'outil |
+| `GhostLine-<version>.zip` | **ce que tu envoies** : ce dossier, zippé |
 
 Ces deux modes d'emploi se modifient dans le dossier `distribution/` du projet.
 Ce document-ci est la version française du `README.md` en anglais qu'affiche
@@ -108,9 +113,9 @@ WeTransfer ou équivalent.
 ### Ce qu'il y a dedans, et ce qu'il n'y a pas
 
 Le .exe embarque la page web, les **découpages de circuits** que tu as déjà
-(tes amis ont les mêmes numéros de virages que toi), et les **logos libres de
-droits**. Il n'embarque pas tes logos personnels, qui ne peuvent pas être
-redistribués : chez tes amis, ces marques gardent leur pastille colorée.
+(tes amis ont les mêmes numéros de virages que toi), et les **logos des
+constructeurs** (voir « Les logos des constructeurs »). Les logos que tu as
+déposés toi-même dans ton dossier de données restent chez toi.
 
 ### Le mettre à jour
 
@@ -118,7 +123,7 @@ Quand tu as corrigé ou ajouté quelque chose :
 
 1. augmente le numéro de version dans `lmu_telemetry/__init__.py` — le dernier
    chiffre pour une correction (1.0.0 → 1.0.1), celui du milieu pour un ajout
-   (1.0.1 → 1.1.0) ;
+   (1.0.1 → 1.1.0), le premier pour un grand changement (1.1.0 → 2.0.0) ;
 2. note ce qui change dans [NOTES-DE-VERSION.md](NOTES-DE-VERSION.md) ;
 3. relance `construire-exe.bat` ;
 4. publie-la sur GitHub : envoie le code (`git add -A`, `git commit -m "…"`,
@@ -127,7 +132,7 @@ Quand tu as corrigé ou ajouté quelque chose :
    NOTES-DE-VERSION.md, et le `.zip` de `dist` glissé dans la zone des
    fichiers. Le lien « dernière version » pointe aussitôt sur elle.
 
-Tes amis remplacent simplement l'ancien .exe par le nouveau. Leurs réglages et
+Tes amis remplacent simplement l'ancien dossier `GhostLine` par le nouveau. Leurs réglages et
 leurs découpages retouchés sont rangés ailleurs (voir ci-dessous) : une mise à
 jour ne les efface pas. Le numéro de version s'affiche en haut à droite de
 l'outil, pour savoir qui a quelle version.
@@ -149,7 +154,7 @@ L'outil **lit** tes sessions là où le jeu les écrit, sans jamais les modifier
 Ce qu'il **écrit** — et que tu peux retoucher — va dans ton dossier de données :
 
 ```
-%LOCALAPPDATA%\Telemetrie LMU\
+%LOCALAPPDATA%\GhostLine\
     reglages.json      le dossier de télémétrie, si tu l'as choisi dans l'outil
     parametres.json    les seuils de l'outil, modifiables
     index.sqlite       ce que l'outil sait de chaque session (se reconstruit seul)
@@ -158,9 +163,14 @@ Ce qu'il **écrit** — et que tu peux retoucher — va dans ton dossier de donn
     pays.json          drapeaux des circuits ajoutés (facultatif)
 ```
 
-Colle `%LOCALAPPDATA%\Telemetrie LMU` dans la barre d'adresse de
+Colle `%LOCALAPPDATA%\GhostLine` dans la barre d'adresse de
 l'Explorateur pour l'ouvrir ; le chemin complet s'affiche aussi en survolant
 le numéro de version, en haut à droite de l'outil.
+
+L'outil s'appelait **Télémétrie LMU** jusqu'au 10/11/2026, et son dossier aussi :
+au premier lancement de GhostLine, `%LOCALAPPDATA%\Telemetrie LMU` prend le
+nouveau nom, avec tout ce qu'il contient. Si une ancienne version de l'outil est
+encore ouverte, il garde l'ancien dossier et réessaie au lancement suivant.
 
 Ce dossier ne dépend pas de l'endroit d'où l'outil est lancé : le code source
 et le .exe partagent les mêmes réglages et les mêmes découpages, et une
@@ -189,9 +199,9 @@ C'est la façon normale de se servir de l'outil :
 ```
 
 L'outil s'ouvre dans sa propre fenêtre, et la fermer l'arrête. Tu y trouves quatre
-onglets : **Résultats** (tes sessions, leurs tours, leur régularité), **Télémétrie**
-(deux tours superposés), **Ingénieur** et **Temps au tour** (tes records par circuit).
-L'onglet Ingénieur dit si le jeu est détecté, en attendant l'ingénieur de course.
+onglets : **Résultats** (tes sessions, leur classement, leurs tours, leur régularité),
+**Télémétrie** (deux tours superposés), **Temps au tour** (tes records par circuit) et
+**Leaderboard** (les dernières courses en ligne, une page par circuit et une fiche par pilote).
 
 `python -m lmu_telemetry web` ouvre la même page dans le navigateur, sans fenêtre.
 
@@ -300,10 +310,58 @@ bouge pas. Le bandeau au-dessus des graphiques indique la portion de circuit
 affichée, et le bouton **« Voir le tour entier »** revient à la vue complète (le
 double-clic sur un graphique fait la même chose).
 
-Rien ne sort de ta machine : le serveur n'écoute que sur `127.0.0.1` et la page
-ne charge aucune ressource extérieure. L'outil fonctionne sans connexion.
+Rien ne sort de ta machine tant que tu n'es pas dans un groupe : le serveur
+n'écoute que sur `127.0.0.1` et la page ne charge aucune ressource extérieure.
+L'outil fonctionne sans connexion. Dans un groupe, seules tes performances en
+ligne et la télémétrie de tes records partent au service du groupe (voir « Le
+groupe »).
 
 Tout ce qui suit est la version en ligne de commande des mêmes données.
+
+### Le classement
+
+Chaque session s'ouvre sur son classement, celui que le jeu écrit dans
+`UserData\Log\Results` : tout le plateau, avec les meilleurs tours, les écarts,
+les arrêts et les gommes ; en essais et en qualifs, les secteurs du meilleur tour.
+Les catégories le filtrent, et un clic sur une voiture ouvre sa fiche, tour par
+tour. Le sous-onglet **Rythme** compare deux pilotes tour par tour, toi et ton
+rival le plus proche par défaut, ou la voiture d'une fiche avec **Comparer avec
+moi**. En course, **Positions** suit chaque voiture de la grille à l'arrivée, et
+**Statistiques** donne les meilleures performances de chaque catégorie. Enfin,
+**Incidents** liste les contacts, les limites de piste et les pénalités de la séance,
+et **Chat** les messages d'une séance en ligne. Dans la colonne de gauche, chaque
+session porte ses étiquettes : victoire, départ de nuit, séance en ligne, et le contour de son
+circuit en fond ; le bouton Filtres peut ne garder que les séances en ligne.
+Voir [docs/18-classement.md](docs/18-classement.md).
+
+### Le leaderboard
+
+L'onglet **Leaderboard** tire de ces mêmes fichiers de résultats tes qualifs et tes courses en
+ligne, même celles roulées sans enregistrer ; ni les essais ni les séances contre l'IA n'y
+comptent. Il s'ouvre sur les dernières courses, de la plus récente à la plus ancienne, avec leur
+circuit, leur catégorie et ton résultat. La colonne de gauche choisit un circuit ou un pilote,
+comme dans Temps au tour. La page d'un circuit a trois sous-onglets : **Pilotes** classe les
+meilleurs tours catégorie par catégorie (l'écart avec le meilleur de la catégorie, les secteurs,
+le tour idéal, le temps moyen, la vitesse de pointe et la gomme), et sa colonne **Réf. / Comp.**
+choisit, comme dans Résultats, un tour de référence et un tour comparé parmi les tours
+enregistrés, les tiens ou ceux de tes amis : **Comparer dans Télémétrie** les ouvre. **Voitures**
+compare les voitures, et **Courses** donne le bilan des courses (victoires, podiums, top 10,
+abandons, place moyenne, tours) et les dernières. La fiche d'un pilote donne ses statistiques, ses
+records personnels avec son rang dans le groupe, son bilan par catégorie et ses dernières
+courses ; un nom de pilote, partout, ouvre sa fiche. Les filtres choisissent la catégorie, la
+voiture et le pilote. Voir [docs/19-leaderboard.md](docs/19-leaderboard.md).
+
+### Le groupe
+
+La carte **Groupe**, en tête de la colonne de gauche du Leaderboard, crée un groupe ou en
+rejoint un avec son code (`K7M2-QX9P`). Chaque membre envoie alors ses qualifs et ses courses
+en ligne à un petit service sur Cloudflare, et reçoit celles des autres : le leaderboard les
+mêle toutes. La synchronisation se fait toute seule, à l'ouverture et après chaque séance. Rien
+d'autre ne part que ton nom de pilote dans le jeu, tes chronos, places et voitures, et la
+télémétrie de tes records de ces séances (un par circuit et par voiture) ; quitter le groupe
+efface tout cela du service. Dans l'onglet **Télémétrie**, chacun des deux tours peut alors être
+le record d'un ami : courbes, écart, carte et virage par virage, comme avec tes propres tours. Le
+service tourne sur Cloudflare, dans son offre gratuite : voir [docs/20-groupe.md](docs/20-groupe.md).
 
 ### La page régularité
 
@@ -325,26 +383,22 @@ Seuls les tours valides comptent. Il en faut au moins trois, et l'outil prévien
 en dessous de cinq : avec trop peu de tours, une dispersion ne veut pas dire
 grand-chose.
 
-### Mettre les vrais logos des constructeurs
+### Les logos des constructeurs
 
-À côté de chaque voiture, l'outil affiche une pastille colorée avec les
-initiales de la marque — un rond rouge « P » pour Porsche. Ce n'est pas un
-choix esthétique : les logos des constructeurs sont des marques déposées, et
-les redessiner à la main donnerait des imitations approximatives.
+À côté de chaque voiture, l'outil affiche le logo de sa marque : ceux des 20
+marques du jeu qui en ont un sont livrés avec l'outil, dans le .exe aussi
+(`lmu_telemetry/ressources/logos/` ; d'où vient chacun, et sous quelle licence :
+son fichier `SOURCES.md`). Seul ADESS n'a de logo nulle part : une pastille à
+ses initiales, cerclée de sa couleur, en tient lieu.
 
-Les logos viennent de deux endroits :
+Ces logos sont des marques déposées de leurs propriétaires. Ils ne servent qu'à
+reconnaître les voitures, et l'outil n'est lié ni aux constructeurs, ni au jeu.
+Un constructeur qui ne veut pas y voir le sien n'a qu'à le demander : il sera
+retiré.
 
-* **livrés avec l'outil** (`lmu_telemetry/ressources/logos/`) : les 10 marques
-  dont le logo est libre de droits sur Wikimedia Commons — Alpine, BMW, Ford,
-  Isotta Fraschini, Lexus, Ligier, McLaren, Mercedes, Oreca, Toyota. Ils sont
-  dans le .exe ;
-* **les tiens**, dans le dossier `logos` de ton dossier de données (voir « Où
-  l'outil range ses fichiers ») : les 10 autres, tirés de Wikipédia, où ils ne
-  sont utilisés qu'au titre de l'usage équitable. Ils sont là pour ton usage
-  perso et **ne sont pas mis dans le .exe**.
-
-Les tiens l'emportent sur ceux livrés. Pour en ajouter ou en changer un,
-dépose un fichier nommé d'après la marque telle qu'elle s'affiche :
+Pour en changer un, ou en ajouter un pour une nouvelle marque, dépose un fichier
+dans le dossier `logos` de ton dossier de données (voir « Où l'outil range ses
+fichiers »), nommé d'après la marque telle qu'elle s'affiche :
 
 ```
 logos\
@@ -353,10 +407,9 @@ logos\
   Aston Martin.png
 ```
 
-Les formats acceptés sont `.svg`, `.png`, `.webp`, `.jpg` et `.gif`. Relance
-l'outil : les fichiers trouvés remplacent les pastilles. Seul ADESS n'a de
-logo nulle part. D'où vient chacun, et sous quelle licence : le fichier
-`SOURCES.md` de chacun des deux dossiers.
+Les tiens l'emportent sur ceux livrés. Les formats acceptés sont `.svg`, `.png`,
+`.webp`, `.jpg` et `.gif`. Relance l'outil : les fichiers trouvés prennent la
+place des logos livrés.
 
 Beaucoup de logos sont noirs (Aston Martin, McLaren, le cheval Ferrari…) et
 disparaîtraient sur le fond sombre. L'outil les corrige tout seul à
@@ -519,6 +572,8 @@ l'outil est à corriger, `lmu_telemetry/sources/reader.py` — c'est fait exprè
 **« Le fichier de réglages est illisible »**
 Une retouche de `parametres.json` a laissé une faute de frappe : le message dit
 laquelle. Corrige-la, ou supprime le fichier pour retrouver les valeurs d'origine.
+Les sections `coach` et `overlay` laissées par les conseils de pilotage, retirés
+depuis, ne comptent pas comme des fautes : l'outil les enlève de lui-même.
 
 **« L'outil a rencontré un problème inattendu »**
 C'est un défaut de l'outil, pas une erreur de manipulation. Le message donne
@@ -584,7 +639,6 @@ sessions quand LMU est installé sur la machine, et sont ignorés sinon.
 | `lmu_telemetry/domaine/piste.py` | reconstruit la géométrie de la route (axe, bords) pour la vue rapprochée. |
 | `lmu_telemetry/domaine/virages.py` | découpe le circuit en virages et mesure le pilotage sur chacun. |
 | `lmu_telemetry/domaine/regularite.py` | dispersion des chronos, constance par virage, tour idéal. |
-| `lmu_telemetry/sources/memoire_lmu.py` | **le seul module qui connaît la mémoire partagée du jeu**, lue en direct, sans la modifier ni y prendre de verrou. |
 | `lmu_telemetry/domaine/circuits.py` | retrouve ou détecte le découpage d'un circuit. |
 | `lmu_telemetry/parametres.py` | les seuils réglables, et le fichier qui permet de les changer. |
 | `lmu_telemetry/cache.py` | le cache à taille bornée qu'utilisent le serveur et le chargement des tours. |
@@ -634,3 +688,9 @@ sessions quand LMU est installé sur la machine, et sont ignorés sinon.
   autres, et les défauts que ce travail a fait apparaître.
 * [docs/11-langues.md](docs/11-langues.md) — le français et l'anglais : où sont
   les textes, comment en ajouter ou en corriger un, et ce que vérifient les tests.
+* [docs/18-classement.md](docs/18-classement.md) — le classement d'une séance : ce
+  que le fichier de résultats du jeu contient, et comment on retrouve celui d'une session.
+* [docs/19-leaderboard.md](docs/19-leaderboard.md) — le leaderboard entre amis : les
+  performances de chaque séance, l'onglet et ses filtres, et le plan jusqu'au groupe.
+* [docs/20-groupe.md](docs/20-groupe.md) — le groupe : le service sur Cloudflare, ce qui est
+  partagé, la sécurité, la synchronisation, et comment mettre le service en ligne.

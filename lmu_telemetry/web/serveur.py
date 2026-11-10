@@ -14,10 +14,10 @@ Trois protections, parce qu'un serveur local n'est pas pour autant à l'abri :
 * seules les requêtes adressées à « 127.0.0.1 » ou « localhost » sont servies,
   ce qui ferme la porte à une page web qui ferait pointer son propre nom de
   domaine vers la machine (« DNS rebinding ») ;
-* les deux routes qui modifient quelque chose — le choix du dossier de
-  télémétrie et celui de la langue — exigent une requête venue de la page de
-  l'outil elle-même (en-tête Origin), en JSON : un autre site ouvert dans le
-  navigateur ne peut pas les déclencher.
+* les routes qui modifient quelque chose — le choix du dossier de télémétrie,
+  celui de la langue, le groupe — exigent une requête venue de la
+  page de l'outil elle-même (en-tête Origin), en JSON : un autre site ouvert
+  dans le navigateur ne peut pas les déclencher.
 """
 
 from __future__ import annotations
@@ -35,6 +35,8 @@ from urllib.parse import parse_qs, urlparse
 
 from .. import __version__, emplacements, parametres, textes
 from ..errors import DossierIntrouvable, ErreurTelemetrie
+from ..groupe.synchro import Synchroniseur
+from ..groupe.tours import est_partage
 from ..sources import catalogue
 from ..textes import Message
 from . import reponses
@@ -80,18 +82,22 @@ def _verifier_chemins(contexte: Contexte, params: dict[str, list[str]]) -> None:
     Rien ne justifie d'en ouvrir d'autres que ceux du dossier — y compris le
     fichier d'un autre pilote, qu'on y dépose.
     """
-    demandes = [brut for cle in PARAMETRES_CHEMIN for brut in params.get(cle, [])]
+    # Le record d'un ami (« groupe:<membre>/<numéro> ») n'est pas un chemin : le serveur
+    # le cherche lui-même dans la copie du groupe, d'après un motif strict (voir
+    # groupe/tours.py), jamais sur le disque à l'endroit qu'on lui donne.
+    demandes = [
+        brut for cle in PARAMETRES_CHEMIN for brut in params.get(cle, []) if not est_partage(brut)
+    ]
     # Rien à vérifier : surtout, ne pas chercher le dossier. Sans lui, la page
     # elle-même refusait de s'afficher — et avec elle l'écran qui permet de
     # l'indiquer.
     if not demandes:
         return
     racine = catalogue.dossier_telemetrie(contexte.dossier).resolve()
-    for cle in PARAMETRES_CHEMIN:
-        for brut in params.get(cle, []):
-            chemin = Path(brut).resolve()
-            if chemin.suffix.lower() != ".duckdb" or racine not in chemin.parents:
-                raise CheminRefuse(brut)
+    for brut in demandes:
+        chemin = Path(brut).resolve()
+        if chemin.suffix.lower() != ".duckdb" or racine not in chemin.parents:
+            raise CheminRefuse(brut)
 
 
 def _etat_dossier(contexte: Contexte) -> dict:
@@ -204,6 +210,9 @@ class Gestionnaire(BaseHTTPRequestHandler):
     #: La fenêtre de l'application, quand l'outil en a une.
     fenetre = None
 
+    #: La synchronisation avec le groupe, en tâche de fond (lancée par `servir`).
+    groupe = Synchroniseur(lambda: reponses.sources_du_groupe(Gestionnaire.contexte))
+
     # Les journaux ligne par ligne d'http.server polluent le terminal sans rien
     # apprendre : on ne garde que les erreurs.
     def log_message(self, format: str, *args) -> None:  # noqa: A002
@@ -221,10 +230,16 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 self._json(reponses.sessions(self.contexte))
             elif url.path == "/api/circuits":
                 self._json(reponses.circuits(self.contexte))
-            elif url.path == "/api/jeu":
-                self._json(reponses.jeu())
             elif url.path == "/api/session":
                 self._json(reponses.session(self.contexte, params["chemin"][0]))
+            elif url.path == "/api/classement":
+                self._json(reponses.classement(self.contexte, params["chemin"][0]))
+            elif url.path == "/api/leaderboard":
+                self._json(reponses.leaderboard(self.contexte, params))
+            elif url.path == "/api/groupe":
+                self._json(reponses.groupe(self.contexte, self.groupe))
+            elif url.path == "/api/groupe/tours":
+                self._json(reponses.tours_du_groupe(params))
             elif url.path == "/api/comparaison":
                 self._json(reponses.comparaison(self.contexte, params))
             elif url.path == "/api/virages":
@@ -269,6 +284,14 @@ class Gestionnaire(BaseHTTPRequestHandler):
                 if self.fenetre is not None:
                     self.fenetre.premier_plan()
                 self._json({"fenetre": self.fenetre is not None})
+            elif url.path == "/api/groupe/creer":
+                self._json(reponses.creer_groupe(self.contexte, self.groupe, charge))
+            elif url.path == "/api/groupe/rejoindre":
+                self._json(reponses.rejoindre_groupe(self.contexte, self.groupe, charge))
+            elif url.path == "/api/groupe/quitter":
+                self._json(reponses.quitter_groupe(self.contexte, self.groupe))
+            elif url.path == "/api/groupe/synchroniser":
+                self._json(reponses.synchroniser_groupe(self.contexte, self.groupe))
             else:
                 self.send_error(404, "Route inconnue")
         except Exception as erreur:  # noqa: BLE001
@@ -388,6 +411,9 @@ def creer_serveur(port: int, dossier: Path | None = None) -> ThreadingHTTPServer
 def servir(serveur: ThreadingHTTPServer, ouvrir: bool) -> None:
     """Fait tourner le serveur jusqu'à son arrêt, en ouvrant la page au besoin."""
     parametres.creer_modele()
+    # Hors d'un groupe, la synchronisation ne fait rien ; les tests, qui ne passent pas
+    # par ici, ne la lancent pas.
+    Gestionnaire.groupe.demarrer()
     if ouvrir:
         adresse = f"http://127.0.0.1:{serveur.server_address[1]}/"
         threading.Timer(0.5, lambda: webbrowser.open(adresse)).start()

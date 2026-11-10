@@ -103,11 +103,18 @@ svg.icone { width: 20px; height: 20px; flex: none; }
   background: linear-gradient(90deg, #152029, var(--fond-barre) 40%, var(--fond-barre) 70%, #1b2029);
   border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
-.embleme {
-  width: 44px; height: 44px; flex: none;
-  margin-right: calc(var(--largeur-laterale) - 18px - 44px - 4px);
-  border-radius: 10px;
+/* Le logo et le nom, sur la largeur de la colonne de gauche : le bouton qui la replie
+   tombe juste à son bord. */
+.marque {
+  display: flex; align-items: center; gap: 12px; flex: none; min-width: 0;
+  width: calc(var(--largeur-laterale) - 18px - 4px);
 }
+.embleme { width: 44px; height: 44px; flex: none; border-radius: 10px; }
+.nom-appli {
+  display: flex; align-items: baseline; gap: 7px; min-width: 0;
+  color: var(--texte); font-size: 19px; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap;
+}
+.nom-appli small { color: var(--discret); font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .bouton-barre {
   display: grid; place-items: center;
   width: 34px; height: 34px; padding: 0;
@@ -300,6 +307,13 @@ button.principal svg { width: 17px; height: 17px; color: var(--vert); }
   --couleur: #dfe4e9; background: rgba(255, 255, 255, 0.04); color: #eef2f6;
 }
 .badge.alerte { --couleur: var(--jaune); }
+/* Les étiquettes d'une séance : victoire, départ de nuit, en ligne. */
+.badge.victoire { --couleur: var(--rouge); }
+.badge.icone-seule { padding: 0 3px; }
+.badge.nuit { --couleur: var(--bleu); }
+.badge.en-ligne { --couleur: var(--vert); }
+/* Le tour comparé est le record d'un ami du groupe. */
+.badge.partage { --couleur: var(--violet); padding: 0 4px; }
 
 .pastille-temps {
   display: inline-block;
@@ -416,6 +430,10 @@ button.principal svg { width: 17px; height: 17px; color: var(--vert); }
   cursor: pointer;
 }
 .carte-session:hover { border-color: var(--bord-fort); }
+/* Le tracé du circuit en fond, comme sur les cartes de Temps au tour. */
+.carte-session { position: relative; overflow: hidden; }
+.carte-session > * { position: relative; }
+.carte-session .contour { opacity: 0.26; }
 .carte-session.type-Q { --couleur-type: var(--violet); }
 .carte-session.type-R { --couleur-type: var(--rouge); }
 .carte-session.actif {
@@ -554,6 +572,189 @@ tr.invalide td { color: var(--pale); }
 .groupe-voiture strong { font-size: 13px; white-space: nowrap; }
 .groupe-voiture small { color: var(--discret); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .defilement-table { overflow: auto; }
+
+/* ---- classement d'une séance et fiche d'une voiture ---- */
+.filtre-categories { display: inline-flex; gap: 6px; }
+.filtre-categories button {
+  height: 24px; padding: 0 9px;
+  background: var(--fond-sombre);
+  border: 1px solid #24344a;
+  border-radius: 7px;
+  color: #c7d0d9;
+  font: 700 10px var(--police);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.filtre-categories button:hover { border-color: var(--bord-fort); color: #fff; }
+.filtre-categories button.actif {
+  border: 1.5px solid var(--couleur, #cfd6dd);
+  background: color-mix(in srgb, var(--couleur, #cfd6dd) 18%, transparent);
+  color: var(--couleur, #fff);
+}
+.table-classement tbody tr { cursor: pointer; }
+.table-classement tbody tr:hover td { background: var(--survol); }
+.table-classement tr.joueur td { background: rgba(162, 94, 232, 0.1); }
+.numero-voiture {
+  display: inline-grid; place-items: center;
+  min-width: 26px; height: 24px; padding: 0 5px;
+  border-radius: 5px;
+  background: var(--couleur, var(--discret));
+  color: #08121c;
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.badge-toi {
+  margin-left: 8px; padding: 1px 6px;
+  border: 1.5px solid var(--violet);
+  border-radius: 6px;
+  background: rgba(162, 94, 232, 0.18);
+  color: #dcc0fb;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.nom-pilote { font-weight: 700; }
+.voiture-cellule { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.gomme {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px; font-weight: 800;
+}
+.gomme-S { color: var(--rouge); }
+.gomme-M { color: var(--jaune); }
+.gomme-H { color: #e8ecf0; }
+.gomme-W { color: var(--bleu); }
+.statut-course {
+  padding: 2px 8px;
+  border: 1.5px solid var(--rouge);
+  border-radius: 6px;
+  color: var(--rouge);
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+/* ---- rythme : deux pilotes, tour par tour ---- */
+.duel, .tableaux-duel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.duel { margin-bottom: 14px; }
+.duel-a { --couleur-duel: var(--reference); }
+.duel-b { --couleur-duel: var(--compare); }
+.pilote-duel {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 54px; padding: 8px 14px;
+  border: 1.5px solid var(--couleur-duel);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--couleur-duel) 12%, var(--fond-carte));
+}
+.trait-duel { flex: none; width: 44px; height: 4px; border-radius: 2px; background: var(--couleur-duel); }
+.pilote-duel select { flex: 1 1 auto; min-width: 0; }
+.chrono-duel {
+  flex: none; padding: 2px 8px;
+  border: 1.5px solid var(--couleur-duel);
+  border-radius: 6px;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.pilote-duel .badge-toi { margin-left: 0; flex: none; }
+.bloc-rythme { margin-bottom: 14px; padding: 10px; }
+#graphe-rythme { display: block; width: 100%; height: 300px; }
+.tableau-duel {
+  --couleur: var(--couleur-duel);
+  border: 1px solid var(--bord-carte);
+  border-left: 3px solid var(--couleur-duel);
+  border-radius: 10px;
+  background: rgba(23, 34, 42, 0.62);
+  overflow: hidden;
+}
+.ecart-gain { color: var(--gain); }
+.ecart-perte { color: var(--perte); }
+@media (max-width: 1180px) { .duel, .tableaux-duel { grid-template-columns: 1fr; } }
+
+/* ---- positions : de la grille à l'arrivée ---- */
+.positions { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.liste-positions { padding: 12px; }
+.entete-positions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.entete-positions .titre-section { margin: 0; }
+.liste-positions ol { display: grid; gap: 4px; max-height: 720px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.liste-positions li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--fond-tuile);
+  font-size: 12.5px; font-weight: 600;
+}
+.liste-positions li:hover, .liste-positions li.survol { border-color: var(--bord-fort); background: #1e2938; }
+.liste-positions li .nom { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liste-positions li .badge-toi { margin-left: 0; flex: none; }
+.liste-positions li b { flex: none; color: var(--discret); font-variant-numeric: tabular-nums; }
+.pastille-pilote { flex: none; width: 9px; height: 9px; border-radius: 3px; }
+.bloc-positions { padding: 10px; }
+.outils-positions { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.pilule.actif { border-color: var(--violet); background: rgba(162, 94, 232, 0.2); color: #fff; }
+#graphe-positions { display: block; width: 100%; }
+@media (max-width: 1100px) { .positions { grid-template-columns: 1fr; } }
+
+/* ---- statistiques : les meilleures performances de chaque catégorie ---- */
+.statistiques { display: grid; gap: 16px; }
+.cartes-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; padding: 12px; }
+.carte-stat {
+  display: flex; flex-direction: column; gap: 7px;
+  min-height: 92px; padding: 10px 12px;
+  border: 1px solid #243040;
+  border-radius: 10px;
+  background: var(--fond-tuile);
+}
+.carte-stat > small {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--couleur, var(--discret));
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+}
+.carte-stat > small svg { width: 13px; height: 13px; }
+.carte-stat.record > small { color: #c9a2f5; }
+.carte-stat.regularite > small { color: #7cc4f5; }
+.carte-stat.gain > small { color: var(--gain); }
+.carte-stat.perte > small { color: var(--perte); }
+.carte-stat.usage > small { color: var(--jaune); }
+.pilote-stat { display: flex; align-items: center; min-width: 0; font-size: 13px; }
+.pilote-stat .nom-pilote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.valeur-stat { display: flex; align-items: center; gap: 8px; }
+.valeur-stat small { color: var(--discret); font-size: 11px; }
+.chip-stat {
+  padding: 2px 8px;
+  border: 1.5px solid var(--couleur-chip);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--couleur-chip) 18%, transparent);
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.chip-stat.bleu { --couleur-chip: var(--bleu); }
+.chip-stat.vert { --couleur-chip: var(--vert); color: #b6f3cb; }
+.chip-stat.rouge { --couleur-chip: var(--rouge); color: #ffc2cf; }
+.valeur-gomme { display: flex; align-items: center; gap: 10px; margin-top: 2px; font-weight: 700; }
+.valeur-gomme .gomme { width: 36px; height: 36px; border-width: 3px; font-size: 16px; }
+
+/* ---- incidents : contacts, limites de piste, pénalités ---- */
+.filtres-incidents { flex-wrap: wrap; }
+.filtres-incidents select { height: 26px; font-size: 11.5px; }
+.filtre-genres button.genre-contact { --couleur: var(--orange); }
+.filtre-genres button.genre-limites { --couleur: var(--jaune); }
+.filtre-genres button.genre-penalite { --couleur: var(--rouge); }
+.genre-incident {
+  display: inline-block; min-width: 88px; padding: 3px 8px;
+  border: 1.5px solid var(--couleur-genre);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--couleur-genre) 16%, transparent);
+  color: var(--couleur-genre);
+  font-size: 10.5px; font-weight: 700; text-align: center; text-transform: uppercase;
+}
+.genre-incident.contact { --couleur-genre: var(--orange); }
+.genre-incident.limites { --couleur-genre: var(--jaune); }
+.genre-incident.penalite { --couleur-genre: var(--rouge); }
+.genre-incident.purge { --couleur-genre: var(--discret); }
+.table-incidents td { height: 40px; }
+.table-incidents tr.joueur td { background: rgba(162, 94, 232, 0.1); }
+.table-chat td { height: auto; padding-top: 9px; padding-bottom: 9px; vertical-align: top; }
+.table-chat td.message-chat { width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.table-chat td:nth-child(2) { white-space: nowrap; }
+
+.tuiles-fiche { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 12px 4px; }
+.tuiles-fiche .tuile { height: auto; min-height: 52px; padding: 6px 12px; }
+.tuiles-fiche .tuile b + small { color: var(--discret); font-weight: 500; }
 
 .table-tours th { border-bottom: 1px solid color-mix(in srgb, var(--couleur) 35%, transparent); }
 .table-tours td { height: 45px; padding: 4px 12px; }
@@ -982,14 +1183,177 @@ b.cmp { color: var(--compare); }
 .actions-record { white-space: nowrap; }
 .actions-record .bouton-carre { display: inline-grid; margin: 0 2px; }
 
-/* ---- ingénieur ---- */
+/* ---- leaderboard ---- */
 
-.jeu-detecte { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
-.jeu-detecte strong { display: block; font-size: 15px; }
-.jeu-detecte small { color: var(--discret); font-size: 12px; }
-.voyant { width: 11px; height: 11px; border-radius: 50%; background: var(--vert); box-shadow: 0 0 10px var(--vert); }
-#ecran-ingenieur .etat-vide { height: auto; min-height: 240px; }
-#ecran-ingenieur .note { margin-top: 14px; }
+.entete-leaderboard { padding: 12px 14px 14px; margin-bottom: 4px; }
+.filtres-leaderboard { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin-top: 12px; }
+.filtre-leaderboard small {
+  display: block; margin-bottom: 4px;
+  color: #a8b5c1; font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.filtre-leaderboard select { min-width: 140px; max-width: 290px; }
+/* Les dernières courses ont la première carte du menu, et l'icône du calendrier pour drapeau. */
+.icone-historique { display: inline-flex; color: #c49cf4; }
+.icone-historique svg { width: 17px; height: 17px; }
+.grand-icone {
+  display: grid; place-items: center; flex: none;
+  width: 50px; height: 34px;
+  border-radius: 5px;
+  background: rgba(162, 94, 232, 0.18);
+  color: #d1a9f8;
+}
+.grand-icone svg { width: 22px; height: 22px; }
+/* Le menu de gauche montre les circuits ou les pilotes. */
+.choix-menu { display: flex; align-items: center; gap: 14px; }
+.choix-menu button {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0;
+  background: none; border: none;
+  color: var(--pale);
+  font-size: 16px; font-stretch: 75%; font-weight: 700; line-height: 1; text-transform: uppercase;
+  cursor: pointer;
+}
+.choix-menu button:hover, .choix-menu button.actif { color: var(--texte); }
+.choix-menu button:not(.actif) .badge { opacity: 0.55; }
+/* Un pilote n'a pas de drapeau : ses initiales en tiennent lieu. */
+.avatar, .grand-avatar {
+  display: inline-grid; place-items: center; flex: none;
+  border-radius: 50%;
+  background: rgba(162, 94, 232, 0.22);
+  color: #dcc0fb;
+  font-weight: 800;
+}
+.avatar { width: 24px; height: 24px; font-size: 10px; }
+.grand-avatar { width: 50px; height: 50px; border: 1.5px solid var(--violet); font-size: 18px; }
+.carte-pilote .ligne-badges { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+.carte-pilote .ligne-badges small { color: var(--discret); font-size: 11px; font-weight: 600; }
+/* La page d'un circuit : le contour de son tracé en fond de l'en-tête. */
+.entete-leaderboard { position: relative; overflow: hidden; }
+.entete-leaderboard > * { position: relative; }
+.entete-leaderboard .contour { right: 16px; top: 8px; width: 34%; height: calc(100% - 16px); opacity: 0.2; }
+.onglets-leaderboard { margin: 12px 0 10px; }
+/* Les statistiques générales d'une fiche de pilote. */
+.tuiles-profil { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.tuiles-profil .tuile-totale { min-height: 64px; }
+.tuiles-profil .tuile-totale b { font-size: 20px; }
+/* Des largeurs fixes (voir LARGEURS_TOURS) : les colonnes s'alignent d'un tableau à l'autre. */
+.table-leaderboard { table-layout: fixed; min-width: 900px; }
+.table-leaderboard td, .table-leaderboard th {
+  padding-left: 7px; padding-right: 7px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.table-leaderboard td:first-child, .table-leaderboard th:first-child { padding-left: 14px; }
+.table-leaderboard td:last-child, .table-leaderboard th:last-child { padding-right: 14px; }
+.table-leaderboard td { height: 52px; }
+.table-leaderboard tr.joueur td { background: rgba(162, 94, 232, 0.1); }
+/* Le pilote et sa voiture, la date et son heure : deux lignes dans une cellule. */
+.pilote-voiture, .deux-lignes { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ligne-pilote { display: flex; align-items: center; min-width: 0; }
+.ligne-pilote .nom-pilote { overflow: hidden; text-overflow: ellipsis; }
+.pilote-voiture small, .deux-lignes small { color: var(--discret); font-size: 11px; font-weight: 600; }
+.pilote-voiture small { gap: 6px; }
+.pilote-voiture .logo { width: 24px; height: 15px; }
+.pilote-voiture .pastille { min-width: 18px; height: 15px; padding: 0 3px; font-size: 8.5px; }
+.tour-gomme { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.tour-gomme .gomme { width: 20px; height: 20px; font-size: 10px; }
+.cellule-icone { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cellule-icone > span { overflow: hidden; text-overflow: ellipsis; }
+/* Une course ou un record mène à son circuit ; le nom d'un pilote, à sa fiche. */
+.table-cliquable tbody tr { cursor: pointer; }
+.table-cliquable tbody tr:hover td { background: var(--survol); }
+.arrivee .badge { height: 19px; padding: 0 6px; }
+.lien-pilote {
+  max-width: 100%; padding: 0;
+  background: none; border: none;
+  color: inherit; font: inherit; font-weight: 700; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: pointer;
+}
+.lien-pilote:hover { color: #fff; text-decoration: underline; }
+.nom-voiture { font-weight: 700; }
+.arrivee .sur { margin-left: 2px; color: var(--discret); font-size: 11px; }
+.arrivee .gagne, .arrivee .perd { margin-left: 7px; font-size: 10.5px; font-weight: 700; }
+.arrivee .gagne { color: var(--gain); }
+.arrivee .perd { color: var(--perte); }
+.pied-historique {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pied-historique small { color: var(--discret); font-size: 11px; font-weight: 600; }
+.victoires { color: #fff; font-weight: 800; }
+/* Choisir la référence et le tour comparé (Réf. / Comp., comme dans Résultats), puis les
+   ouvrir dans l'onglet Télémétrie. */
+.barre-comparer { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px 12px; }
+.icone-comparer { display: inline-flex; color: #c49cf4; }
+.icone-comparer svg { width: 18px; height: 18px; }
+.texte-comparer {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  color: var(--discret); font-size: 12.5px; font-weight: 600;
+}
+.texte-comparer b { color: var(--texte); }
+.role-choix {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--couleur-choix); font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.role-choix::before {
+  content: ""; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--couleur-choix); box-shadow: 0 0 0 2px color-mix(in srgb, var(--couleur-choix) 30%, transparent);
+}
+.role-choix.ref { --couleur-choix: var(--reference); }
+.role-choix.cmp { --couleur-choix: var(--compare); }
+.separateur-choix { width: 1px; height: 14px; margin: 0 8px; background: var(--bord-fort); }
+
+/* ---- groupe ---- */
+
+.code-groupe { margin-left: auto; color: var(--discret); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; }
+.cartes-groupe { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.carte-groupe-action { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; }
+.carte-groupe-action h3, .carte-groupe-texte h3 { font-size: 15px; }
+.carte-groupe-action .principal { align-self: flex-start; margin-top: 4px; }
+.champ small {
+  display: block; margin-bottom: 4px;
+  color: #a8b5c1; font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.champ input {
+  width: 100%; height: 34px; padding: 0 12px;
+  background: var(--fond-sombre);
+  border: 1px solid var(--bord);
+  border-radius: 8px;
+  color: var(--texte);
+  font: 600 13px var(--police);
+  user-select: text;
+}
+.champ input:focus { border-color: var(--cyan); outline: none; }
+.champ .saisie-code { font-family: ui-monospace, Consolas, monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+.carte-groupe-texte { margin-top: 12px; padding: 12px 16px; }
+.carte-groupe-texte .note { margin-top: 6px; }
+.erreur-groupe { margin: 12px 0 0; }
+.carte-code { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 12px; padding: 14px 16px; }
+.code-et-texte small {
+  display: block;
+  color: #a8b5c1; font-size: 10px; font-weight: 700; text-transform: uppercase;
+}
+.code-grand { color: #fff; font: 700 30px ui-monospace, Consolas, monospace; letter-spacing: 0.08em; user-select: text; }
+.carte-code .note { flex: 1 1 100%; }
+.carte-synchro { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.etat-synchro { font-size: 12.5px; font-weight: 600; }
+.etat-synchro.etat-ok { color: var(--gain); }
+.etat-synchro.etat-erreur { color: var(--perte); }
+.zone-quitter { display: flex; justify-content: flex-end; margin: 14px 0 6px; }
+.bouton-quitter {
+  height: 32px; padding: 0 14px;
+  background: none;
+  border: 1.5px solid rgba(239, 68, 101, 0.55);
+  border-radius: 8px;
+  color: #f2a1b1; font-weight: 700;
+  cursor: pointer;
+}
+.bouton-quitter:hover:not(:disabled), .bouton-quitter.arme {
+  background: rgba(239, 68, 101, 0.16); border-color: var(--perte); color: #fff;
+}
+.vide-leaderboard { margin: 0 2px 12px; }
+.groupe-records .vide-leaderboard { margin: 0; padding: 14px 16px; }
 
 /* ---- dossier ---- */
 
@@ -1046,14 +1410,17 @@ b.cmp { color: var(--compare); }
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-/* Pastille de marque : les initiales sur fond coloré, faute de pouvoir afficher un
-   logo déposé (voir emblemes.js). */
+/* Pastille de marque, faute de logo (ADESS, ou une marque nouvelle : voir
+   emblemes.js) : les initiales, cerclées de la couleur du constructeur, comme les
+   badges de catégorie. */
 .pastille {
   display: inline-grid; place-items: center; flex: none;
-  min-width: 26px; height: 22px; padding: 0 4px;
-  border-radius: 5px;
-  color: #fff;
-  font-size: 10px; font-weight: 700;
+  min-width: 26px; height: 22px; padding: 0 5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--couleur-marque, #5a6570) 24%, #10171f);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--couleur-marque, #5a6570) 80%, #fff);
+  color: #eef2f6;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
 }
 
 /* Logo sur fond transparent. Les logos noirs ou trop sombres sont éclaircis à

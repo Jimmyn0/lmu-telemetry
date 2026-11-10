@@ -11,3 +11,8 @@ tests/fixtures/*.duckdb.wal
 # de GitHub, pas dans le code.
 build/
 dist/
+
+# Ce que l'outil de Cloudflare (wrangler) laisse en mettant le service du groupe en
+# ligne : voir docs/20-groupe.md.
+service/.wrangler/
+service/node_modules/

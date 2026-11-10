@@ -7,6 +7,7 @@ domaine en ce que la page attend.
 from __future__ import annotations
 
 import math
+import shutil
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
@@ -16,25 +17,31 @@ import numpy as np
 
 from .. import emplacements, parametres
 from ..domaine import pays
-from ..domaine.circuits import definition_circuit
-from ..domaine.comparaison import comparer_fichiers
+from ..domaine.circuits import definition_circuit, definition_depuis_tours
+from ..domaine.classement import classement_json
+from ..domaine.comparaison import comparer
 from ..domaine.donnees_tour import CANAL_GAZ_BRUT, bilan, charger
+from ..domaine.leaderboard import TYPES_COMPTES, famille, leaderboard_json
+from ..domaine.performances import Performance, noms_du_proprietaire, performances
 from ..domaine.piste import construire as construire_piste
 from ..domaine.piste import trajectoires
 from ..domaine.regularite import analyser
 from ..domaine.session import Session
 from ..domaine.virages import DefinitionCircuit, ecarts_par_virage
 from ..errors import ErreurTelemetrie
-from ..sources import catalogue, resultats
-from ..sources.memoire_lmu import (
-    CHAMPS_SCORING,
-    CHAMPS_TELEMETRIE,
-    LecteurMemoire,
-    MemoireAbsente,
-    MemoireInattendue,
-    decoder,
-    identifiant_jeu,
+from ..groupe import reglages as reglages_groupe
+from ..groupe.service import ErreurGroupe, Service
+from ..groupe.synchro import (
+    Synchroniseur,
+    charger_partage,
+    copie_courante,
+    dossier_tours,
+    fichier_copie,
+    tours_des_amis,
 )
+from ..groupe.tours import Record, TourPartage, est_partage, identifiant_record
+from ..sources import catalogue, resultats
+from ..textes import Message
 from ..stockage.index import Index, ResumeSession, balayage
 
 #: Extensions acceptées pour un logo de marque déposé par l'utilisateur.
@@ -188,10 +195,45 @@ def _lire_index(contexte: Contexte) -> tuple[list, dict[str, ResumeSession], int
     return reperes, connues, len(a_lire)
 
 
+#: Heures du jeu, au départ, qui font une séance de nuit : de 20 h à 6 h. Le départ seul
+#: compte : une course qui part à 16 h et roule jusqu'à la nuit reste une course de jour.
+NUIT_DEBUT = 20
+NUIT_FIN = 6
+
+
+def de_nuit(heure_jeu: str | None) -> bool:
+    """Une séance partie de nuit, d'après l'heure du jeu au départ (« 21:00:00 »)."""
+    try:
+        heure = int((heure_jeu or "").split(":")[0])
+    except ValueError:
+        return False
+    return heure >= NUIT_DEBUT or heure < NUIT_FIN
+
+
 def sessions(contexte: Contexte) -> dict:
     reperes, connues, restant = _lire_index(contexte)
     voitures = _voitures(contexte)
     drapeaux: dict[str, dict | None] = {}
+    dossier_resultats = contexte.dossier_resultats
+    seances = resultats.Seances(dossier_resultats) if dossier_resultats is not None else None
+
+    def etiquettes(repere, connue) -> dict:
+        """Victoire et séance en ligne viennent des fichiers de résultats du jeu, la nuit
+        de l'heure du jeu au départ."""
+        trouvees = None
+        if seances is not None and repere.enregistre_le is not None:
+            trouvees = seances.etiquettes(
+                repere.circuit,
+                repere.code_type,
+                repere.enregistre_le,
+                connue.voiture if connue else None,
+                connue.pilote if connue else None,
+            )
+        return {
+            "victoire": bool(trouvees and trouvees["victoire"]),
+            "en_ligne": bool(trouvees and trouvees["en_ligne"]),
+            "nuit": de_nuit(connue.heure_jeu) if connue else False,
+        }
 
     def ligne(repere) -> dict:
         connue = connues.get(str(repere.chemin))
@@ -207,6 +249,7 @@ def sessions(contexte: Contexte) -> dict:
             "date": repere.enregistre_le.isoformat() if repere.enregistre_le else None,
             "taille": repere.taille,
             "journal": repere.journal_present,
+            **etiquettes(repere, connue),
         }
         if connue is None:
             return base
@@ -221,7 +264,12 @@ def sessions(contexte: Contexte) -> dict:
             "indisponible": connue.illisible,
         }
 
-    return {"sessions": [ligne(r) for r in reperes], "restant": restant}
+    # Le contour de chaque tracé, une fois pour toutes : il sert de fond aux cartes.
+    return {
+        "sessions": [ligne(r) for r in reperes],
+        "restant": restant,
+        "contours": Index().contours(),
+    }
 
 
 def circuits(contexte: Contexte) -> dict:
@@ -299,34 +347,49 @@ def circuits(contexte: Contexte) -> dict:
     }
 
 
-def jeu() -> dict:
-    """Le jeu tourne-t-il, et sa mémoire partagée est-elle accessible ?"""
-    if identifiant_jeu() is None:
-        return {"detecte": False, "format_inconnu": False}
-    try:
-        with LecteurMemoire() as memoire:
-            lecture = memoire.lire()
-            etat: dict = {"detecte": True, "version": memoire.version_jeu(), "en_piste": False}
-            if lecture is not None:
-                telemetrie = decoder(lecture.telemetrie, CHAMPS_TELEMETRIE)
-                scoring = decoder(lecture.scoring, CHAMPS_SCORING)
-                etat.update(
-                    en_piste=bool(scoring["en_piste"]),
-                    circuit=telemetrie["circuit"],
-                    modele=telemetrie["modele"],
-                )
-            return etat
-    except (MemoireAbsente, MemoireInattendue, OSError) as erreur:
-        probleme = isinstance(erreur, MemoireInattendue)
-        return {"detecte": False, "format_inconnu": probleme}
-
-
 # ----------------------------------------------------------------------
 # Une session
 # ----------------------------------------------------------------------
 
 
+def _session_partagee(designation: str) -> dict:
+    """Le record d'un ami, présenté comme une session d'un seul tour : la page le choisit
+    et l'affiche comme les sessions de ce PC."""
+    lu = charger_partage(designation)
+    t = lu.tour
+    return {
+        "id": designation,
+        "partage": True,
+        "duree": lu.duree,
+        "longueur": lu.longueur,
+        "circuit": lu.info.trace,
+        "pays": _pays(lu.info.trace),
+        "type": lu.info.type_session,
+        "voiture": lu.voiture,
+        "categorie": lu.info.categorie,
+        "pilote": lu.info.pilote,
+        "meteo": "",
+        "debattement_volant": lu.info.debattement_volant,
+        "demultiplication": lu.info.demultiplication,
+        "date": None,
+        "journal": False,
+        "tours": [
+            {
+                "numero": t.numero,
+                "chrono": t.chrono,
+                "duree_mesuree": t.duree_mesuree,
+                "secteurs": list(t.secteurs),
+                "valide": t.valide,
+                "vitesse_min": round(t.vitesse_min, 1),
+                "remarques": [],
+            }
+        ],
+    }
+
+
 def session(contexte: Contexte, chemin: str) -> dict:
+    if est_partage(chemin):
+        return _session_partagee(chemin)
     lue = Session.ouvrir(chemin)
     return {
         "id": str(lue.chemin),
@@ -362,19 +425,307 @@ def session(contexte: Contexte, chemin: str) -> dict:
     }
 
 
+def classement(contexte: Contexte, chemin: str) -> dict:
+    """Le classement de la séance qu'a enregistrée la session `chemin`, d'après le fichier
+    de résultats que le jeu a écrit pour elle. `trouve` est faux s'il n'en a pas écrit."""
+    info = Session.ouvrir(chemin).info
+    dossier = contexte.dossier_resultats
+    if dossier is None or info.enregistree_le is None:
+        return {"trouve": False}
+    fichier = resultats.trouver_session(
+        info.circuit, info.code_type, info.enregistree_le, info.voiture, dossier
+    )
+    seance = resultats.lire_session(fichier) if fichier is not None else None
+    if seance is None:
+        return {"trouve": False}
+    return {"trouve": True, **classement_json(seance, info.pilote)}
+
+
+# ----------------------------------------------------------------------
+# Leaderboard
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MesPerformances:
+    """Ce que les fichiers de ce PC disent de son propriétaire."""
+
+    resultats: bool
+    """Faux si le dossier des résultats du jeu est introuvable."""
+
+    performances: list[Performance]
+    noms: set[str]
+    contours: dict[str, list]
+    """Le contour de chaque tracé connu de la télémétrie."""
+
+
+def mes_performances(contexte: Contexte) -> MesPerformances:
+    """Les performances du propriétaire de ce PC, tirées des fichiers de résultats du jeu,
+    les noms sous lesquels il roule, et les contours que sa télémétrie connaît."""
+    dossier = contexte.dossier_resultats
+    trouve = dossier is not None and dossier.is_dir()
+    seances = resultats.Seances(dossier).toutes() if trouve else []
+    index = Index()
+    noms = noms_du_proprietaire(seances, {r.pilote for r in index.lignes().values() if r.pilote})
+    return MesPerformances(trouve, performances(seances, noms), noms, index.contours())
+
+
+def leaderboard(contexte: Contexte, params: Mapping[str, list[str]]) -> dict:
+    """L'onglet Leaderboard, selon ses filtres (voir `domaine/leaderboard.py`).
+
+    Il mêle les performances du propriétaire, tirées des fichiers de ce PC, et celles des
+    autres membres de son groupe, tirées de la copie du groupe (`groupe/synchro.py`).
+    `resultats` est faux si on ne trouve pas les fichiers de ce PC. Chaque circuit du menu
+    reçoit son drapeau, et le contour de son tracé principal ; la page d'un circuit, le
+    contour de son tracé. Les contours de ce PC passent avant ceux du groupe.
+    """
+    miennes = mes_performances(contexte)
+    copie = copie_courante()
+    autres = copie.performances_des_autres() if copie else []
+    reponse = leaderboard_json(
+        miennes.performances + autres,
+        {cle: valeurs[0] for cle, valeurs in params.items() if valeurs},
+        miennes.noms,
+    )
+    contours = {**(copie.contours if copie else {}), **miennes.contours}
+    for circuit in reponse["circuits"]:
+        circuit["pays"] = _pays(circuit["circuit"])
+        circuit["contour"] = next(
+            (contours[x["nom"]] for x in circuit["traces"] if x["nom"] in contours), None
+        )
+    if reponse["vue"] == "circuit":
+        _tours_enregistres(contexte, reponse)
+    adhesion = reglages_groupe.adhesion()
+    return {
+        "resultats": miennes.resultats,
+        # Le contour du tracé choisi, en fond de la page de son circuit.
+        "contour": contours.get(reponse["filtres"]["trace"]),
+        "groupe": (
+            None
+            if adhesion is None or copie is None
+            else {"code": adhesion.code_affiche, "version": copie.version, "membres": len(copie.membres)}
+        ),
+        **reponse,
+    }
+
+
+def _le_plus_proche(candidats: list, voiture: str, chrono) -> object | None:
+    """Le tour enregistré qui représente une ligne : dans la même voiture s'il y en a un,
+    sinon le plus rapide de la catégorie."""
+    memes = [c for c in candidats if (c.voiture if isinstance(c, Record) else c["voiture"]) == voiture]
+    return min(memes or candidats, key=chrono, default=None)
+
+
+def _tours_enregistres(contexte: Contexte, reponse: dict) -> None:
+    """Le tour enregistré de chaque ligne des meilleurs tours, quand il existe : le record de
+    ce PC dont la télémétrie est ici, ou celui qu'un ami a partagé (`groupe/tours.py`). La
+    page en coche deux pour les comparer dans l'onglet Télémétrie. Ce n'est pas toujours le
+    tour du classement : un meilleur tour roulé sans enregistrer n'a pas de télémétrie."""
+    trace = reponse["filtres"]["trace"]
+    miens: dict[str, list[Record]] = {}
+    for record in mes_records(contexte, trace):
+        miens.setdefault(famille(record.classe or ""), []).append(record)
+    amis: dict[tuple[str, str], list[dict]] = {}
+    for tour_ami in tours_des_amis(trace):
+        amis.setdefault((tour_ami["pilote"], famille(tour_ami.get("classe") or "")), []).append(tour_ami)
+    for categorie in reponse["tours"]:
+        for ligne in categorie["lignes"]:
+            if ligne["moi"]:
+                record = _le_plus_proche(miens.get(categorie["classe"], []), ligne["voiture"], lambda r: r.chrono)
+                ligne["enregistre"] = (
+                    None
+                    if record is None
+                    else {"chemin": record.chemin, "numero": record.numero, "chrono": record.chrono, "voiture": record.voiture}
+                )
+            else:
+                tour_ami = _le_plus_proche(
+                    amis.get((ligne["pilote"], categorie["classe"]), []), ligne["voiture"], lambda t: t["chrono"]
+                )
+                ligne["enregistre"] = (
+                    None
+                    if tour_ami is None
+                    else {
+                        "chemin": tour_ami["id"],
+                        "numero": tour_ami["numero"],
+                        "chrono": tour_ami["chrono"],
+                        "voiture": tour_ami["voiture"],
+                    }
+                )
+
+
+# ----------------------------------------------------------------------
+# Le groupe
+# ----------------------------------------------------------------------
+
+
+def mes_records(contexte: Contexte, trace: str | None = None) -> list[Record]:
+    """Les records du propriétaire à partager : sur chaque tracé (ou sur `trace` seul),
+    dans chaque voiture, son meilleur tour valide des séances qui comptent au leaderboard
+    — qualifications et courses EN LIGNE — dont la télémétrie a été enregistrée. Une séance
+    se dit en ligne d'après le fichier de résultats que le jeu a écrit pour elle, comme les
+    étiquettes de la colonne des sessions."""
+    dossier_resultats = contexte.dossier_resultats
+    if dossier_resultats is None or not dossier_resultats.is_dir():
+        return []
+    try:
+        reperes = catalogue.lister(contexte.dossier)
+    except ErreurTelemetrie:
+        return []
+    connues = Index().lignes()
+    seances = resultats.Seances(dossier_resultats)
+    voitures = _voitures(contexte)
+    meilleurs: dict[tuple[str, str], Record] = {}
+    for repere in reperes:
+        connue = connues.get(str(repere.chemin))
+        if (
+            connue is None
+            or connue.trace is None
+            or (trace is not None and connue.trace != trace)
+            or connue.meilleur is None
+            or connue.tour_meilleur is None
+            or repere.enregistre_le is None
+            or repere.code_type not in TYPES_COMPTES
+        ):
+            continue
+        etiquettes = seances.etiquettes(
+            repere.circuit, repere.code_type, repere.enregistre_le, connue.voiture, connue.pilote
+        )
+        if not etiquettes["en_ligne"]:
+            continue
+        voiture = _voiture(voitures, connue.voiture)
+        modele = voiture["modele"] or connue.voiture or "?"
+        cle = (connue.trace, modele)
+        if cle in meilleurs and meilleurs[cle].chrono <= connue.meilleur:
+            continue
+        meilleurs[cle] = Record(
+            id=identifiant_record(connue.trace, modele),
+            trace=connue.trace,
+            circuit=repere.circuit,
+            voiture=modele,
+            marque=voiture["marque"],
+            classe=voiture["classe"] or connue.categorie,
+            pilote=connue.pilote or "?",
+            date=repere.enregistre_le.isoformat(),
+            type=repere.code_type,
+            chemin=str(repere.chemin),
+            numero=connue.tour_meilleur,
+            chrono=connue.meilleur,
+        )
+    return sorted(meilleurs.values(), key=lambda r: (r.trace, r.voiture))
+
+
+def sources_du_groupe(contexte: Contexte) -> tuple[list[Performance], dict, list[Record]]:
+    """Ce que la synchronisation envoie : les performances du propriétaire, les contours de
+    ce PC, et ses records."""
+    miennes = mes_performances(contexte)
+    return miennes.performances, miennes.contours, mes_records(contexte)
+
+
+def tours_du_groupe(params: Mapping[str, list[str]]) -> dict:
+    """Les records des amis à comparer, sur un tracé (`trace`) ou sur tous."""
+    trace = (params.get("trace") or [None])[0]
+    return {"tours": tours_des_amis(trace)}
+
+
+def _service() -> Service:
+    adresse = reglages_groupe.adresse_service()
+    if adresse is None:
+        raise ErreurGroupe(Message("serveur.erreur.groupe_sans_service"), "sans_service")
+    return Service(adresse)
+
+
+def _nom_dans_le_groupe(charge: Mapping) -> str:
+    nom = charge.get("nom")
+    if not isinstance(nom, str) or not 1 <= len(nom.strip()) <= 40:
+        raise ErreurGroupe(Message("serveur.erreur.groupe_nom"), "nom_invalide")
+    return nom.strip()
+
+
+def groupe(contexte: Contexte, synchroniseur: Synchroniseur) -> dict:
+    """Ce que montre l'écran Groupe : le service, le groupe de ce PC et ses membres, l'état
+    de la synchronisation, et le nom à proposer pour rejoindre (le plus roulé)."""
+    adhesion = reglages_groupe.adhesion()
+    copie = copie_courante()
+    noms = Counter(p.pilote for p in mes_performances(contexte).performances if p.en_ligne)
+    return {
+        "service": reglages_groupe.adresse_service() is not None,
+        "groupe": (
+            None
+            if adhesion is None or copie is None
+            else {
+                "code": adhesion.code_affiche,
+                "nom": adhesion.nom,
+                "version": copie.version,
+                "derniere": copie.derniere,
+                "membres": [{**m, "moi": m["id"] == adhesion.membre} for m in copie.membres],
+            }
+        ),
+        "synchro": synchroniseur.etat,
+        "nom_propose": noms.most_common(1)[0][0] if noms else "",
+    }
+
+
+def creer_groupe(contexte: Contexte, synchroniseur: Synchroniseur, charge: Mapping) -> dict:
+    """Crée un groupe dont ce PC est le premier membre, puis y envoie ses performances."""
+    if reglages_groupe.adhesion() is not None:
+        raise ErreurGroupe(Message("serveur.erreur.groupe_deja"), "deja")
+    reglages_groupe.enregistrer(_service().creer(_nom_dans_le_groupe(charge)))
+    synchroniseur.maintenant()
+    return groupe(contexte, synchroniseur)
+
+
+def rejoindre_groupe(contexte: Contexte, synchroniseur: Synchroniseur, charge: Mapping) -> dict:
+    """Fait entrer ce PC dans un groupe avec son code, puis synchronise."""
+    if reglages_groupe.adhesion() is not None:
+        raise ErreurGroupe(Message("serveur.erreur.groupe_deja"), "deja")
+    nom = _nom_dans_le_groupe(charge)
+    reglages_groupe.enregistrer(_service().rejoindre(str(charge.get("code") or ""), nom))
+    synchroniseur.maintenant()
+    return groupe(contexte, synchroniseur)
+
+
+def quitter_groupe(contexte: Contexte, synchroniseur: Synchroniseur) -> dict:
+    """Retire ce PC de son groupe : le service efface ses performances, et ce PC oublie la
+    copie du groupe. Si le service ne répond pas, ce PC reste dans le groupe : ses
+    performances ne doivent pas y rester à son insu."""
+    adhesion = reglages_groupe.adhesion()
+    if adhesion is not None:
+        try:
+            _service().quitter(adhesion)
+        except ErreurGroupe as erreur:
+            # Déjà parti, ou groupe disparu : il n'y a plus rien à effacer là-bas.
+            if erreur.code not in ("non_membre", "groupe_introuvable"):
+                raise
+        reglages_groupe.enregistrer(None)
+        fichier_copie().unlink(missing_ok=True)
+        shutil.rmtree(dossier_tours(), ignore_errors=True)
+        synchroniseur.oublier()
+    return groupe(contexte, synchroniseur)
+
+
+def synchroniser_groupe(contexte: Contexte, synchroniseur: Synchroniseur) -> dict:
+    """Le bouton « Synchroniser maintenant »."""
+    synchroniseur.maintenant()
+    return groupe(contexte, synchroniseur)
+
+
 # ----------------------------------------------------------------------
 # Comparaison de deux tours
 # ----------------------------------------------------------------------
 
 
+def _charger_tour(designation: str, numero: int):
+    """Un tour de ce PC (le chemin de sa session), ou le record d'un ami
+    (« groupe:<membre>/<numéro> », voir `groupe/tours.py`) : les deux se comparent pareil."""
+    return charger_partage(designation) if est_partage(designation) else charger(designation, numero)
+
+
 def comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
     # Sans tour comparé, le tour se compare à lui-même : la page n'en montre alors
     # que la référence.
-    resultat = comparer_fichiers(
-        params["ref"][0],
-        int(params["tour_ref"][0]),
-        params.get("cmp", params["ref"])[0],
-        int(params.get("tour_cmp", params["tour_ref"])[0]),
+    resultat = comparer(
+        _charger_tour(params["ref"][0], int(params["tour_ref"][0])),
+        _charger_tour(params.get("cmp", params["ref"])[0], int(params.get("tour_cmp", params["tour_ref"])[0])),
     )
     voitures = _voitures(contexte)
 
@@ -388,15 +739,19 @@ def comparaison(contexte: Contexte, params: dict[str, list[str]]) -> dict:
     }
 
     def resume(donnees) -> dict:
+        # Le record d'un ami n'a pas de fichier sur ce PC : sa désignation en tient lieu,
+        # et sa voiture est celle que le PC de l'ami connaît.
+        partage = isinstance(donnees, TourPartage)
         return {
-            "session": donnees.chemin.name,
-            "chemin": str(donnees.chemin),
+            "session": donnees.info.pilote if partage else donnees.chemin.name,
+            "chemin": donnees.identifiant if partage else str(donnees.chemin),
+            "partage": partage,
             "circuit": donnees.info.trace,
             "pays": _pays(donnees.info.trace),
             "type": donnees.info.code_type,
             "pilote": donnees.info.pilote,
             "categorie": donnees.info.categorie,
-            "voiture": _voiture(voitures, donnees.info.voiture),
+            "voiture": donnees.voiture if partage else _voiture(voitures, donnees.info.voiture),
             "debattement_volant": donnees.info.debattement_volant,
             "numero": donnees.tour.numero,
             "chrono": donnees.tour.chrono,
@@ -482,13 +837,16 @@ def definition(contexte: Contexte, lue: Session) -> tuple[DefinitionCircuit, Pat
 def virages(contexte: Contexte, params: dict[str, list[str]]) -> dict:
     chemin_ref = params["ref"][0]
     chemin_cmp = params.get("cmp", params["ref"])[0]
-    circuit, fichier = definition(contexte, Session.ouvrir(chemin_ref))
-    ecarts = ecarts_par_virage(
-        charger(chemin_ref, int(params["tour_ref"][0])),
-        charger(chemin_cmp, int(params["tour_cmp"][0])),
-        circuit,
-        parametres.lire().virages,
-    )
+    reference = _charger_tour(chemin_ref, int(params["tour_ref"][0]))
+    compare = _charger_tour(chemin_cmp, int(params["tour_cmp"][0]))
+    if est_partage(chemin_ref):
+        # Le record d'un ami en référence : pas de session de ce PC d'où tirer le découpage.
+        circuit, fichier = definition_depuis_tours(
+            reference.info.trace, [reference, compare], contexte.dossier_virages, contexte.virages_fournis
+        )
+    else:
+        circuit, fichier = definition(contexte, Session.ouvrir(chemin_ref))
+    ecarts = ecarts_par_virage(reference, compare, circuit, parametres.lire().virages)
 
     def ligne(ecart) -> dict:
         a, b = ecart.reference, ecart.compare

@@ -19,13 +19,15 @@ RACINE = Path(__file__).resolve().parent.parent
 pytestmark = pytest.mark.skipif(NODE is None, reason="Node n'est pas installé")
 
 
-def test_les_calculs_de_la_page() -> None:
+@pytest.mark.parametrize("fichier", ["format.test.mjs", "service_groupe.test.mjs"])
+def test_les_tests_javascript(fichier: str) -> None:
+    """Les calculs de la page, et le service du groupe (`service/`) sur le SQLite de Node."""
     resultat = subprocess.run(
-        [NODE, "--test", str(RACINE / "tests" / "js" / "format.test.mjs")],
+        [NODE, "--test", str(RACINE / "tests" / "js" / fichier)],
         capture_output=True,
         encoding="utf-8",
         errors="replace",
-        timeout=60,
+        timeout=120,
     )
     assert resultat.returncode == 0, resultat.stdout + resultat.stderr
 

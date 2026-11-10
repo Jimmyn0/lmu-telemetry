@@ -186,6 +186,29 @@ def test_le_modele_laisse_une_faute_de_frappe_pour_que_lire_la_signale() -> None
         parametres.lire()
 
 
+#: Un fichier écrit du temps des conseils de pilotage, tel qu'on l'a trouvé chez un
+#: utilisateur : leurs sections ne règlent plus rien.
+ANCIEN_FICHIER = {
+    "virages": {"frein": 7.5},
+    "coach": {"ecart_groupe": 100.0, "blocage": 25.0},
+    "overlay": {"position_x": 10.2, "position_y": 44.6},
+}
+
+
+def test_les_sections_d_une_version_precedente_ne_bloquent_rien() -> None:
+    _ecrire(ANCIEN_FICHIER)
+    assert parametres.lire().virages.frein == 7.5
+
+
+def test_le_modele_retire_les_sections_d_une_version_precedente() -> None:
+    _ecrire(ANCIEN_FICHIER)
+    parametres.creer_modele()
+    brut = json.loads(emplacements.fichier_parametres().read_text(encoding="utf-8"))
+    assert "coach" not in brut and "overlay" not in brut
+    assert brut["virages"]["frein"] == 7.5
+    assert parametres.lire().virages.frein == 7.5
+
+
 def test_le_modele_ne_touche_pas_a_un_fichier_mal_forme() -> None:
     chemin = emplacements.fichier_parametres()
     chemin.parent.mkdir(parents=True, exist_ok=True)

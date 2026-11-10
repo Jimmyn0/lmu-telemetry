@@ -1,8 +1,10 @@
 // Télémétrie : deux tours superposés.
 //
 // Le tour de référence et le tour comparé peuvent venir de deux sessions, tant que
-// c'est le même tracé. La lecture du tour déplace le curseur en temps réel : les
-// deux voitures avancent alors sur la carte, et leur écart se voit.
+// c'est le même tracé. Le tour comparé peut aussi être le record d'un ami, partagé
+// par le groupe (« groupe:<membre>/<numéro> », voir groupe/tours.py). La lecture du
+// tour déplace le curseur en temps réel : les deux voitures avancent alors sur la
+// carte, et leur écart se voit.
 
 import {
   $, api, badgeClasse, badgeType, dateCourte, erreur, etat, etatVide, fleche, navigation, nomType,
@@ -40,6 +42,8 @@ const vue = {
   secteursVisibles: true,
   sessions: new Map(),
   lecture: null,
+  // Les records des amis du groupe, sur tous les tracés : proposés comme tour comparé.
+  toursAmis: [],
 };
 
 // ---------------------------------------------------------------------
@@ -65,14 +69,17 @@ async function charger() {
   const s = vue.selection;
   afficherVide({ chargement: true });
   try {
-    const [donnees] = await Promise.all([
+    const [donnees, , , amis] = await Promise.all([
       api("/api/comparaison", {
         ref: s.ref, tour_ref: s.tourRef, cmp: s.cmp, tour_cmp: s.tourCmp,
       }),
       session(s.ref),
       s.cmp ? session(s.cmp) : null,
+      // Hors d'un groupe, ou sans connexion, il n'y en a simplement pas.
+      api("/api/groupe/tours").catch(() => ({ tours: [] })),
     ]);
     vue.donnees = donnees;
+    vue.toursAmis = amis.tours;
   } catch (e) {
     afficherVide({ message: e.message });
     return;
@@ -136,6 +143,21 @@ function sessionsDuTrace(trace, courante) {
     .join("");
 }
 
+// Les records des amis sur ce tracé, le plus rapide d'abord : ils se comparent comme
+// les sessions de ce PC.
+const recordsAmis = (trace) => vue.toursAmis.filter((x) => x.trace === trace);
+
+function optionsAmis(trace, courante) {
+  const amis = recordsAmis(trace);
+  if (!amis.length) return "";
+  return `<optgroup label="${t("tele.records_amis")}">${amis
+    .map(
+      (x) => `<option value="${echapper(x.id)}" ${x.id === courante ? "selected" : ""}>
+        ${echapper(x.pilote)} — ${echapper(x.voiture)} — ${chrono(x.chrono)}</option>`
+    )
+    .join("")}</optgroup>`;
+}
+
 function optionsTours(tours, choisi, meilleur) {
   return tours
     .filter((x) => x.valide || x.numero === choisi)
@@ -162,18 +184,29 @@ function carteTour(role, tour) {
   if (!chemin) {
     const reference = vue.sessions.get(s.ref);
     const voisin = tourVoisin(reference.tours, { numero: s.tourRef, chrono: vue.donnees.reference.chrono });
+    const ami = recordsAmis(reference.circuit)[0];
     cible.classList.add("inactive");
     cible.innerHTML = `
       <div class="carte-tour-etat"><i></i>${t("tele.comparaison")} · ${t("tele.inactive")}</div>
       <div class="carte-tour-vide">
         <span>${t("tele.aucune_comparaison")}</span>
         ${voisin ? `<button id="ajouter-cmp" type="button" class="pilule">${t("tele.ajouter")}</button>` : ""}
+        ${ami ? `<button id="ajouter-ami" type="button" class="pilule">${t("tele.ajouter_ami")}</button>` : ""}
       </div>`;
     const ajouter = $("#ajouter-cmp");
     if (ajouter) {
       ajouter.onclick = () => {
         s.cmp = s.ref;
         s.tourCmp = voisin.numero;
+        charger();
+      };
+    }
+    const ajouterAmi = $("#ajouter-ami");
+    if (ajouterAmi) {
+      // Le record le plus rapide des amis sur ce tracé.
+      ajouterAmi.onclick = () => {
+        s.cmp = ami.id;
+        s.tourCmp = ami.numero;
         charger();
       };
     }
@@ -188,6 +221,7 @@ function carteTour(role, tour) {
       t(role === "ref" ? "tele.reference" : "tele.comparaison")
     } · ${t("tele.active")}
       <span class="espace"></span>
+      ${lue.partage ? `<span class="badge partage" title="${t("tele.record_ami")}">${ICONES.groupe}</span>` : ""}
       ${badgeClasse(lue.voiture.classe || lue.categorie)}${badgeType(lue.type)}
       ${role === "cmp" ? `<button type="button" class="fermer-carte" title="${t("tele.retirer")}">${ICONES.fermer}</button>` : ""}
     </div>
@@ -196,7 +230,7 @@ function carteTour(role, tour) {
         <strong>${echapper(tour.pilote)}</strong>
         <label class="choix-session" title="${t("tele.choix_session")}">
           <span>${echapper(tour.voiture.engagement)}</span>
-          <select>${sessionsDuTrace(lue.circuit, chemin)}</select>
+          <select>${sessionsDuTrace(lue.circuit, chemin)}${optionsAmis(lue.circuit, chemin)}</select>
         </label>
       </div>
       <select class="choix-tour">${optionsTours(lue.tours, numero, meilleur)}</select>

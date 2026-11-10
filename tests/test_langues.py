@@ -120,7 +120,8 @@ def test_le_francais_du_serveur_vient_du_meme_fichier() -> None:
 class _TexteEnDur(HTMLParser):
     """Relève le texte visible de la page qui n'est pas confié à une traduction."""
 
-    NEUTRES = {"Le Mans Ultimate"}
+    #: Des noms propres, les mêmes dans toutes les langues : le jeu, et l'outil.
+    NEUTRES = {"Le Mans Ultimate", "GhostLine", "for LMU"}
 
     def __init__(self) -> None:
         super().__init__()

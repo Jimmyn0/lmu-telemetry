@@ -8,7 +8,7 @@ Il y a deux sortes de fichiers, et elles ne peuvent pas vivre au même endroit :
   à la fermeture : une retouche faite là serait perdue.
 
 * les DONNÉES de l'utilisateur — découpages retouchés à la main, logos ajoutés,
-  réglages. Elles vont dans `%LOCALAPPDATA%\\Telemetrie LMU`, qui ne dépend pas
+  réglages. Elles vont dans `%LOCALAPPDATA%\\GhostLine`, qui ne dépend pas
   de l'endroit où se trouve le .exe et survit donc à son remplacement par une
   nouvelle version.
 
@@ -23,8 +23,10 @@ import json
 import os
 from pathlib import Path
 
-#: Nom du dossier de données, et nom affiché de l'application.
-NOM_APPLI = "Telemetrie LMU"
+#: Nom du dossier de données. L'outil s'appelait « Télémétrie LMU » jusqu'au 2026-11-10 :
+#: le dossier de son ancien nom est repris au lancement (`migrer_ancien_dossier`).
+NOM_APPLI = "GhostLine"
+ANCIEN_NOM_APPLI = "Telemetrie LMU"
 
 #: Variable d'environnement pour ranger les données ailleurs (tests, dépannage).
 VARIABLE_DONNEES = "LMU_DONNEES"
@@ -34,13 +36,40 @@ VARIABLE_DONNEES = "LMU_DONNEES"
 RESSOURCES = Path(__file__).parent / "ressources"
 
 
+def _racine() -> Path:
+    base = os.environ.get("LOCALAPPDATA")
+    return Path(base) if base else Path.home() / "AppData" / "Local"
+
+
 def donnees() -> Path:
-    """Dossier des données de l'utilisateur. Il n'est pas créé ici."""
+    """Dossier des données de l'utilisateur. Il n'est pas créé ici.
+
+    Tant que le dossier de l'ancien nom de l'outil n'a pas pu prendre le nouveau (voir
+    `migrer_ancien_dossier`), c'est lui qui sert : on ne repart pas de zéro.
+    """
     if brut := os.environ.get(VARIABLE_DONNEES):
         return Path(brut)
-    base = os.environ.get("LOCALAPPDATA")
-    racine = Path(base) if base else Path.home() / "AppData" / "Local"
-    return racine / NOM_APPLI
+    nouveau, ancien = _racine() / NOM_APPLI, _racine() / ANCIEN_NOM_APPLI
+    return ancien if not nouveau.exists() and ancien.is_dir() else nouveau
+
+
+def migrer_ancien_dossier() -> bool:
+    """Donne au dossier de données le nouveau nom de l'outil, s'il porte encore l'ancien.
+
+    À appeler une fois, au lancement, avant que rien n'y soit ouvert. Si le renommage
+    échoue (un fichier encore ouvert ailleurs), l'ancien dossier continue de servir, et
+    on réessaiera au lancement suivant. Vrai si le dossier vient d'être renommé.
+    """
+    if os.environ.get(VARIABLE_DONNEES):
+        return False
+    nouveau, ancien = _racine() / NOM_APPLI, _racine() / ANCIEN_NOM_APPLI
+    if nouveau.exists() or not ancien.is_dir():
+        return False
+    try:
+        ancien.rename(nouveau)
+    except OSError:
+        return False
+    return True
 
 
 def virages_utilisateur() -> Path:
