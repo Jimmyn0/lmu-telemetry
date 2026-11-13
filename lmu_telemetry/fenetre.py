@@ -31,13 +31,20 @@ calcule donc soi-même la zone de travail de l'écran où elle se trouve.
 from __future__ import annotations
 
 import ctypes
+import os
 import sys
 import threading
 import time
+import traceback
 from ctypes import wintypes
 from dataclasses import dataclass
+from pathlib import Path
 
 TITRE = "GhostLine for LMU"
+
+#: Pourquoi la fenêtre n'a pas pu s'ouvrir, la dernière fois : le lanceur le note dans
+#: `journal.txt` avant de se rabattre sur le navigateur.
+ERREUR: str | None = None
 
 #: Taille d'ouverture, celle des maquettes, et taille en deçà de laquelle la page
 #: n'a plus la place d'afficher ses colonnes.
@@ -318,15 +325,44 @@ class Fenetre:
         self._user32.SetForegroundWindow(self._poignee)
 
 
+def retirer_marque_internet(dossier: Path | None = None) -> int:
+    """Retire la marque « venu d'Internet » des bibliothèques de l'outil.
+
+    Windows marque ainsi chaque fichier d'un zip téléchargé (le flux NTFS
+    `Zone.Identifier`), et .NET refuse alors de charger les bibliothèques de la fenêtre
+    (pythonnet, WebView2) : chez qui avait téléchargé l'outil, la fenêtre ne s'ouvrait pas
+    et l'outil se rabattait sur le navigateur. Seuls les fichiers de l'outil lui-même sont
+    touchés, et seulement dans le .exe (`dossier` sert aux tests). Rend le nombre de
+    fichiers débloqués.
+    """
+    if dossier is None:
+        if not getattr(sys, "frozen", False):
+            return 0
+        dossier = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    debloques = 0
+    for fichier in dossier.rglob("*"):
+        if fichier.suffix.lower() in (".dll", ".pyd", ".exe"):
+            try:
+                os.remove(f"{fichier}:Zone.Identifier")
+            except OSError:
+                continue
+            debloques += 1
+    return debloques
+
+
 def ouvrir(adresse: str, avant_ouverture=None) -> bool:
     """Affiche la page dans sa fenêtre, jusqu'à ce qu'on la ferme.
 
     Rend False si la fenêtre n'a pas pu s'ouvrir, par exemple sans WebView2 :
-    l'appelant se rabat alors sur le navigateur.
+    l'appelant se rabat alors sur le navigateur. La cause reste dans `ERREUR`.
     """
+    global ERREUR
+    ERREUR = None
+    retirer_marque_internet()
     try:
         import webview
     except ImportError:
+        ERREUR = traceback.format_exc(limit=4)
         return False
 
     fenetre = Fenetre()
@@ -352,6 +388,7 @@ def ouvrir(adresse: str, avant_ouverture=None) -> bool:
     try:
         webview.start(demarrer, private_mode=True)
     except Exception:  # noqa: BLE001 — sans WebView2, l'erreur dépend de la machine
+        ERREUR = traceback.format_exc(limit=6)
         return False
     return True
 

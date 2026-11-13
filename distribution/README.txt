@@ -102,9 +102,11 @@ named after the brand as the tool shows it: Porsche.png, Ferrari.png...
 TROUBLESHOOTING
 ---------------
 
-* Nothing opens, or the tool opens in your browser: Microsoft's WebView2
-  component is probably missing (it normally comes with Windows 10 and 11). The
-  tool remains usable in the browser.
+* The tool opens in your browser instead of its own window: keep the message
+  that shows up open, closing it stops the tool. If it happens at every launch,
+  send the journal.txt file (in %LOCALAPPDATA%\GhostLine) to the person who
+  gave you the tool (Microsoft's WebView2 component may be missing; it normally
+  comes with Windows 10 and 11).
 * A session does not show up: leave the session in the game first (the game
   keeps the file open while it is running).
 * Your antivirus blocks the .exe: this is a common false alarm with this kind

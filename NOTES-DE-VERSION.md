@@ -6,6 +6,20 @@ correction, celui du milieu pour un ajout, le premier pour un grand changement.
 
 ---
 
+## 2.0.1 — 13/11/2026
+
+**La fenêtre s'ouvre aussi quand l'outil vient d'un zip téléchargé.**
+
+* Windows marque « venu d'Internet » chaque fichier d'un zip téléchargé, et .NET
+  refusait alors de charger les bibliothèques de la fenêtre : l'outil s'ouvrait
+  dans le navigateur, en accusant à tort WebView2. Il retire désormais cette
+  marque de ses propres fichiers au lancement.
+* Quand la fenêtre ne peut vraiment pas s'ouvrir, le message dit de le garder
+  ouvert tant qu'on se sert de l'outil dans le navigateur (le fermer arrête
+  l'outil), et où trouver `journal.txt`, qui en note désormais la cause.
+
+---
+
 ## 2.0.0 — 10/11/2026
 
 **L'outil s'appelle GhostLine for LMU, et il se partage entre amis.**

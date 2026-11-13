@@ -110,9 +110,11 @@ telle qu'elle s'affiche dans l'outil : Porsche.png, Ferrari.png...
 EN CAS DE PROBLÈME
 ------------------
 
-* Rien ne s'ouvre, ou l'outil s'ouvre dans ton navigateur : il manque sans doute
-  le composant WebView2 de Microsoft, normalement présent sur Windows 10 et 11.
-  L'outil reste utilisable dans le navigateur.
+* L'outil s'ouvre dans ton navigateur au lieu de sa fenêtre : garde ouvert le
+  message qui s'affiche, le fermer arrête l'outil. Si ça recommence à chaque
+  lancement, envoie le fichier journal.txt (dans %LOCALAPPDATA%\GhostLine) à
+  la personne qui t'a donné l'outil (il manque peut-être le composant WebView2
+  de Microsoft, normalement présent sur Windows 10 et 11).
 * Une session n'apparaît pas : quitte d'abord la session dans le jeu (le jeu
   garde le fichier ouvert tant qu'elle tourne).
 * Ton antivirus bloque le .exe : c'est une fausse alerte fréquente avec ce

@@ -438,7 +438,7 @@
 
   "console.titre": "GhostLine for LMU {version}",
   "console.aucun_port": "No free port between {debut} and {fin}.\nClose the programs that might be using them, then start the tool again.",
-  "console.sans_fenetre": "The tool's window could not open: Microsoft's WebView2 component is probably missing.\n\nThe tool has opened in your browser: {adresse}\nClose this message to stop it.",
+  "console.sans_fenetre": "The tool's window could not open. The cause is written in:\n{journal}\n\nThe tool has opened in your browser: {adresse}\nKeep this message open while you use it: closing it stops the tool.",
   "console.inattendu": "The tool ran into an unexpected problem and has to stop.\nReport it to whoever gave you the tool, with the text below:\n",
 
   "serveur.tour.non_boucle": "lap not completed (end of session)",

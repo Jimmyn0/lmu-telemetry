@@ -438,7 +438,7 @@
 
   "console.titre": "GhostLine for LMU {version}",
   "console.aucun_port": "Aucun port libre entre {debut} et {fin}.\nFerme les programmes qui pourraient les utiliser, puis relance l'outil.",
-  "console.sans_fenetre": "La fenêtre de l'outil n'a pas pu s'ouvrir : il manque sans doute le composant WebView2 de Microsoft.\n\nL'outil s'est ouvert dans ton navigateur : {adresse}\nFerme ce message pour l'arrêter.",
+  "console.sans_fenetre": "La fenêtre de l'outil n'a pas pu s'ouvrir. La cause est notée dans :\n{journal}\n\nL'outil s'est ouvert dans ton navigateur : {adresse}\nGarde ce message ouvert tant que tu t'en sers : le fermer arrête l'outil.",
   "console.inattendu": "L'outil a rencontré un problème inattendu et doit s'arrêter.\nSignale-le à qui t'a donné l'outil, avec le texte ci-dessous :\n",
 
   "serveur.tour.non_boucle": "tour non bouclé (fin de session)",

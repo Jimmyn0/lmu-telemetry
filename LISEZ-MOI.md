@@ -8,7 +8,7 @@ enregistrements que Le Mans Ultimate produit déjà tout seul.
 L'outil **montre**, il ne juge pas. Pas de conseil de réglage, pas de
 diagnostic automatique : uniquement des faits mesurés.
 
-> **Version 2.0.0 — l'outil s'appelle GhostLine for LMU, et il se partage
+> **Version 2.0.1 — l'outil s'appelle GhostLine for LMU, et il se partage
 > entre amis.**
 > L'outil liste tes sessions avec leur **classement**, découpe chacune en tours,
 > **compare deux tours** (traces superposées, delta cumulé, vue de la route), y

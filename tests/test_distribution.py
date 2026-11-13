@@ -303,3 +303,48 @@ def test_le_lanceur_reconnait_un_outil_deja_ouvert() -> None:
         http_serveur.shutdown()
         http_serveur.server_close()
     assert not lanceur.outil_deja_ouvert(port)
+
+
+def test_un_autre_premier_port_pour_essayer_un_exe(monkeypatch) -> None:
+    """Essayer un .exe pendant que l'outil tourne : il démarre plus loin, sans
+    ramener la fenêtre déjà ouverte."""
+    from lmu_telemetry import lanceur
+
+    monkeypatch.delenv(lanceur.VARIABLE_PORT, raising=False)
+    assert lanceur.premier_port() == lanceur.PORT == 8770
+    monkeypatch.setenv(lanceur.VARIABLE_PORT, "8790")
+    assert lanceur.premier_port() == 8790
+
+
+def test_sans_fenetre_le_message_dit_ou_lire_la_cause(tmp_path, monkeypatch) -> None:
+    """Le repli sur le navigateur : la cause va dans journal.txt, et le message dit
+    où le trouver et qu'il faut le garder ouvert."""
+    from lmu_telemetry import emplacements, fenetre, lanceur
+
+    monkeypatch.setenv(emplacements.VARIABLE_DONNEES, str(tmp_path))
+    monkeypatch.delenv(lanceur.VARIABLE_PORT, raising=False)
+    # Port 0 : un port libre au hasard, loin d'un outil déjà ouvert.
+    monkeypatch.setattr(lanceur, "PORT", 0)
+    crees = []
+    creer = serveur.creer_serveur
+    monkeypatch.setattr(serveur, "creer_serveur", lambda port: crees.append(creer(port)) or crees[-1])
+    monkeypatch.setattr(serveur, "servir", lambda *args, **kwargs: None)
+    monkeypatch.setattr(fenetre, "ERREUR", None)
+
+    def echoue(adresse, avant_ouverture=None) -> bool:
+        fenetre.ERREUR = "RuntimeError: Failed to resolve Python.Runtime.Loader.Initialize"
+        return False
+
+    monkeypatch.setattr(fenetre, "ouvrir", echoue)
+    monkeypatch.setattr(lanceur.webbrowser, "open", lambda adresse: True)
+    messages = []
+    monkeypatch.setattr(lanceur, "_boite", messages.append)
+    try:
+        assert lanceur.lancer("fr") == 0
+    finally:
+        for cree in crees:
+            cree.server_close()
+    journal = tmp_path / "journal.txt"
+    assert "Failed to resolve" in journal.read_text(encoding="utf-8")
+    assert str(journal) in messages[0]
+    assert "Garde ce message ouvert" in messages[0]

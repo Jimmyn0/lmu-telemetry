@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import ctypes
 import json
+import os
 import sys
 import threading
 import traceback
@@ -35,6 +36,12 @@ from .textes import Message, console_utf8, langue_preferee, traduire
 #: Premier port essayé, puis les suivants s'il est pris par un autre programme.
 PORT = 8770
 PORTS_ESSAYES = 10
+#: Un autre premier port, pour essayer un .exe pendant que l'outil tourne déjà.
+VARIABLE_PORT = "LMU_PORT"
+
+
+def premier_port() -> int:
+    return int(os.environ.get(VARIABLE_PORT) or PORT)
 
 
 def outil_deja_ouvert(port: int) -> bool:
@@ -87,7 +94,8 @@ def lancer(langue: str, ouvrir_fenetre: bool = True) -> int:
     from .web.serveur import Gestionnaire, PortOccupe, creer_serveur, servir
 
     serveur = None
-    for port in range(PORT, PORT + PORTS_ESSAYES):
+    debut = premier_port()
+    for port in range(debut, debut + PORTS_ESSAYES):
         if outil_deja_ouvert(port):
             if ouvrir_fenetre:
                 _ramener(port)
@@ -99,7 +107,7 @@ def lancer(langue: str, ouvrir_fenetre: bool = True) -> int:
             continue
     if serveur is None:
         raise ErreurTelemetrie(
-            Message("console.aucun_port", {"debut": PORT, "fin": PORT + PORTS_ESSAYES - 1})
+            Message("console.aucun_port", {"debut": debut, "fin": debut + PORTS_ESSAYES - 1})
         )
 
     adresse = f"http://127.0.0.1:{serveur.server_address[1]}/"
@@ -114,8 +122,11 @@ def lancer(langue: str, ouvrir_fenetre: bool = True) -> int:
         Gestionnaire.fenetre = ouverte
 
     if not fenetre.ouvrir(adresse, retenir):
+        if fenetre.ERREUR:
+            _journaliser("La fenêtre n'a pas pu s'ouvrir :\n" + fenetre.ERREUR)
         webbrowser.open(adresse)
-        _boite(traduire("console.sans_fenetre", langue, {"adresse": adresse}))
+        journal = emplacements.donnees() / "journal.txt"
+        _boite(traduire("console.sans_fenetre", langue, {"adresse": adresse, "journal": journal}))
     return 0
 
 
@@ -123,7 +134,7 @@ def reprendre_ancien_dossier() -> None:
     """L'outil s'appelait « Télémétrie LMU » : son dossier de données prend le nouveau
     nom, avant que quoi que ce soit ne l'ouvre. Pas si l'outil tourne déjà : il s'en
     sert encore, et c'est sa fenêtre qu'on va ramener."""
-    if not outil_deja_ouvert(PORT):
+    if not outil_deja_ouvert(premier_port()):
         emplacements.migrer_ancien_dossier()
 
 
