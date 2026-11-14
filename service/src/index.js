@@ -11,7 +11,8 @@
 // reçues entrent dans la base en une seule requête (un tableau JSON que lit `json_each`),
 // et celles qu'on renvoie y restent du texte, sans être relues.
 
-export const VERSION = 1;
+// 2 : le classement des courses (`seances`), et le meilleur tour de chacune parmi les tours.
+export const VERSION = 2;
 
 // Ni I, O, 0 ni 1 : rien à confondre en recopiant un code.
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -27,9 +28,15 @@ export const LIMITES = {
   taillePerformance: 8 * 1024, // octets de JSON
   contoursParEnvoi: 40,
   pointsParContour: 400,
-  toursParMembre: 300,
+  // Ses records, et le meilleur tour de chacune de ses courses en ligne.
+  toursParMembre: 1000,
   tailleTour: 1536 * 1024, // caractères de base64 : un tour du Mans en fait 140 000
+  seancesParMembre: 2000,
+  tailleSeance: 512 * 1024, // caractères de base64 : une course de 42 voitures en fait 40 000
 };
+
+// L'identifiant d'une performance de course ou de qualifs : son départ, et son type.
+const ID_SEANCE = /^\d{1,12}-[QR]$/;
 
 const TYPES = new Set(["P", "Q", "R"]);
 
@@ -170,6 +177,17 @@ function validerTour(t) {
   return { id: t.id, meta: JSON.stringify(meta), donnees: t.donnees };
 }
 
+// Le classement d'une course, rangé sans être lu, comme la télémétrie d'un tour : c'est
+// l'outil qui le vérifie en le recevant.
+function validerSeance(s) {
+  const valide = s && typeof s === "object" && !Array.isArray(s) && typeof s.id === "string" && ID_SEANCE.test(s.id) &&
+    typeof s.donnees === "string";
+  if (!valide) throw new ErreurService(400, "seance_invalide", "une séance ne se lit pas");
+  if (s.donnees.length > LIMITES.tailleSeance) throw new ErreurService(413, "trop_gros", "une séance est trop grosse");
+  if (!BASE64.test(s.donnees)) throw new ErreurService(400, "seance_invalide", "une séance ne se lit pas");
+  return { id: s.id, donnees: s.donnees };
+}
+
 function validerContour([trace, points]) {
   const valide =
     texteCourt(trace, 160) &&
@@ -229,7 +247,7 @@ async function rejoindre(requete, env, code) {
 async function lireGroupe(requete, env, code, url) {
   const moi = await membreAuthentifie(requete, env, code);
   const depuis = Math.max(0, Number.parseInt(url.searchParams.get("depuis") || "0", 10) || 0);
-  const [groupe, membres, performances, contours, tours] = await env.DB.batch([
+  const [groupe, membres, performances, contours, tours, seances] = await env.DB.batch([
     env.DB.prepare("SELECT version FROM groupes WHERE code = ?").bind(code),
     // Dans l'ordre d'arrivée : deux membres arrivés dans la même milliseconde gardent le leur.
     env.DB.prepare("SELECT id, nom, rejoint_le, vu_le FROM membres WHERE groupe = ? ORDER BY rowid").bind(code),
@@ -237,6 +255,8 @@ async function lireGroupe(requete, env, code, url) {
     env.DB.prepare("SELECT trace, points FROM contours WHERE groupe = ? AND maj > ?").bind(code, depuis),
     // Des tours, seulement ce qu'en montre la liste : la télémétrie se demande à part.
     env.DB.prepare("SELECT membre, id, meta, maj FROM tours WHERE groupe = ? AND maj > ? ORDER BY maj").bind(code, depuis),
+    // Des séances, seulement lesquelles sont là : leur classement se demande à part.
+    env.DB.prepare("SELECT membre, id, maj FROM seances WHERE groupe = ? AND maj > ? ORDER BY maj").bind(code, depuis),
     env.DB.prepare("UPDATE membres SET vu_le = ? WHERE id = ?").bind(maintenant(), moi.id),
   ]);
   // Les numéros de membre et les contours viennent de la base, déjà vérifiés : ils se
@@ -248,8 +268,41 @@ async function lireGroupe(requete, env, code, url) {
     `"contours":{${contours.results.map((c) => `${JSON.stringify(c.trace)}:${c.points}`).join(",")}},` +
     `"tours":[${tours.results
       .map((t) => `{"membre":"${t.membre}","id":${JSON.stringify(t.id)},"maj":${t.maj},"meta":${t.meta}}`)
-      .join(",")}]}`;
+      .join(",")}],` +
+    `"seances":${JSON.stringify(seances.results)}}`;
   return new Response(corps, { status: 200, headers: ENTETES });
+}
+
+// Le classement d'une course : un membre en envoie un à la fois ; renvoyé, il remplace l'ancien.
+async function envoyerSeance(requete, env, code) {
+  const moi = await membreAuthentifie(requete, env, code);
+  const seance = validerSeance((await lireCorps(requete)).seance);
+  const deja = await env.DB.prepare(
+    "SELECT count(*) AS n, sum(id = ?) AS meme FROM seances WHERE groupe = ? AND membre = ?"
+  )
+    .bind(seance.id, code, moi.id)
+    .first();
+  if (!deja.meme && deja.n >= LIMITES.seancesParMembre) {
+    throw new ErreurService(413, "trop_gros", "trop de séances pour un seul membre");
+  }
+  const [version] = await env.DB.batch([
+    env.DB.prepare("UPDATE groupes SET version = version + 1 WHERE code = ? RETURNING version").bind(code),
+    env.DB.prepare(
+      `INSERT INTO seances (groupe, membre, id, donnees, maj)
+       VALUES (?, ?, ?, ?, (SELECT version FROM groupes WHERE code = ?))
+       ON CONFLICT (groupe, membre, id) DO UPDATE SET donnees = excluded.donnees, maj = excluded.maj`
+    ).bind(code, moi.id, seance.id, seance.donnees, code),
+  ]);
+  return repondre({ version: version.results[0].version });
+}
+
+async function lireSeance(requete, env, code, membre, id) {
+  await membreAuthentifie(requete, env, code);
+  const seance = await env.DB.prepare("SELECT donnees, maj FROM seances WHERE groupe = ? AND membre = ? AND id = ?")
+    .bind(code, membre, id)
+    .first();
+  if (!seance) throw new ErreurService(404, "seance_introuvable", "cette séance n'est plus dans le groupe");
+  return new Response(`{"maj":${seance.maj},"donnees":"${seance.donnees}"}`, { status: 200, headers: ENTETES });
 }
 
 // La télémétrie d'un record : un membre en envoie un à la fois, le même tracé et la
@@ -343,6 +396,7 @@ async function quitter(requete, env, code, membre) {
     env.DB.prepare("UPDATE groupes SET version = version + 1 WHERE code = ?").bind(code),
     env.DB.prepare("DELETE FROM performances WHERE groupe = ? AND membre = ?").bind(code, moi.id),
     env.DB.prepare("DELETE FROM tours WHERE groupe = ? AND membre = ?").bind(code, moi.id),
+    env.DB.prepare("DELETE FROM seances WHERE groupe = ? AND membre = ?").bind(code, moi.id),
     env.DB.prepare("DELETE FROM membres WHERE id = ?").bind(moi.id),
     env.DB.prepare("DELETE FROM contours WHERE groupe = ? AND NOT EXISTS (SELECT 1 FROM membres WHERE groupe = ?)").bind(
       code,
@@ -377,6 +431,10 @@ export async function traiter(requete, env) {
     if (morceaux.length === 4 && sous === "tours" && methode === "PUT") return await envoyerTour(requete, env, code);
     if (morceaux.length === 6 && sous === "tours" && methode === "GET") {
       return await lireTour(requete, env, code, membre, decodeURIComponent(morceaux[5]));
+    }
+    if (morceaux.length === 4 && sous === "seances" && methode === "PUT") return await envoyerSeance(requete, env, code);
+    if (morceaux.length === 6 && sous === "seances" && methode === "GET") {
+      return await lireSeance(requete, env, code, membre, decodeURIComponent(morceaux[5]));
     }
     if (morceaux.length === 5 && sous === "membres" && methode === "DELETE") {
       return await quitter(requete, env, code, membre);

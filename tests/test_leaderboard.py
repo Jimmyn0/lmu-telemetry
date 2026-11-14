@@ -359,6 +359,24 @@ def test_les_essais_ne_comptent_pas() -> None:
     assert lb.comptee(perf()) and not lb.comptee(perf(type="P")) and not lb.comptee(perf(en_ligne=False))
 
 
+def test_une_seance_sans_aucun_tour_ne_compte_pas() -> None:
+    """Vu le 2026-11-14 : une qualif en Hypercar où l'on n'avait bouclé aucun tour faisait
+    apparaître la catégorie sur la fiche. Une course quittée avant la fin du premier tour compte
+    encore, comme un abandon (choisi le même jour)."""
+    sans_tour = {"tours": 0, "tours_chronometres": 0, "meilleur_tour": None, "tour_meilleur": None}
+    perfs = [
+        perf(),
+        perf(id="1-Q", classe="Hyper", voiture="Peugeot 9x8", marque="Peugeot", **sans_tour),
+        course("Moi", None, statut="abandon", id="2-R", heure=13, **sans_tour),
+        course("Moi", None, statut=None, id="3-R", heure=14, **sans_tour),  # ni arrivée, ni abandon
+    ]
+    r = lb.leaderboard_json(perfs, {}, {"Moi"})
+    assert r["pilotes"][0]["classes"] == ["GT3"]
+    assert [c["id"] for c in r["historique"]["lignes"]] == ["2-R"]
+    assert (r["courses"][0]["courses"], r["courses"][0]["abandons"]) == (1, 1)
+    assert r["pilotes"][0]["seances"] == 2
+
+
 def test_la_page_des_dernieres_courses_s_allonge() -> None:
     perfs = [course("Moi", 1, heure=h) for h in range(10, 15)]
     assert len(lb.leaderboard_json(perfs, {})["historique"]["lignes"]) == 5

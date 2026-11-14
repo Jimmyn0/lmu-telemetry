@@ -56,18 +56,21 @@ LEADERBOARD WITH FRIENDS
 
 The Leaderboard tab ranks the online qualifying sessions and races of a whole
 group of friends: best laps per track and class, latest races, a page per
-driver. You can also pick two laps there, yours or a friend's, and compare
-them in the Telemetry tab.
+driver. A race opens in the Results tab, even a friend's. You can also pick
+two laps there, yours or a friend's, best laps or race laps, and compare them
+in the Telemetry tab.
 
 To join the group: Leaderboard tab, "Group" card at the top left, "Join a
 group", then the code your friend gave you (for example K7M2-QX9P). After
 that, everything happens on its own, at every launch and after every session.
 
 What is shared with the group: your in-game driver name, your lap times,
-positions and cars in online qualifying and races, and the telemetry of your
-best laps, so your friends can compare against them. Nothing else: not your
-practice sessions, not your sessions against the AI. "Leave the group"
-deletes all of it.
+positions and cars in online qualifying and races, the telemetry of your best
+laps and of the best lap of each race, so your friends can compare against
+them, and the full results of your online races (the other drivers of the
+race and its chat included), so they can open them in Results. Nothing else:
+not your practice sessions, not your sessions against the AI. "Leave the
+group" deletes all of it.
 
 
 UPDATING

@@ -4,8 +4,8 @@ voitures, ses courses) et une fiche par pilote (ses statistiques, ses records, s
 Il se calcule à partir des performances de tous les membres (`performances.py`), et ne
 compte que les **qualifications et les courses en ligne** : contre l'IA, on règle soi-même
 le niveau des adversaires, ni les chronos ni les victoires ne s'y comparent ; en essais, on
-roule pour régler, pas pour se classer. Les filtres sont le tracé, la catégorie, la voiture
-et le pilote. Voir docs/19-leaderboard.md.
+roule pour régler, pas pour se classer. Et seulement celles où le pilote a roulé (`a_roule`).
+Les filtres sont le tracé, la catégorie, la voiture et le pilote. Voir docs/19-leaderboard.md.
 
 Les meilleurs tours ne se comparent que sur un même tracé et dans une même catégorie :
 un pilote a une ligne par catégorie roulée sur le tracé, une voiture aussi.
@@ -44,9 +44,19 @@ def _ordre_familles(classe: str) -> tuple[int, str]:
 TYPES_COMPTES = frozenset({"Q", "R"})
 
 
+def a_roule(p: Performance) -> bool:
+    """Le pilote a-t-il pris part à la séance ? Sans aucun tour bouclé, il a rejoint le serveur
+    sans rouler (vu le 2026-11-14 : une qualif en Hypercar à 0 tour, dans un serveur quitté dix
+    minutes plus tard), ou quitté la course avant la fin du premier tour. Ce dernier cas compte
+    encore, comme un abandon (choisi le 2026-11-14) : le fichier du jeu ne le distingue pas d'un
+    départ du serveur avant le feu vert."""
+    return p.tours > 0 or p.tours_chronometres > 0 or (p.type == "R" and p.statut in ("abandon", "disqualifie"))
+
+
 def comptee(p: Performance) -> bool:
-    """La performance compte-t-elle au leaderboard ? En ligne, en qualifs ou en course."""
-    return p.en_ligne and p.type in TYPES_COMPTES
+    """La performance compte-t-elle au leaderboard ? En ligne, en qualifs ou en course, et
+    roulée (`a_roule`)."""
+    return p.en_ligne and p.type in TYPES_COMPTES and a_roule(p)
 
 
 def comptees(perfs: list[Performance]) -> list[Performance]:

@@ -10,10 +10,10 @@
 // les séances de ce PC.
 
 import {
-  $, api, badgeClasse, contourSvg, dateCourte, dateJour, envoyer, etat, etatVide, nomType,
+  $, api, badgeClasse, contourSvg, dateCourte, dateJour, envoyer, erreur, etat, etatVide, navigation, nomType,
 } from "/commun.js";
 import { drapeau, echapper, embleme } from "/emblemes.js";
-import { gomme, tempsMarque } from "/ecran_resultats.js";
+import { gomme, ouvrirSession, tempsMarque } from "/ecran_resultats.js";
 import { ouvrirTelemetrie } from "/ecran_telemetrie.js";
 import { chrono, familleClasse, signe } from "/format.js";
 import { ICONES } from "/icones.js";
@@ -33,6 +33,8 @@ const LARGEURS_TOURS = [46, null, 86, 74, 74, 74, 106, 66, 86, 98, 76, 58, 100];
 const LARGEURS_VOITURES = [52, null, 116, 66, 210, 76, 80, 104, 84, 64];
 const LARGEURS_COURSES = [null, 84, 88, 86, 70, 92, 96, 128, 125];
 const LARGEURS_HISTORIQUE = [103, null, 88, 220, 66, 108, 104, 63];
+// Sur la page d'un circuit, la colonne Réf. / Comp. en plus.
+const LARGEURS_HISTORIQUE_CHOIX = [...LARGEURS_HISTORIQUE, 100];
 const LARGEURS_RECORDS = [null, 88, 230, 116, 66, 78, 74, 64];
 const LARGEURS_CATEGORIES = [null, 84, 84, 88, 86, 70, 92, 96, 125];
 
@@ -357,14 +359,17 @@ function arrivee(c) {
   }`;
 }
 
-function tableHistorique(r) {
+// Les dernières courses. Une ligne ouvre le classement de sa course dans Résultats, même
+// celle d'un ami (ce qu'il en a partagé) ; sur la page d'un circuit (`choix`), la colonne
+// Réf. / Comp. choisit son meilleur tour enregistré, à comparer dans Télémétrie.
+function tableHistorique(r, { choix = false } = {}) {
   const h = r.historique;
   if (!h.lignes.length) return vide(t("leaderboard.aucune_course"));
   const pays = paysDesCircuits(r);
   const restant = h.total - h.lignes.length;
   return `<div class="groupe-records classe-autre">
     <div class="defilement-table"><table class="table-leaderboard table-cliquable">
-      ${colonnes(LARGEURS_HISTORIQUE)}
+      ${colonnes(choix ? LARGEURS_HISTORIQUE_CHOIX : LARGEURS_HISTORIQUE)}
       <thead><tr>
         <th>${t("leaderboard.col.date")}</th>
         <th>${t("leaderboard.col.circuit")}</th>
@@ -374,11 +379,15 @@ function tableHistorique(r) {
         <th class="nombre">${t("leaderboard.col.arrivee")}</th>
         <th class="nombre">${t("classement.col.meilleur")}</th>
         <th class="nombre">${t("classement.col.tours")}</th>
+        ${choix ? `<th class="centre">${t("session.col.choix")}</th>` : ""}
       </tr></thead>
       <tbody>${h.lignes
         .map(
-          (c) => `<tr class="${c.moi ? "joueur" : ""}" data-trace="${echapper(c.trace)}"
-              data-classe="${echapper(c.classe)}" title="${t("leaderboard.voir_circuit")}">
+          (c) => `<tr class="${c.moi ? "joueur" : ""}" ${
+              c.seance
+                ? `data-seance="${echapper(c.seance)}" title="${t("leaderboard.voir_course")}"`
+                : `title="${t("leaderboard.course_non_partagee")}"`
+            }>
             <td>${deuxLignes(dateJour(c.date), heure(c.date))}</td>
             <td><span class="cellule-icone">${drapeau(pays.get(c.circuit))}<span>${echapper(c.trace)}</span></span></td>
             <td class="centre">${badgeClasse(c.classe)}</td>
@@ -387,6 +396,7 @@ function tableHistorique(r) {
             <td class="nombre arrivee">${arrivee(c)}</td>
             <td class="nombre">${chrono(c.meilleur_tour)}</td>
             <td class="nombre">${nombre(c.tours)}</td>
+            ${choix ? `<td class="choix-tour-cellule">${pastillesChoix(c)}</td>` : ""}
           </tr>`
         )
         .join("")}</tbody>
@@ -424,8 +434,9 @@ function pastillesChoix(l) {
   return pastille("ref", t("leaderboard.choisir_ref", quoi)) + pastille("cmp", t("leaderboard.choisir_cmp", quoi));
 }
 
-function barreComparer(r) {
-  if (!r.tours.some((c) => c.lignes.some((l) => l.enregistre))) return "";
+// `lignes` : celles du tableau dont on choisit les tours (meilleurs tours, ou courses).
+function barreComparer(lignes) {
+  if (!lignes.some((l) => l.enregistre)) return "";
   const { ref, cmp } = choixTours;
   const role = (cle, nom, x) => `<span class="role-choix ${cle}">${nom}</span>${
     x ? `<b>${echapper(x.pilote)}</b><span>${chrono(x.chrono)}</span>` : "<span>—</span>"
@@ -698,9 +709,12 @@ function pageCircuit(r, circuit) {
     contenu = `${titreSection(t("leaderboard.bilan_titre"))}
       ${tableCourses(r.courses)}
       ${titreSection(t("leaderboard.historique"))}
-      ${tableHistorique(r)}`;
+      ${barreComparer(r.historique.lignes)}
+      ${tableHistorique(r, { choix: true })}`;
   } else {
-    contenu = `${barreComparer(r)}${r.tours.map(groupeTours).join("") || vide(t("leaderboard.aucun_tour"))}`;
+    contenu = `${barreComparer(r.tours.flatMap((c) => c.lignes))}${
+      r.tours.map(groupeTours).join("") || vide(t("leaderboard.aucun_tour"))
+    }`;
   }
   return `${entete(r, {
       visuel: `<span class="grand-drapeau">${drapeau(circuit.pays)}</span>`,
@@ -1034,7 +1048,15 @@ function afficher() {
       comparerDansTelemetrie();
       return;
     }
-    // Une course ou un record ouvre le circuit, dans sa catégorie.
+    // Les pastilles Réf. / Comp. d'une course ont leur propre clic.
+    if (e.target.closest(".pastille-choix")) return;
+    // Une course ouvre son classement dans Résultats.
+    const course = e.target.closest(".table-cliquable tbody tr[data-seance]");
+    if (course) {
+      ouvrirCourse(course.dataset.seance);
+      return;
+    }
+    // Un record ouvre le circuit, dans sa catégorie.
     const ligne = e.target.closest(".table-cliquable tbody tr[data-trace]");
     if (ligne) {
       vue.onglet = "pilotes";
@@ -1047,6 +1069,16 @@ function afficher() {
 // l'on vient, qui la montreraient en partie sans qu'on le voie.
 function ouvrirFiche(nom) {
   changer({ profil: nom, trace: null, classe: null, voiture: null, pilote: null });
+}
+
+// Une course dans l'onglet Résultats : la session de ce PC qui l'a enregistrée, ou son seul
+// classement (« seance:… », la course d'un ami). Celle d'un ami n'est pas dans la colonne
+// des sessions : elle reste affichée tant qu'on n'en choisit pas une autre.
+function ouvrirCourse(designation) {
+  // Connue avant de changer d'onglet, qui ouvrirait sinon la dernière session.
+  etat.sessionChoisie = designation;
+  navigation.aller("resultats");
+  ouvrirSession(designation).catch((e) => erreur(e.message));
 }
 
 // La référence et le tour comparé choisis, dans l'onglet Télémétrie.

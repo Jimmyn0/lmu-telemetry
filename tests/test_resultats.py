@@ -131,6 +131,29 @@ def test_cache_invalide_par_un_nouveau_fichier(resultats_test: Path) -> None:
     assert len(resultats.index_voitures(resultats_test)) == 4
 
 
+def test_les_noms_d_un_meme_modele_sont_reunis(tmp_path: Path) -> None:
+    """Demandé le 2026-11-14 : sur Spa, le leaderboard faisait deux voitures de la Ferrari
+    296, selon l'engagement (2025 ou 2026) choisi par chacun."""
+    ecrire(
+        tmp_path,
+        "a-01R1.xml",
+        [
+            ("Pilote#1", "AF Corse 2026 #21:WEC", "Ferrari 296 LMGT3 Evo", "GT3"),
+            ("Pilote#2", "Kessel Racing #57:ELMS25", "Ferrari 296 LMGT3", "GT3"),
+            ("Pilote#3", "United Autosports 2026 #95:WEC", "McLaren 720S LMGT3 Evo", "GT3"),
+        ],
+        bloc="Race",
+    )
+    index = resultats.index_voitures(tmp_path)
+    assert index["AF Corse 2026 #21:WEC"].modele == "Ferrari 296 LMGT3"
+    assert index["Kessel Racing #57:ELMS25"].modele == "Ferrari 296 LMGT3"
+    # Un « Evo » qui n'a pas d'autre nom reste tel quel.
+    assert index["United Autosports 2026 #95:WEC"].modele == "McLaren 720S LMGT3 Evo"
+    seance = resultats.lire_session(tmp_path / "a-01R1.xml")
+    assert [e.modele for e in seance.engages] == ["Ferrari 296 LMGT3", "Ferrari 296 LMGT3", "McLaren 720S LMGT3 Evo"]
+    assert resultats.modele_canonique("Genesis GMR001") == "Genesis GMR-001"
+
+
 # ----------------------------------------------------------------------
 # Marques
 # ----------------------------------------------------------------------

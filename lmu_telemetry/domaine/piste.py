@@ -71,6 +71,38 @@ après mesure : sur 106 000 échantillons, elle signale 3,2 % du temps contre
 les VIBREURS, qui débordent du bord de piste sans être hors piste. Rouler sur
 un vibreur est normal et ne déplace l'axe que d'un mètre ou deux : l'exclure
 aurait retiré de la donnée saine.
+
+--------------------------------------------------------------------------
+Les demi-tours et les dégagements bitumés, écartés aussi
+--------------------------------------------------------------------------
+
+`SurfaceTypes` ne dit que la nature du sol. Un dégagement BITUMÉ passe pour de
+la route : rien de ce qui s'y passe n'est signalé.
+
+Cas mesuré en haut du Raidillon, à Spa, deux tours de suite d'une même course :
+la voiture part à droite jusqu'à 25,6 m de l'axe, sur le bitume, s'arrête, puis
+fait demi-tour en recoupant la piste. La distance du tour recule de 20,7 m, puis
+de 9,5 m au tour suivant. Or le rééchantillonnage sur la distance ne garde que
+les instants où la voiture progresse : sa position y saute d'un bord à l'autre
+en moins d'un mètre, la direction lissée n'est plus celle de la piste, et l'axe
+déduit de ce tour s'écarte de 26 m. Moyenné sur quatre tours, il en restait
+assez pour fabriquer trois virages de 13 à 25 m de rayon sur une portion
+presque droite : 20 virages au lieu de 17.
+
+Même défaut, sans demi-tour, à la première chicane de Monza : un tour la coupe
+tout droit par l'échappatoire, bitumée elle aussi, jusqu'à 38 m de l'axe.
+
+Deux règles complètent donc celle des sorties de piste :
+
+* là où la distance d'un tour a reculé de plus de `RECUL_TOLERE`, toute la
+  portion qu'il a parcourue deux fois est écartée, avec une marge un peu plus
+  large que pour une sortie (`MARGE_DEMI_TOUR`) ;
+* au-delà de `FACTEUR_BORD_ABERRANT` demi-largeurs de l'axe, la voiture n'est
+  plus sur la piste, quel que soit le sol : la portion est écartée comme une
+  sortie. Ce n'est pas la règle écartée plus haut : à 12,5 m de l'axe d'une
+  piste de 10 m, on est 7,5 m au-delà du bord, bien après les vibreurs.
+
+Voir docs/07-sorties-de-piste.md pour la mesure sur toutes les sessions.
 """
 
 from __future__ import annotations
@@ -95,13 +127,36 @@ METRES_PAR_DEGRE = 111_320.0
 #: cette longueur — assez peu pour que la normale reste juste.
 LISSAGE_DIRECTION = 11.0
 
-#: Marge (m) ajoutée de part et d'autre d'une sortie de piste avant de l'écarter.
+#: Marge (m) ajoutée de part et d'autre d'une portion écartée — sortie de piste,
+#: ou passage loin de l'axe.
 #:
 #: La direction de l'axe se calcule sur une base lissée de `LISSAGE_DIRECTION`
 #: mètres : une position fausse contamine donc l'orientation jusqu'à une
 #: demi-fenêtre de chaque côté, et l'axe est calculé en deux passes. On élargit
 #: donc d'une fenêtre entière, ce qui couvre largement les deux passes.
 MARGE_HORS_PISTE = 11.0
+
+#: Recul (m) de la distance d'un tour au-delà duquel la voiture est revenue sur
+#: ses pas.
+#:
+#: En roulant, la distance ne recule jamais : sur 509 tours examinés, 446 ne
+#: reculent pas d'un centimètre. Une voiture arrêtée qui recule un peu avant de
+#: repartir le fait de quelques décimètres (16 tours, 1 m au plus) : elle
+#: repasse au même endroit, il n'y a rien à écarter. Au-delà (47 tours, jusqu'à
+#: 89 m), elle a fait demi-tour, ou coupé tout droit pendant que la piste
+#: tournait.
+RECUL_TOLERE = 1.0
+
+#: Marge (m) autour d'un demi-tour, plus large que celle d'une sortie.
+#:
+#: Un demi-tour est le pire cas : au point où la voiture a fait demi-tour, sa
+#: position SAUTE d'un bord à l'autre de la piste. Or la direction y est lissée
+#: trois fois de suite — sur la trajectoire, puis à chacune des deux passes sur
+#: l'axe —, sur `LISSAGE_DIRECTION` mètres à chaque fois : le saut se fait donc
+#: sentir jusqu'à une fenêtre et demie de part et d'autre. Mesuré sur un
+#: demi-tour simulé : avec la marge d'une sortie, l'axe gardait 0,67 m d'écart
+#: 13 m après le point de demi-tour ; 0,21 m avec celle-ci.
+MARGE_DEMI_TOUR = 1.5 * LISSAGE_DIRECTION
 
 #: Au-delà de ce multiple de la demi-largeur typique du circuit, une mesure de
 #: bord n'est pas le bord de la piste et n'est pas retenue.
@@ -116,6 +171,10 @@ MARGE_HORS_PISTE = 11.0
 #: demi-largeur, on ne trouve QUE ce pic de Long Beach (3,3 fois), soit 0,08 %
 #: des mesures de ce circuit et aucune ailleurs. Les vrais élargissements
 #: restent en dessous : l'épingle de Long Beach s'évase à 1,9 fois.
+#:
+#: Le même seuil vaut pour la VOITURE : plus loin de l'axe, elle n'est plus sur
+#: la piste, même sur un sol que le jeu compte comme de la route (voir
+#: `_loin_de_laxe`).
 FACTEUR_BORD_ABERRANT = 2.5
 
 
@@ -247,19 +306,70 @@ def _sur_piste(tour: DonneesTour, distance: np.ndarray) -> np.ndarray:
 
     dehors = tour.sur_distance(distance, (CANAL_HORS_PISTE,))[CANAL_HORS_PISTE] > 0.5
     pas = float(distance[1] - distance[0]) if len(distance) > 1 else 1.0
+    return ~_elargir(dehors, pas)
+
+
+def _elargir(masque: np.ndarray, pas: float) -> np.ndarray:
+    """Étend chaque portion d'un masque de `MARGE_HORS_PISTE` de part et d'autre."""
     marge = max(1, int(round(MARGE_HORS_PISTE / pas)))
 
     # Portion plus courte que la dilatation elle-même : `np.convolve` en mode
     # « same » rendrait alors un tableau de la taille du NOYAU, pas de l'entrée,
     # et le masque ne serait plus alignable. Sur si peu de points, tout ou rien
     # est de toute façon la seule réponse sensée.
-    if dehors.size <= 2 * marge:
-        return np.full(distance.shape, not dehors.any())
+    if masque.size <= 2 * marge:
+        return np.full(masque.shape, bool(masque.any()))
 
     # Dilatation : une convolution sur un masque booléen suffit, et évite une
     # dépendance à scipy pour trois lignes.
-    elargi = np.convolve(dehors.astype(float), np.ones(2 * marge + 1), mode="same") > 0
-    return ~elargi
+    return np.convolve(masque.astype(float), np.ones(2 * marge + 1), mode="same") > 0
+
+
+def _demi_tour(tour: DonneesTour, distance: np.ndarray) -> np.ndarray:
+    """Par point de l'axe de distance : ce tour y est-il repassé en reculant ?
+
+    True sur toute la portion parcourue deux fois — du point le plus en arrière
+    où la voiture est revenue jusqu'à celui où elle a fait demi-tour —, plus
+    `MARGE_DEMI_TOUR` de part et d'autre.
+
+    Le tour n'y dit rien de fiable : le rééchantillonnage sur la distance ne
+    garde que les instants où la voiture progresse, si bien que sa position y
+    saute d'un coup de l'aller au retour, souvent d'un bord à l'autre.
+    """
+    parcourue = np.asarray(tour.distance)
+    plus_loin = np.maximum.accumulate(parcourue)
+    recul = plus_loin - parcourue > RECUL_TOLERE
+    masque = np.zeros(distance.shape, dtype=bool)
+    bords = np.flatnonzero(np.diff(np.r_[0, recul.astype(np.int8), 0]))
+    for debut, fin in zip(bords[::2], bords[1::2]):
+        # Tant que la voiture est en retrait, le point le plus loin atteint ne
+        # bouge pas : c'est celui où elle a fait demi-tour.
+        masque |= (distance >= parcourue[debut:fin].min() - MARGE_DEMI_TOUR) & (
+            distance <= plus_loin[debut] + MARGE_DEMI_TOUR
+        )
+    return masque
+
+
+def _loin_de_laxe(lateral: np.ndarray, demi_typique: float, pas: float) -> np.ndarray:
+    """Par point de l'axe de distance : la voiture roulait-elle loin au-delà du bord ?
+
+    Au-delà de `FACTEUR_BORD_ABERRANT` demi-largeurs typiques, elle n'est plus
+    sur la piste, même sur un dégagement bitumé que le jeu compte comme de la
+    route. La marge habituelle s'ajoute de part et d'autre.
+    """
+    if not np.isfinite(demi_typique) or demi_typique <= 0:
+        return np.zeros(lateral.shape, dtype=bool)
+    return _elargir(np.abs(lateral) > FACTEUR_BORD_ABERRANT * demi_typique, pas)
+
+
+def _demi_largeur_typique(valeurs: list[dict[str, np.ndarray]]) -> float:
+    """La médiane des distances au bord mesurées, tous tours et deux côtés
+    confondus. Sert de référence pour reconnaître ce qui n'est plus la piste :
+    un bord aberrant, ou une voiture partie loin de l'axe (voir
+    FACTEUR_BORD_ABERRANT)."""
+    distances = np.abs(np.concatenate([v["Track Edge"] for v in valeurs]))
+    distances = distances[np.isfinite(distances)]
+    return float(np.median(distances)) if distances.size else np.inf
 
 
 def _moyenne_valide(valeurs: np.ndarray, valides: np.ndarray) -> np.ndarray:
@@ -307,11 +417,21 @@ def construire(tours: list[DonneesTour], distance: np.ndarray) -> Geometrie:
     if not tours:
         raise ValueError("il faut au moins un tour pour reconstruire la piste")
 
-    # Les passages hors piste faussent l'axe : on repère une fois pour toutes
-    # où chaque tour est exploitable. Le masque ne dépend pas du signe testé
-    # plus bas, on ne le calcule donc qu'une fois.
-    valides = np.stack([_sur_piste(t, distance) for t in tours])
+    # Les passages où un tour ne suit pas la piste faussent l'axe : sorties de
+    # piste, demi-tours, échappées loin du bord sur un dégagement bitumé. On
+    # repère une fois pour toutes où chaque tour est exploitable. Le masque ne
+    # dépend pas du signe testé plus bas, on ne le calcule donc qu'une fois.
     valeurs = [t.sur_distance(distance, CANAUX_GEOMETRIE) for t in tours]
+    demi_typique = _demi_largeur_typique(valeurs)
+    pas = float(distance[1] - distance[0])
+    valides = np.stack(
+        [
+            _sur_piste(t, distance)
+            & ~_demi_tour(t, distance)
+            & ~_loin_de_laxe(v["Path Lateral"], demi_typique, pas)
+            for t, v in zip(tours, valeurs)
+        ]
+    )
 
     # La convention de signe de `Path Lateral` n'est pas documentée. On essaie
     # les deux, et on garde celle qui rapproche le plus les axes déduits des
@@ -337,18 +457,13 @@ def construire(tours: list[DonneesTour], distance: np.ndarray) -> Geometrie:
     # Chaque tour ne renseigne que le bord de SON côté : on prend l'extrême de
     # chaque côté parmi ce que les tours ont réellement vu.
     #
-    # Les échantillons hors piste sont écartés ici aussi : `Track Edge` y donne
-    # le bord vu depuis le dégagement, du mauvais côté. Mesuré au même endroit
-    # de Monza : −4,4 m sur le tour sorti contre +5,6 m sur les trois autres.
+    # Les échantillons écartés de l'axe le sont ici aussi. Hors piste, `Track
+    # Edge` donne le bord vu depuis le dégagement, du mauvais côté. Mesuré au
+    # même endroit de Monza : −4,4 m sur le tour sorti contre +5,6 m sur les
+    # trois autres.
     gauche = np.full(distance.shape, np.nan)
     droit = np.full(distance.shape, np.nan)
     bords = [v["Track Edge"] * signe for v in valeurs]
-    # Demi-largeur typique : la médiane des distances au bord mesurées, tous
-    # tours et deux côtés confondus. Sert de référence pour écarter les
-    # mesures aberrantes (voir FACTEUR_BORD_ABERRANT).
-    distances_bord = np.abs(np.concatenate(bords))
-    distances_bord = distances_bord[np.isfinite(distances_bord)]
-    demi_typique = float(np.median(distances_bord)) if distances_bord.size else np.inf
     for bord, utilisable in zip(bords, valides):
         plausible = utilisable & (np.abs(bord) <= FACTEUR_BORD_ABERRANT * demi_typique)
         cote_gauche = plausible & (bord < 0)

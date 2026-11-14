@@ -7,6 +7,8 @@ reconstruction doit retrouver.
 
 from __future__ import annotations
 
+import math
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +17,7 @@ import pytest
 from lmu_telemetry.sources import catalogue
 from lmu_telemetry.domaine.donnees_tour import charger
 from lmu_telemetry.errors import ErreurTelemetrie, SessionEnCours
-from lmu_telemetry.domaine.piste import _sur_piste, construire
+from lmu_telemetry.domaine.piste import MARGE_DEMI_TOUR, _demi_tour, _sur_piste, construire
 from lmu_telemetry.domaine.session import Session
 from tests.fixtures import construire as constructeur
 
@@ -89,6 +91,10 @@ def test_une_sortie_ne_deplace_plus_laxe(session_test: Path) -> None:
     On rejoue exactement ça : on fausse `Path Lateral` sur une portion d'un
     tour, ce qui déplace l'axe que ce tour déduit, et on vérifie que l'axe
     commun ne bouge pas dès lors que la portion est signalée hors piste.
+
+    L'excursion reste sous 2,5 demi-largeurs de l'axe : au-delà, la portion
+    serait écartée d'office, signalée ou non (voir le test suivant), et ce test
+    ne vérifierait plus rien du signalement.
     """
     from lmu_telemetry.domaine.donnees_tour import CANAL_HORS_PISTE
 
@@ -97,19 +103,19 @@ def test_une_sortie_ne_deplace_plus_laxe(session_test: Path) -> None:
     distance = np.arange(0.0, fin, 1.0)
     reference = construire(tours, distance).axe
 
-    # Une excursion de 25 m sur une seconde, au milieu du tour 3.
+    # Une excursion de 8 m sur une seconde, au milieu du tour 3 : de -3 à -11 m.
     abime = charger(session_test, 3)
     debut = len(abime.temps) // 2
     plage = slice(debut, debut + 100)  # 1 s à 100 Hz
     abime.canaux["Path Lateral"] = abime.canaux["Path Lateral"].copy()
-    abime.canaux["Path Lateral"][plage] -= 25.0
+    abime.canaux["Path Lateral"][plage] -= 8.0
 
     # Sans le signalement, l'axe doit être franchement faussé : c'est ce qui se
     # passait avant la correction.
     abime.canaux[CANAL_HORS_PISTE] = np.zeros_like(abime.temps)
     sans_signalement = construire([tours[0], abime], distance).axe
     dommage = np.hypot(*(sans_signalement - reference).T).max()
-    assert dommage > 5.0, f"l'excursion ne fausse que de {dommage:.2f} m"
+    assert dommage > 3.0, f"l'excursion ne fausse que de {dommage:.2f} m"
 
     # Avec le signalement, l'axe doit redevenir celui de référence.
     abime.canaux[CANAL_HORS_PISTE] = np.zeros_like(abime.temps)
@@ -117,6 +123,144 @@ def test_une_sortie_ne_deplace_plus_laxe(session_test: Path) -> None:
     corrige = construire([tours[0], abime], distance).axe
     residuel = np.hypot(*(corrige - reference).T).max()
     assert residuel < 0.5, f"il reste {residuel:.2f} m d'écart"
+
+
+def test_un_degagement_bitume_ne_deplace_plus_laxe(session_test: Path) -> None:
+    """Cas réel de la première chicane de Monza : un tour la coupe tout droit
+    par l'échappatoire, jusqu'à 38 m de l'axe. L'échappatoire est bitumée : le
+    jeu la compte comme de la route, et rien n'est signalé hors piste.
+
+    Au-delà de 2,5 demi-largeurs de l'axe, la voiture n'est plus sur la piste,
+    quoi qu'en dise le sol : la portion est écartée comme une sortie.
+    """
+    from lmu_telemetry.domaine.donnees_tour import CANAL_HORS_PISTE
+
+    tours = [charger(session_test, 1), charger(session_test, 3)]
+    fin = min(t.longueur for t in tours)
+    distance = np.arange(0.0, fin, 1.0)
+    reference = construire(tours, distance).axe
+
+    # 25 m de plus sur une seconde, au milieu du tour 3, et aucun signalement.
+    abime = charger(session_test, 3)
+    debut = len(abime.temps) // 2
+    plage = slice(debut, debut + 100)
+    abime.canaux["Path Lateral"] = abime.canaux["Path Lateral"].copy()
+    abime.canaux["Path Lateral"][plage] -= 25.0
+    abime.canaux[CANAL_HORS_PISTE] = np.zeros_like(abime.temps)
+
+    # Seul, ce tour déduit un axe faux de 25 m : c'est bien un passage à écarter.
+    seul = construire([abime], distance).axe
+    intact = construire([charger(session_test, 3)], distance).axe
+    dommage = np.hypot(*(seul - intact).T).max()
+    assert dommage > 20.0, f"l'excursion ne fausse que de {dommage:.2f} m"
+
+    corrige = construire([tours[0], abime], distance).axe
+    residuel = np.hypot(*(corrige - reference).T).max()
+    assert residuel < 0.5, f"il reste {residuel:.2f} m d'écart"
+
+
+def _avec_demi_tour(tour, debut_s: float, recul: float = 20.0):
+    """Le même tour, avec un demi-tour sur un dégagement bitumé.
+
+    Le scénario du Raidillon, à Spa : à `debut_s` secondes, la voiture dérive
+    vers l'extérieur jusqu'à 11 m de l'axe, s'arrête, puis fait demi-tour en
+    recoupant la piste — sa distance recule de `recul` mètres pendant qu'elle
+    passe à 9 m de l'autre côté —, avant de repartir. Rien n'est signalé hors
+    piste, et la voiture reste à moins de 2,5 demi-largeurs de l'axe : seule la
+    règle du recul peut écarter ce passage.
+
+    Position GPS, écart latéral et bord restent cohérents entre eux, comme dans
+    un vrai fichier. La vitesse n'entre pas dans la géométrie : la voiture
+    rattrape d'un coup le temps perdu, pour rejoindre le reste du tour intact.
+    """
+    pas = float(tour.temps[1] - tour.temps[0])
+    i = int(np.searchsorted(tour.temps, debut_s))
+    derive, arret, retour, reprise = (int(round(s / pas)) for s in (2.0, 1.0, 3.0, 4.0))
+    j = i + derive + arret + retour + reprise
+
+    distance = np.array(tour.distance, dtype=float)
+    lateral = np.array(tour.canal("Path Lateral"), dtype=float)
+    demi_tour = distance[i] + 60.0
+    distance[i:j] = np.concatenate(
+        [
+            np.linspace(distance[i], demi_tour, derive, endpoint=False),
+            np.full(arret, demi_tour),
+            np.linspace(demi_tour, demi_tour - recul, retour, endpoint=False),
+            np.linspace(demi_tour - recul, distance[j], reprise, endpoint=False),
+        ]
+    )
+    lateral[i:j] = np.concatenate(
+        [
+            np.linspace(lateral[i], 11.0, derive, endpoint=False),
+            np.full(arret, 11.0),
+            np.linspace(11.0, -9.0, retour, endpoint=False),
+            np.linspace(-9.0, lateral[j], reprise, endpoint=False),
+        ]
+    )
+
+    # Sur l'anneau, la position se déduit de la distance et de l'écart à l'axe,
+    # comme le fait la fixture (tests/fixtures/construire.py).
+    angle = 2 * math.pi * distance[i:j] / constructeur.LONGUEUR_TOUR
+    rayon = constructeur.RAYON + lateral[i:j]
+    k = math.cos(math.radians(float(np.mean(tour.canal("GPS Latitude")))))
+    canaux = dict(tour.canaux)
+    canaux["Path Lateral"] = lateral
+    for nom, valeurs in (
+        ("GPS Latitude", rayon * np.cos(angle) / constructeur.METRES_PAR_DEGRE),
+        ("GPS Longitude", rayon * np.sin(angle) / (constructeur.METRES_PAR_DEGRE * k)),
+        ("Track Edge", np.where(lateral[i:j] < 0, -1.0, 1.0) * constructeur.DEMI_LARGEUR),
+    ):
+        canaux[nom] = np.array(tour.canal(nom), dtype=float)
+        canaux[nom][i:j] = valeurs
+    return replace(tour, distance=distance, canaux=canaux)
+
+
+def test_un_demi_tour_ne_deplace_plus_laxe(session_test: Path) -> None:
+    """LE test de non-régression du défaut trouvé à Spa.
+
+    En haut du Raidillon, deux tours d'une course avaient fait demi-tour sur le
+    bitume du dégagement, que le jeu ne signale pas. Le rééchantillonnage sur
+    la distance ne garde que les instants où la voiture progresse : sa position
+    y sautait d'un bord à l'autre en moins d'un mètre, l'axe déduit de ce tour
+    s'écartait de 26 m, et trois virages inexistants apparaissaient.
+    """
+    tour1, tour3 = charger(session_test, 1), charger(session_test, 3)
+    distance = np.arange(0.0, min(tour1.longueur, tour3.longueur), 1.0)
+    reference = construire([tour1, tour3], distance).axe
+    abime = _avec_demi_tour(tour1, debut_s=20.0)
+
+    # Le même tour, sa distance aplatie : le rééchantillonnage en tire
+    # exactement les mêmes points, mais le recul ne se voit plus. C'est ce que
+    # voyait l'outil avant la correction, et l'axe doit en être faussé.
+    aplati = replace(abime, distance=np.maximum.accumulate(abime.distance))
+    dommage = np.hypot(*(construire([aplati, tour3], distance).axe - reference).T).max()
+    assert dommage > 5.0, f"le demi-tour ne fausse que de {dommage:.2f} m"
+
+    corrige = construire([abime, tour3], distance).axe
+    residuel = np.hypot(*(corrige - reference).T).max()
+    assert residuel < 0.5, f"il reste {residuel:.2f} m d'écart"
+
+
+def test_seule_la_portion_parcourue_deux_fois_est_ecartee(session_test: Path) -> None:
+    """Un demi-tour écarte ce que la voiture a parcouru deux fois, plus sa marge.
+
+    Un arrêt ne recule pas : le tour 3 de la fixture passe deux secondes à
+    l'arrêt, et rien n'est écarté. Une voiture arrêtée qui recule de quelques
+    décimètres avant de repartir non plus : elle repasse au même endroit.
+    """
+    tour1 = charger(session_test, 1)
+    distance = np.arange(0.0, tour1.longueur, 1.0)
+
+    ecarte = _demi_tour(_avec_demi_tour(tour1, debut_s=20.0, recul=20.0), distance)
+    assert ecarte.sum() == pytest.approx(20.0 + 2 * MARGE_DEMI_TOUR, abs=2)
+
+    assert not _demi_tour(charger(session_test, 3), distance).any()
+
+    recule = np.array(tour1.distance)
+    i = int(np.searchsorted(tour1.temps, 30.0))
+    recule[i : i + 50] = recule[i] - np.linspace(0.0, 0.5, 50)  # 50 cm en arrière,
+    recule[i + 50 : i + 100] = np.linspace(recule[i] - 0.5, recule[i + 100], 50)  # puis il repart
+    assert not _demi_tour(replace(tour1, distance=recule), distance).any()
 
 
 # ----------------------------------------------------------------------

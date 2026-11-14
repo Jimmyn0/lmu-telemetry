@@ -4,7 +4,7 @@
 #: À augmenter à chaque version distribuée (voir NOTES-DE-VERSION.md) : le dernier
 #: chiffre pour une correction, celui du milieu pour un ajout, le premier pour un grand
 #: changement (2.0.0 : le nouveau nom).
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 
 from .errors import ErreurTelemetrie
 from .sources.reader import ROUES, FichierSession, InfoCanal, InfoEvenement, InfoSession

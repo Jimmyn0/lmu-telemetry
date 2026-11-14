@@ -20,9 +20,9 @@ de l'Ouest (servie depuis Paris) ; son adresse est la constante `SERVICE` de
 * Chaque PC n'envoie que les **performances de son propriétaire en qualifs et en course, en
   ligne**, telles que les calcule `domaine/performances.py` : son nom de pilote dans le jeu, les
   circuits, voitures, chronos, secteurs, places. Rien d'autre : ni ses essais, ni ses séances
-  contre l'IA, ni e-mail, ni nom de PC, ni fichier, ni les autres pilotes de ses séances. Plus
-  les **contours** des tracés que sa télémétrie connaît, pour que les cartes des circuits d'un
-  ami aient leur dessin.
+  contre l'IA, ni e-mail, ni nom de PC, ni fichier, ni les autres pilotes de ses séances (sauf
+  dans le classement de ses courses, voir plus bas). Plus les **contours** des tracés que sa
+  télémétrie connaît, pour que les cartes des circuits d'un ami aient leur dessin.
 * La **synchronisation** se fait toute seule : à l'ouverture de l'outil, dès qu'une séance en
   ligne s'ajoute aux résultats du jeu (regardé chaque minute), et toutes les cinq minutes pour
   recevoir celles des autres. Le bouton « Synchroniser maintenant » la lance à la main.
@@ -31,6 +31,10 @@ de l'Ouest (servie depuis Paris) ; son adresse est la constante `SERVICE` de
 * Avec les performances, chaque PC partage la **télémétrie de ses records** de ces mêmes
   séances, un par tracé et par voiture : les amis s'y comparent dans l'onglet Télémétrie (voir
   « Les records partagés »).
+* Depuis le 2026-11-14 (2.1.0), le **classement complet de chacune de ses courses en ligne**, pour
+  l'ouvrir dans l'onglet Résultats d'un autre PC, et la **télémétrie du meilleur tour** de chacune
+  (voir « Les courses partagées »). C'est la seule chose partagée qui contient les autres pilotes
+  d'une séance, et son chat : un classement ne se montre pas sans eux.
 
 ## La sécurité
 
@@ -186,6 +190,42 @@ des sessions du dossier).
 
 **Les limites du service** : 300 records par membre, 1,5 Mo par record.
 
+## Les courses partagées (2.1.0, 2026-11-14)
+
+Demandé après quelques jours d'usage : ouvrir dans Résultats la course d'un ami depuis le
+leaderboard, et comparer les tours des courses d'un circuit (voir
+[19-leaderboard.md](19-leaderboard.md), « Après quelques jours d'usage »).
+
+* **Le classement d'une course** (`groupe/seances.py`) : la séance que lit `resultats.lire_session`
+  (voitures, tours, secteurs, gommes, incidents, chat), mise en forme par
+  `resultats.seance_json`, en JSON compressé puis en base64 comme un tour : de 15 à 38 Ko pour les
+  plus grosses courses du disque (42 voitures). À la réception, `seance_depuis_json` vérifie
+  chaque champ et des garde-fous (120 voitures, 1 500 tours par voiture, 16 Mo décompressés), et
+  ce PC recalcule la marque et le nom commun du modèle. Une course se désigne
+  « seance:<membre>/<numéro de la performance> » (« seance:local/… » : une course de ce PC dont la
+  télémétrie n'a pas été enregistrée).
+* **Le meilleur tour d'une course** part comme un record (`Record`), sous le numéro
+  `tours.identifiant_course(<numéro de la performance>)`. Une version plus ancienne de l'outil le
+  prend pour un record de plus, sans dommage (elle garde le plus rapide).
+* **L'envoi** : 20 classements et 20 tours par synchronisation, les courses les plus récentes
+  d'abord ; un classement repart si le jeu réécrit son fichier. **La réception** : seulement la
+  liste des courses (membre, numéro, version) ; un classement se télécharge quand on l'ouvre, et
+  se garde dans `groupe_seances/` (effacé en quittant le groupe).
+* **Le service, version 2** : la table `seances` (`schema.sql`), `PUT /v1/groupes/<code>/seances`
+  et `GET /v1/groupes/<code>/seances/<membre>/<numéro>`, la liste dans la lecture du groupe, et
+  le départ d'un membre qui efface les siennes. Limites : 2 000 courses par membre, 512 Ko par
+  classement, et 1 000 tours par membre (300 avant : records et tours de course). Un service pas
+  encore mis à jour répond « route inconnue » : l'outil n'y envoie alors plus de classement
+  jusqu'au prochain lancement, et le reste de la synchronisation se fait ; s'il refuse un tour de
+  plus (« trop gros »), le reste attend sans bloquer la réception.
+* **La mise à jour du service en ligne** : `npx wrangler d1 execute lmu-groupe --remote
+  --file=schema.sql` (la nouvelle table ; les autres existent déjà), puis `npx wrangler deploy`.
+  Vérifier ensuite que `/v1/sante` répond `{"ok":true,"version":2}`.
+* **Mis en ligne le 2026-11-14**, à la demande de l'utilisateur : la table créée (6 tables, base
+  de 4 Mo), le Worker déployé, `/v1/sante` en version 2. Puis un groupe d'essai le temps d'une
+  course fictive : envoyée, listée, relue à l'identique par un second membre, un identifiant
+  invalide refusé, et le groupe disparu au départ de ses deux membres.
+
 ## Essayer le service sur ce PC
 
 Node 22.5 ou plus suffit : le service tourne avec le SQLite de Node à la place de D1
@@ -211,7 +251,7 @@ Une seule fois, par le propriétaire du service. Il faut un compte Cloudflare gr
 4. `npx wrangler deploy` : met le service en ligne. Au premier déploiement, Cloudflare demande
    un sous-domaine `workers.dev` : il apparaîtra dans l'adresse du service, et donc chez tes
    amis ; choisis-le neutre.
-5. Vérifie : l'adresse affichée, suivie de `/v1/sante`, doit répondre `{"ok":true,"version":1}`.
+5. Vérifie : l'adresse affichée, suivie de `/v1/sante`, doit répondre `{"ok":true,"version":2}`.
 6. L'adresse va dans la constante `SERVICE` de `lmu_telemetry/groupe/reglages.py` : le .exe
    l'emportera, et tes amis n'auront qu'à saisir le code du groupe.
 

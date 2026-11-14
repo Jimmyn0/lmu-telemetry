@@ -9,8 +9,11 @@ qui a changé depuis la dernière (le service numérote ses écritures).
 Seules partent les performances du propriétaire qui comptent au leaderboard, ses
 qualifications et ses courses en ligne : jamais ses essais, ni ce qu'il joue contre l'IA,
 ni les autres pilotes de ses séances (voir `domaine/performances.py`). Avec elles, la
-télémétrie de ses records des mêmes séances, un par tracé et par voiture (`tours.py`) : le
-groupe n'en reçoit que la liste, et chacun télécharge un tour quand il veut le comparer.
+télémétrie de ses records des mêmes séances, un par tracé et par voiture, et celle du
+meilleur tour de chacune de ses courses (`tours.py`) : le groupe n'en reçoit que la liste, et
+chacun télécharge un tour quand il veut le comparer. Et le classement complet de chacune de
+ses courses en ligne (`seances.py`), pour l'ouvrir dans l'onglet Résultats d'un autre PC :
+lui seul montre les autres pilotes de la course.
 """
 
 from __future__ import annotations
@@ -33,9 +36,11 @@ from ..domaine.donnees_tour import charger
 from ..domaine.leaderboard import TYPES_COMPTES, comptee
 from ..domaine.performances import Performance, _entier, _nombre, _texte, depuis_json
 from ..errors import ErreurTelemetrie
+from ..sources.resultats import ResultatsSession, lire_session, modele_canonique
 from ..textes import Message
 from . import reglages
 from .reglages import Adhesion
+from .seances import IDENTIFIANT, analyser_seance, decoder_seance, designer_seance, encoder_seance
 from .service import ErreurGroupe, Service
 from .tours import Record, TourPartage, analyser, decoder, designer, encoder
 
@@ -52,6 +57,13 @@ PAQUET = 100
 #: le reste attend la suivante.
 TOURS_PAR_SYNCHRO = 20
 
+#: Le dossier des courses d'amis déjà téléchargées, dans les données de l'outil.
+DOSSIER_SEANCES = "groupe_seances"
+
+#: Classements de course envoyés au plus par synchronisation (une centaine de Ko chacun à
+#: lire, une trentaine à envoyer) : à la première, un membre a toutes ses courses à partager.
+SEANCES_PAR_SYNCHRO = 20
+
 
 def fichier_copie() -> Path:
     return emplacements.donnees() / FICHIER
@@ -61,9 +73,35 @@ def dossier_tours() -> Path:
     return emplacements.donnees() / DOSSIER_TOURS
 
 
+def dossier_seances() -> Path:
+    return emplacements.donnees() / DOSSIER_SEANCES
+
+
 def exporter(record: Record) -> str:
     """La télémétrie d'un record de ce PC, prête à partir."""
     return encoder(charger(record.chemin, record.numero))
+
+
+@dataclass(frozen=True)
+class CourseAPartager:
+    """Une course en ligne du propriétaire, dont le classement part au groupe."""
+
+    id: str
+    """Celui de sa performance : « 1794245179-R »."""
+
+    fichier: str
+    """Son fichier de résultats, sur ce PC."""
+
+    signature: str
+    """Ce qui change quand le jeu réécrit le fichier."""
+
+
+def lire_course(course: CourseAPartager) -> str:
+    """Le classement d'une course de ce PC, prêt à partir."""
+    seance = lire_session(course.fichier)
+    if seance is None:
+        raise ValueError(f"{course.fichier} ne se lit pas")
+    return encoder_seance(seance)
 
 
 def empreinte(donnees: dict) -> str:
@@ -112,6 +150,13 @@ class Copie:
 
     tours_envoyes: dict[str, str] = field(default_factory=dict)
     """Numéro de record -> signature du tour envoyé (`Record.signature`)."""
+
+    seances: dict[str, dict[str, int]] = field(default_factory=dict)
+    """Membre -> numéro de course -> sa version : les courses dont le classement est là (il se
+    télécharge à la demande)."""
+
+    seances_envoyees: dict[str, str] = field(default_factory=dict)
+    """Numéro de course -> signature du fichier envoyé (`CourseAPartager.signature`)."""
 
     derniere: str | None = None
     """La dernière synchronisation réussie (ISO 8601)."""
@@ -168,6 +213,8 @@ _TYPES = {
     "contours_envoyes": list,
     "tours": dict,
     "tours_envoyes": dict,
+    "seances": dict,
+    "seances_envoyees": dict,
     "derniere": str,
 }
 
@@ -188,6 +235,11 @@ def records_a_envoyer(copie: Copie, records: list[Record]) -> list[Record]:
     return [r for r in records if copie.tours_envoyes.get(r.id) != r.signature]
 
 
+def courses_a_envoyer(copie: Copie, courses: list[CourseAPartager]) -> list[CourseAPartager]:
+    """Les courses du propriétaire dont le classement n'est pas parti, ou a changé depuis."""
+    return [c for c in courses if copie.seances_envoyees.get(c.id) != c.signature]
+
+
 def _meta_valide(brut: object) -> dict | None:
     """Ce que la liste montre du record d'un ami, vérifié ; None s'il ne se lit pas, ou s'il
     ne compte pas : un record d'essai (la première version de l'outil en partageait)."""
@@ -197,7 +249,7 @@ def _meta_valide(brut: object) -> dict | None:
         meta = {
             "trace": _texte(brut["trace"]),
             "circuit": _texte(brut["circuit"]),
-            "voiture": _texte(brut["voiture"]),
+            "voiture": modele_canonique(_texte(brut["voiture"])),
             "marque": None if brut.get("marque") is None else _texte(brut["marque"], 80),
             "classe": None if brut.get("classe") is None else _texte(brut["classe"], 40),
             "pilote": _texte(brut["pilote"], 64),
@@ -220,6 +272,10 @@ class Bilan:
     version: int
     tours_envoyes: int = 0
     tours_recus: int = 0
+    seances_envoyees: int = 0
+    sans_seances: bool = False
+    """Le service ne connaît pas encore les classements de course (une version d'avant le
+    2026-11-14) : inutile de réessayer avant de relancer l'outil."""
 
 
 def synchroniser(
@@ -230,10 +286,14 @@ def synchroniser(
     contours: dict,
     records: list[Record] = (),
     exporteur=exporter,
+    courses: list[CourseAPartager] = (),
+    lecteur=lire_course,
 ) -> Bilan:
     """Envoie au groupe ce qui a changé chez soi, puis reçoit ce que le groupe a de neuf, et
     enregistre la copie. `contours` : ceux des tracés connus de la télémétrie de ce PC ;
-    `records` : ses records à partager, que `exporteur` met en forme."""
+    `records` : ses tours à partager (records, et meilleur tour de chaque course), que
+    `exporteur` met en forme ; `courses` : ses courses dont le classement part, que `lecteur`
+    met en forme."""
     envoi = a_envoyer(copie, miennes)
     traces = sorted({p.trace for p in miennes if comptee(p)} - set(copie.contours_envoyes))
     nouveaux = {t: contours[t] for t in traces if t in contours}
@@ -255,9 +315,35 @@ def synchroniser(
             # Un fichier illisible ne se relira pas mieux à la prochaine : on n'y revient pas.
             copie.tours_envoyes[record.id] = record.signature
             continue
-        service.envoyer_tour(adhesion, {**record.meta(), "donnees": donnees})
+        try:
+            service.envoyer_tour(adhesion, {**record.meta(), "donnees": donnees})
+        except ErreurGroupe as erreur:
+            if erreur.code != "trop_gros":
+                raise
+            # Le service a atteint sa limite de tours pour ce membre : le reste attendra, sans
+            # empêcher de recevoir ce que les autres ont de neuf.
+            break
         copie.tours_envoyes[record.id] = record.signature
         tours_envoyes += 1
+
+    seances_envoyees, sans_seances = 0, False
+    for course in courses_a_envoyer(copie, list(courses))[:SEANCES_PAR_SYNCHRO]:
+        try:
+            donnees = lecteur(course)
+        except (ValueError, OSError):
+            # Un fichier qui ne se lit pas ne se relira pas mieux à la prochaine.
+            copie.seances_envoyees[course.id] = course.signature
+            continue
+        try:
+            service.envoyer_seance(adhesion, {"id": course.id, "donnees": donnees})
+        except ErreurGroupe as erreur:
+            if erreur.code == "route_inconnue":
+                sans_seances = True  # un service d'avant les classements de course
+                break
+            if erreur.code != "trop_gros":
+                raise
+        copie.seances_envoyees[course.id] = course.signature
+        seances_envoyees += 1
 
     reponse = service.lire(adhesion, copie.version)
     version = reponse.get("version")
@@ -266,7 +352,7 @@ def synchroniser(
     if version < copie.version:
         # Le service a oublié le groupe (une base refaite) : tout repart, une fois.
         copie.vider()
-        return synchroniser(service, adhesion, copie, miennes, contours, records, exporteur)
+        return synchroniser(service, adhesion, copie, miennes, contours, records, exporteur, courses, lecteur)
 
     recues = 0
     for element in reponse.get("performances") or []:
@@ -302,6 +388,24 @@ def synchroniser(
             continue
         copie.tours.setdefault(membre, {})[identifiant] = {**meta, "maj": maj}
         tours_recus += 1
+    for element in reponse.get("seances") or []:
+        if not isinstance(element, dict):
+            continue
+        membre, identifiant, maj = element.get("membre"), element.get("id"), element.get("maj")
+        if (
+            not isinstance(membre, str)
+            or membre == adhesion.membre
+            or not isinstance(identifiant, str)
+            or IDENTIFIANT.fullmatch(identifiant) is None
+            or isinstance(maj, bool)
+            or not isinstance(maj, int)
+        ):
+            continue
+        try:
+            analyser_seance(designer_seance(membre, identifiant))
+        except ErreurGroupe:
+            continue
+        copie.seances.setdefault(membre, {})[identifiant] = maj
     copie.membres = [
         {
             "id": m["id"],
@@ -312,16 +416,16 @@ def synchroniser(
         for m in reponse.get("membres") or []
         if isinstance(m, dict) and isinstance(m.get("id"), str)
     ]
-    # Un membre parti : ses performances et ses records partent avec lui.
+    # Un membre parti : ses performances, ses tours et ses courses partent avec lui.
     presents = {m["id"] for m in copie.membres}
-    for table in (copie.performances, copie.tours):
+    for table in (copie.performances, copie.tours, copie.seances):
         for membre in list(table):
             if membre not in presents:
                 del table[membre]
     copie.version = version
     copie.derniere = maintenant()
     copie.enregistrer()
-    return Bilan(len(envoi), recues, version, tours_envoyes, tours_recus)
+    return Bilan(len(envoi), recues, version, tours_envoyes, tours_recus, seances_envoyees, sans_seances)
 
 
 _lue: tuple[tuple, Copie] | None = None
@@ -351,9 +455,10 @@ def tours_des_amis(trace: str | None = None) -> list[dict]:
     copie = copie_courante()
     if copie is None:
         return []
+    # Une copie reçue avant `MEMES_VOITURES` peut garder l'autre nom d'un modèle.
     return sorted(
         (
-            {"id": designer(membre, identifiant), "membre": membre, **meta}
+            {"id": designer(membre, identifiant), "membre": membre, **meta, "voiture": modele_canonique(meta["voiture"])}
             for membre, liste in copie.tours.items()
             if membre != copie.membre
             for identifiant, meta in liste.items()
@@ -392,7 +497,8 @@ def charger_partage(designation: str) -> TourPartage:
         if (deja := _charges.get(cle)) is not None:
             return deja
         donnees = _lire_ou_telecharger(membre, identifiant, meta["maj"])
-        voiture = {"engagement": meta["voiture"], "modele": meta["voiture"], "marque": meta["marque"], "classe": meta["classe"]}
+        modele = modele_canonique(meta["voiture"])
+        voiture = {"engagement": modele, "modele": modele, "marque": meta["marque"], "classe": meta["classe"]}
         tour = decoder(donnees, designation, voiture)
         _charges[cle] = tour
         return tour
@@ -401,8 +507,44 @@ def charger_partage(designation: str) -> TourPartage:
 def _lire_ou_telecharger(membre: str, identifiant: str, maj: object) -> str:
     """La télémétrie d'un record : du disque si elle y est dans cette version, du service
     sinon. À appeler sous le verrou du record."""
-    dossier = dossier_tours()
-    fichier = dossier / f"{membre}-{identifiant}-{maj}.txt"
+    return _du_disque_ou_du_service(
+        dossier_tours(), f"{membre}-{identifiant}", maj,
+        lambda service, adhesion: service.tour(adhesion, membre, identifiant).get("donnees"),
+        Message("serveur.erreur.groupe_tour_illisible"), "tour_illisible",
+    )
+
+
+#: Les courses d'amis déjà relues : le classement et chacun de ses onglets les demandent.
+_seances_chargees: CacheBorne[tuple, ResultatsSession] = CacheBorne(8)
+
+
+def charger_seance(membre: str, identifiant: str) -> ResultatsSession:
+    """Le classement d'une course d'un ami (`seances.py`) : relu du disque s'il a déjà été
+    téléchargé dans cette version, demandé au service sinon."""
+    copie = copie_courante()
+    maj = (copie.seances.get(membre) or {}).get(identifiant) if copie else None
+    if maj is None:
+        raise ErreurGroupe(Message("serveur.erreur.groupe_seance_introuvable"), "seance_introuvable")
+    cle = (membre, identifiant, maj)
+    with _verrou_du_record(f"seance:{membre}", identifiant):
+        if (deja := _seances_chargees.get(cle)) is not None:
+            return deja
+        donnees = _du_disque_ou_du_service(
+            dossier_seances(), f"{membre}-{identifiant}", maj,
+            lambda service, adhesion: service.seance(adhesion, membre, identifiant).get("donnees"),
+            Message("serveur.erreur.groupe_seance_illisible"), "seance_illisible",
+        )
+        seance = decoder_seance(donnees, designer_seance(membre, identifiant))
+        _seances_chargees[cle] = seance
+        return seance
+
+
+def _du_disque_ou_du_service(
+    dossier: Path, nom: str, maj: object, demander, illisible: Message, code: str
+) -> str:
+    """Un tour ou une course d'un ami : du disque s'il y est dans cette version, du service
+    sinon (`demander`), puis gardé sur le disque. À appeler sous le verrou de ce qu'on charge."""
+    fichier = dossier / f"{nom}-{maj}.txt"
     try:
         return fichier.read_text(encoding="ascii")
     except OSError:
@@ -410,13 +552,13 @@ def _lire_ou_telecharger(membre: str, identifiant: str, maj: object) -> str:
     adresse, adhesion = reglages.adresse_service(), reglages.adhesion()
     if adresse is None or adhesion is None:
         raise ErreurGroupe(Message("serveur.erreur.groupe_sans_service"), "sans_service")
-    donnees = Service(adresse).tour(adhesion, membre, identifiant).get("donnees")
+    donnees = demander(Service(adresse), adhesion)
     if not isinstance(donnees, str):
-        raise ErreurGroupe(Message("serveur.erreur.groupe_tour_illisible"), "tour_illisible")
+        raise ErreurGroupe(illisible, code)
     dossier.mkdir(parents=True, exist_ok=True)
-    # Une version plus ancienne de ce record n'a plus lieu d'être gardée. Celle qu'un autre
-    # programme tiendrait ouverte s'effacera une prochaine fois.
-    for ancien in dossier.glob(f"{membre}-{identifiant}-*.txt"):
+    # Une version plus ancienne n'a plus lieu d'être gardée. Celle qu'un autre programme
+    # tiendrait ouverte s'effacera une prochaine fois.
+    for ancien in dossier.glob(f"{nom}-*.txt"):
         try:
             ancien.unlink(missing_ok=True)
         except OSError:
@@ -435,7 +577,8 @@ class Synchroniseur:
     recevoir celles des autres. Hors d'un groupe, ou sans service, il ne fait rien.
 
     `sources` donne les performances du propriétaire, les contours connus de ce PC et,
-    s'il y en a, ses records à partager ; `exporteur` met un record en forme.
+    s'il y en a, ses tours à partager puis ses courses dont le classement part ; `exporteur`
+    met un tour en forme.
     """
 
     #: Secondes entre deux regards sur les résultats du jeu.
@@ -450,6 +593,9 @@ class Synchroniseur:
         self._reveil = threading.Event()
         self._fil: threading.Thread | None = None
         self.etat: dict = {"etat": "inactif", "derniere": None, "erreur": None, "envoyees": 0, "recues": 0}
+        #: Le service ne prend pas encore les classements de course : on ne les lui propose
+        #: plus jusqu'au prochain lancement (sinon, chaque minute serait une synchronisation).
+        self._sans_seances = False
 
     def demarrer(self) -> None:
         if self._fil is None or not self._fil.is_alive():
@@ -493,12 +639,18 @@ class Synchroniseur:
             copie = Copie.lire(adhesion)
             miennes, contours, *reste = self._sources()
             records = reste[0] if reste else []
-            if not recevoir and not a_envoyer(copie, miennes) and not records_a_envoyer(copie, records):
+            courses = reste[1] if len(reste) > 1 and not self._sans_seances else []
+            if (
+                not recevoir
+                and not a_envoyer(copie, miennes)
+                and not records_a_envoyer(copie, records)
+                and not courses_a_envoyer(copie, courses)
+            ):
                 return False
             self.etat = {**self.etat, "etat": "en_cours"}
             try:
                 bilan = synchroniser(
-                    Service(adresse), adhesion, copie, miennes, contours, records, self._exporteur
+                    Service(adresse), adhesion, copie, miennes, contours, records, self._exporteur, courses
                 )
             except ErreurGroupe as erreur:
                 self.etat = {
@@ -508,6 +660,7 @@ class Synchroniseur:
                     "code": erreur.code,
                 }
                 return True
+            self._sans_seances = self._sans_seances or bilan.sans_seances
             self.etat = {
                 "etat": "ok",
                 "derniere": copie.derniere,

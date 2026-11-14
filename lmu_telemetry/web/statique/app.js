@@ -16,7 +16,7 @@ import { ecranResultats, surResultats } from "/ecran_resultats.js";
 import { ecranTelemetrie, surTelemetrie } from "/ecran_telemetrie.js";
 import { ecranTemps, surTemps } from "/ecran_temps.js";
 import { preparerFenetre } from "/fenetre.js";
-import { barreSessions, chargerSessions } from "/barre_sessions.js";
+import { barreSessions, chargerSessions, surveillerSessions } from "/barre_sessions.js";
 
 const ECRANS = ["resultats", "telemetrie", "temps", "leaderboard", "dossier"];
 
@@ -183,6 +183,7 @@ async function demarrer() {
     }
     erreur(e.message);
   }
+  surveillerSessions();
   aller("resultats");
 }
 

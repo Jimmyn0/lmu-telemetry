@@ -62,8 +62,10 @@ LEADERBOARD ENTRE AMIS
 
 L'onglet Leaderboard classe les qualifs et les courses en ligne de tout un
 groupe d'amis : meilleurs tours par circuit et par catégorie, dernières
-courses, une fiche par pilote. Tu peux aussi y choisir deux tours, les tiens
-ou ceux d'un ami, et les comparer dans l'onglet Télémétrie.
+courses, une fiche par pilote. Une course s'ouvre dans l'onglet Résultats,
+même celle d'un ami. Tu peux aussi y choisir deux tours, les tiens ou ceux
+d'un ami, meilleurs tours ou tours de course, et les comparer dans l'onglet
+Télémétrie.
 
 Pour rejoindre le groupe : onglet Leaderboard, carte « Groupe » en haut à
 gauche, « Rejoindre un groupe », puis le code que ton ami t'a donné (par
@@ -71,10 +73,12 @@ exemple K7M2-QX9P). Ensuite, tout se fait seul, à chaque lancement et après
 chaque séance.
 
 Ce qui est partagé avec le groupe : ton nom de pilote dans le jeu, tes
-chronos, places et voitures en qualifs et en course en ligne, et la
-télémétrie de tes meilleurs tours, pour que tes amis s'y comparent. Rien
-d'autre : ni tes essais, ni tes séances contre l'IA. « Quitter le groupe »
-efface tout cela.
+chronos, places et voitures en qualifs et en course en ligne, la télémétrie
+de tes meilleurs tours et du meilleur tour de chaque course, pour que tes
+amis s'y comparent, et le classement complet de tes courses en ligne (les
+autres pilotes de la course et son chat compris), pour qu'ils l'ouvrent dans
+Résultats. Rien d'autre : ni tes essais, ni tes séances contre l'IA.
+« Quitter le groupe » efface tout cela.
 
 
 METTRE À JOUR

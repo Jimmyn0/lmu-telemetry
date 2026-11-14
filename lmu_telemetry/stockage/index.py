@@ -44,8 +44,10 @@ VERSION_SCHEMA = 2
 #: confirmer chaque ligne, et un arrêt ne perd au pire que ce paquet.
 TAILLE_PAQUET = 20
 
-#: Délai (s) avant de réessayer une session verrouillée par le jeu.
-ATTENTE_SESSION_EN_COURS = 60.0
+#: Délai (s) avant de réessayer une session verrouillée par le jeu. Court : la page redemande
+#: la liste toutes les 20 s, et une course finie doit y apparaître peu après qu'on a quitté la
+#: séance (le jeu ne referme son fichier qu'alors).
+ATTENTE_SESSION_EN_COURS = 20.0
 
 #: Nombre de points du contour d'un circuit : de quoi le reconnaître dans une carte
 #: de 300 pixels, sans alourdir la réponse envoyée à la page.

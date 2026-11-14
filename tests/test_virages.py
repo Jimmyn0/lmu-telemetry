@@ -280,6 +280,17 @@ def test_decoupage_stable_entre_sessions(dossier_lmu: Path | None) -> None:
 
     Ça reste sans conséquence à l'usage : le découpage est enregistré une fois
     par circuit et réutilisé tel quel ensuite.
+
+    Plus d'un virage d'écart est un défaut à corriger, pas une tolérance à
+    élargir. Cas du 13/11/2026 à Spa : 20 virages pour une course contre 18
+    pour les qualifications. Deux tours de la course avaient fait demi-tour en
+    haut du Raidillon, sur le bitume du dégagement, que le jeu ne signale pas.
+    L'axe en sortait faussé, d'où trois virages de 13 à 25 m de rayon sur une
+    portion presque droite. Ces passages sont depuis écartés de la
+    reconstruction de l'axe (voir piste.py), et la course retrouve ses 17
+    virages. Les qualifications, deux tours valides seulement, en gardent 18 :
+    un coude vers 5,4 km, qui tourne de 16 à 17°, passe le seuil de 15° dans
+    cette session-là. C'est l'écart toléré.
     """
     if dossier_lmu is None:
         pytest.skip("Le Mans Ultimate n'est pas installé sur cette machine")

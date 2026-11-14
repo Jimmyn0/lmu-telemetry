@@ -34,6 +34,7 @@ MESSAGES = {
     "nom_invalide": "serveur.erreur.groupe_nom",
     "trop_gros": "serveur.erreur.groupe_trop_gros",
     "tour_introuvable": "serveur.erreur.groupe_tour_introuvable",
+    "seance_introuvable": "serveur.erreur.groupe_seance_introuvable",
 }
 
 
@@ -92,6 +93,18 @@ class Service:
         return self._requete(
             "GET",
             f"/v1/groupes/{adhesion.code}/tours/{membre}/{urllib.parse.quote(identifiant)}",
+            adhesion=adhesion,
+        )
+
+    def envoyer_seance(self, adhesion: Adhesion, seance: dict) -> dict:
+        """Partage le classement d'une course (voir `seances.py`) : `id`, `donnees`."""
+        return self._requete("PUT", f"/v1/groupes/{adhesion.code}/seances", {"seance": seance}, adhesion=adhesion)
+
+    def seance(self, adhesion: Adhesion, membre: str, identifiant: str) -> dict:
+        """Le classement d'une course d'un membre : `donnees`, la séance compressée."""
+        return self._requete(
+            "GET",
+            f"/v1/groupes/{adhesion.code}/seances/{membre}/{urllib.parse.quote(identifiant)}",
             adhesion=adhesion,
         )
 

@@ -115,3 +115,11 @@ def test_le_bilan_des_courses(tmp_path: Path) -> None:
         "place_moyenne": pytest.approx(16 / 3, abs=0.01),
         "tours_en_course": 12, "tours": 16,
     }
+
+
+def test_une_performance_recue_garde_le_nom_commun_du_modele(tmp_path: Path) -> None:
+    """Un ami (ou une version plus ancienne de l'outil) a pu envoyer l'autre nom d'un même
+    modèle : la Ferrari 296 « Evo » se range avec la Ferrari 296 (`resultats.MEMES_VOITURES`)."""
+    (seance,) = seances(tmp_path, ("course-01R1.xml", course_seul()))
+    envoyee = {**perf.performance(seance, seance.joueurs[0]).json(), "voiture": "Ferrari 296 LMGT3 Evo"}
+    assert perf.depuis_json(envoyee).voiture == "Ferrari 296 LMGT3"

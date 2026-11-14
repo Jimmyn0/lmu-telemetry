@@ -79,6 +79,13 @@ def identifiant_record(trace: str, voiture: str) -> str:
     return hashlib.sha1(f"{trace}|{voiture}".encode("utf-8")).hexdigest()[:16]
 
 
+def identifiant_course(seance: str) -> str:
+    """Le numéro du meilleur tour d'une course, d'après celui de sa performance
+    (« 1794245179-R ») : le leaderboard le retrouve depuis la ligne de la course, sans que la
+    liste des tours ait à le dire."""
+    return hashlib.sha1(f"course|{seance}".encode("utf-8")).hexdigest()[:16]
+
+
 def est_partage(valeur: object) -> bool:
     return isinstance(valeur, str) and valeur.startswith(PREFIXE)
 

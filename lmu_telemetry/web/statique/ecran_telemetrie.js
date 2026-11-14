@@ -152,8 +152,10 @@ function optionsAmis(trace, courante) {
   if (!amis.length) return "";
   return `<optgroup label="${t("tele.records_amis")}">${amis
     .map(
+      // Un record, ou le meilleur tour d'une de ses courses : la date et le type disent lequel.
       (x) => `<option value="${echapper(x.id)}" ${x.id === courante ? "selected" : ""}>
-        ${echapper(x.pilote)} — ${echapper(x.voiture)} — ${chrono(x.chrono)}</option>`
+        ${echapper(x.pilote)} — ${echapper(x.voiture)} — ${chrono(x.chrono)} — ${
+          dateCourte(x.date)} — ${echapper(nomType(x.type))}</option>`
     )
     .join("")}</optgroup>`;
 }
@@ -229,7 +231,7 @@ function carteTour(role, tour) {
       <div class="carte-tour-qui">
         <strong>${echapper(tour.pilote)}</strong>
         <label class="choix-session" title="${t("tele.choix_session")}">
-          <span>${echapper(tour.voiture.engagement)}</span>
+          <span>${echapper(tour.voiture.modele || tour.voiture.engagement)}</span>
           <select>${sessionsDuTrace(lue.circuit, chemin)}${optionsAmis(lue.circuit, chemin)}</select>
         </label>
       </div>

@@ -18,7 +18,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
-from ..sources.resultats import Engage, SeanceIndexee
+from ..sources.resultats import Engage, SeanceIndexee, modele_canonique
 from .classement import STATUTS, tour_du_meilleur, tours_representatifs
 
 
@@ -197,7 +197,8 @@ def depuis_json(brut: object) -> Performance | None:
             type=brut["type"],
             en_ligne=brut["en_ligne"],
             pilote=_texte(brut["pilote"], 64),
-            voiture=_texte(brut.get("voiture", ""), vide=True),
+            # Un autre PC (ou une version plus ancienne de l'outil) a pu garder l'autre nom.
+            voiture=modele_canonique(_texte(brut.get("voiture", ""), vide=True)),
             marque=_texte(brut.get("marque", ""), vide=True),
             classe=_texte(brut.get("classe", ""), 40, vide=True),
             tours=_entier(brut.get("tours")) or 0,

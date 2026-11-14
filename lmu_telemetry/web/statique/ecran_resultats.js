@@ -66,13 +66,20 @@ function afficherEntete() {
       <span class="grand-drapeau">${drapeau(s.pays)}</span>
       <div class="titres">
         <h1>${echapper(s.circuit)}</h1>
-        <p>${dateCourte(s.date)} · ${echapper(s.meteo)}</p>
+        <p>${[
+          dateCourte(s.date),
+          s.meteo ? echapper(s.meteo) : "",
+          // La course d'un ami : elle n'est pas dans la colonne des sessions.
+          s.proprietaire ? `${ICONES.groupe}${t("resultats.course_de", { pilote: echapper(s.proprietaire) })}` : "",
+        ].filter(Boolean).join(" · ")}</p>
       </div>
       <span class="espace"></span>
       <button id="vers-telemetrie" type="button" class="bouton-carre vert"
         title="${t("session.ouvrir_telemetrie")}" ${choix.ref === null ? "disabled" : ""}>${ICONES.courbe}</button>
       <div class="tuile"><small>${t("session.duree")}</small><b>${dureeSession(s.duree)}</b></div>
-      <div class="tuile"><small>${t("session.tours")}</small><b>${s.tours.length}</b></div>
+      <div class="tuile"><small>${t("session.tours")}</small><b>${
+        s.seance ? s.tours_seance : s.tours.length
+      }</b></div>
       <div class="tuile"><small>${t("session.longueur")}</small><b>${
         s.longueur ? `${(s.longueur / 1000).toFixed(3)} km` : "—"
       }</b></div>
@@ -101,10 +108,19 @@ function afficherSession() {
     $(`#sous-onglets [data-vue="${vue}"]`).hidden = !course;
     if (!course && vueCourante === vue) vueCourante = "classement";
   }
-  // Le chat n'existe qu'en ligne : la colonne des sessions le sait déjà.
-  const enLigne = Boolean(etat.sessions?.find((s) => s.id === etat.session.id)?.en_ligne);
+  // Le chat n'existe qu'en ligne : la colonne des sessions le sait déjà, et une course dont
+  // on n'a que le classement le dit elle-même.
+  const seule = Boolean(etat.session.seance);
+  const enLigne = seule
+    ? Boolean(etat.session.en_ligne)
+    : Boolean(etat.sessions?.find((s) => s.id === etat.session.id)?.en_ligne);
   $('#sous-onglets [data-vue="chat"]').hidden = !enLigne;
   if (!enLigne && vueCourante === "chat") vueCourante = "classement";
+  // Sans télémétrie (la course d'un ami), ni tours ni régularité.
+  for (const vue of ["tours", "regularite"]) {
+    $(`#sous-onglets [data-vue="${vue}"]`).hidden = seule;
+    if (seule && vueCourante === vue) vueCourante = "classement";
+  }
   for (const bouton of $$("#sous-onglets button")) {
     bouton.classList.toggle("actif", bouton.dataset.vue === vueCourante);
     bouton.onclick = () => {

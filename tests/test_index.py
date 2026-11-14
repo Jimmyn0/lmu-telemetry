@@ -180,49 +180,71 @@ def test_une_session_en_cours_ne_fait_pas_tourner_la_page_en_rond(
 # ----------------------------------------------------------------------
 
 
+#: Temps au tour ne compte que les qualifs et les courses : la session de test y entre en
+#: qualifs.
+QUALIFS = "Circuit de test_Q_2026-01-03T03_04_05Z.duckdb"
+
+
+@pytest.fixture
+def qualifs(session_test: Path, tmp_path: Path) -> Path:
+    """Un dossier de télémétrie avec une session de qualifs."""
+    shutil.copy(session_test, tmp_path / QUALIFS)
+    return tmp_path
+
+
 def _records(dossier: Path) -> dict:
     _lire(dossier)
     return reponses.circuits(_contexte(dossier))
 
 
-def test_les_records_regroupent_les_sessions_d_un_trace(dossier: Path, session_test: Path) -> None:
-    shutil.copy(session_test, dossier / "Circuit de test_R_2026-01-04T03_04_05Z.duckdb")
-    circuits = _records(dossier)["circuits"]
+def test_les_records_regroupent_les_sessions_d_un_trace(qualifs: Path, session_test: Path) -> None:
+    shutil.copy(session_test, qualifs / "Circuit de test_R_2026-01-04T03_04_05Z.duckdb")
+    circuits = _records(qualifs)["circuits"]
     assert [c["circuit"] for c in circuits] == ["Circuit de test"]
     trace = circuits[0]["traces"][0]
     assert trace["sessions"] == 2
     # Même voiture dans les deux sessions : un seul record.
     assert len(trace["records"]) == 1
-    assert trace["records"][0]["chrono"] == Session.ouvrir(dossier / NOM).meilleur_tour.chrono
+    assert trace["records"][0]["chrono"] == Session.ouvrir(qualifs / QUALIFS).meilleur_tour.chrono
 
 
-def test_le_record_designe_le_tour_a_ouvrir(dossier: Path) -> None:
-    record = _records(dossier)["circuits"][0]["traces"][0]["records"][0]
-    meilleur = Session.ouvrir(dossier / NOM).meilleur_tour
-    assert record["session"] == str(dossier / NOM)
+def test_les_essais_ne_comptent_pas_dans_temps_au_tour(dossier: Path, session_test: Path) -> None:
+    """Demandé le 2026-11-14 : en essais, on roule pour régler, pas pour le chrono."""
+    assert _records(dossier)["circuits"] == []
+    shutil.copy(session_test, dossier / QUALIFS)
+    trace = _records(dossier)["circuits"][0]["traces"][0]
+    assert trace["sessions"] == 1
+    assert [r["type"] for r in trace["records"]] == ["Q"]
+    assert {m["type"] for m in trace["meilleurs"]} == {"Q"}
+
+
+def test_le_record_designe_le_tour_a_ouvrir(qualifs: Path) -> None:
+    record = _records(qualifs)["circuits"][0]["traces"][0]["records"][0]
+    meilleur = Session.ouvrir(qualifs / QUALIFS).meilleur_tour
+    assert record["session"] == str(qualifs / QUALIFS)
     assert record["tour"] == meilleur.numero
-    assert record["type"] == "P"
+    assert record["type"] == "Q"
     assert len(record["secteurs"]) == 3
 
 
-def test_le_contour_accompagne_le_trace(dossier: Path) -> None:
-    trace = _records(dossier)["circuits"][0]["traces"][0]
+def test_le_contour_accompagne_le_trace(qualifs: Path) -> None:
+    trace = _records(qualifs)["circuits"][0]["traces"][0]
     assert len(trace["contour"]) == module_index.POINTS_CONTOUR
 
 
-def test_le_pilote_est_celui_des_sessions(dossier: Path) -> None:
-    assert _records(dossier)["pilote"] == "Pilote de test"
+def test_le_pilote_est_celui_des_sessions(qualifs: Path) -> None:
+    assert _records(qualifs)["pilote"] == "Pilote de test"
 
 
-def test_une_session_sans_tour_valide_compte_sans_faire_de_record(dossier: Path) -> None:
+def test_une_session_sans_tour_valide_compte_sans_faire_de_record(qualifs: Path) -> None:
     Index().enregistrer([])
-    _lire(dossier)
+    _lire(qualifs)
     lignes = Index().lignes()
-    chemin = str(dossier / NOM)
+    chemin = str(qualifs / QUALIFS)
     ligne = lignes[chemin]
     sans = ResumeSession(ligne.chemin, ligne.mtime_ns, ligne.taille, trace=ligne.trace, tours=2)
     Index().enregistrer([sans])
-    trace = reponses.circuits(_contexte(dossier))["circuits"][0]["traces"][0]
+    trace = reponses.circuits(_contexte(qualifs))["circuits"][0]["traces"][0]
     assert trace["sessions"] == 1
     assert trace["tours"] == 2
     assert trace["records"] == []

@@ -21,7 +21,8 @@ voir [18-classement.md](18-classement.md)) : aucune saisie.
 
 * Chaque PC en tire les seules **performances** de son propriétaire, une par séance. Jamais les
   autres pilotes de ses fichiers : les inconnus d'une séance en ligne n'ont rien à faire dans le
-  classement du groupe.
+  classement du groupe. (Depuis le 2026-11-14, le classement complet de chaque course part aussi,
+  mais seulement pour l'ouvrir dans l'onglet Résultats : voir « Après quelques jours d'usage ».)
 * Ce sont ces performances que le groupe partagera. Chaque PC calcule ensuite le leaderboard et
   les statistiques à partir de celles de tous les membres.
 
@@ -293,6 +294,60 @@ logo perso, création d'un groupe et synchronisation par ses routes, leaderboard
 groupe, fermeture avec la fenêtre. L'icône du .exe est le nouveau logo. L'essai s'annule si une
 fenêtre de l'outil tourne déjà : le .exe lancé ne ferait que la ramener, et l'essai parlerait au
 vrai outil.
+
+## Après quelques jours d'usage (2026-11-14)
+
+Neuf demandes, faites ensemble (GhostLine for LMU 2.1.0) :
+
+* **Temps au tour sans les essais** : `reponses.circuits` ne compte que les qualifs et les courses
+  (`TYPES_COMPTES`), comme le leaderboard. Les essais restent dans la colonne de Résultats.
+* **Temps au tour avant Télémétrie** dans la barre des onglets.
+* **Une même voiture sous deux noms** : à Spa, la Ferrari 296 faisait deux lignes de l'onglet
+  Voitures, « Ferrari 296 LMGT3 » (engagements de 2025) et « Ferrari 296 LMGT3 Evo » (2026), sans
+  différence en jeu. `resultats.MEMES_VOITURES` ramène les noms d'un même modèle à un seul, dès la
+  lecture des fichiers du jeu et à la réception de ce qu'envoie un ami (performances, tours). Relevé
+  le même jour dans les 576 fichiers du disque : « Genesis GMR001 » / « GMR-001 », réunis aussi ;
+  « Toyota GR010 » / « TR010 », laissés à part en attendant de savoir si c'est la même voiture.
+* **Le meilleur temps ne décale plus sa colonne** : le cadre violet (`.temps-record`) prenait 8,5 px
+  de chaque côté, et le chiffre se décalait d'autant (17 px avec la gomme à côté). Des marges
+  négatives lui rendent cette place : mesuré dans la page, les chiffres s'alignent à 0,5 px près
+  (le gras), et la hauteur des lignes ne change pas.
+* **Comparer les tours des courses** : sur la page d'un circuit, l'onglet Courses a sa colonne
+  Réf. / Comp., comme les meilleurs tours. Chaque PC partage pour cela la télémétrie du meilleur
+  tour de chacune de ses courses en ligne (`reponses.mes_courses`), sous un numéro tiré de celui de
+  la performance (`tours.identifiant_course`) : la ligne retrouve son tour sans que la liste des
+  tours ait à le dire. Voir [20-groupe.md](20-groupe.md), « Les courses partagées ».
+* **Une course s'ouvre dans Résultats** depuis les dernières courses (et toute liste de courses),
+  même celle d'un ami, avec tous les onglets du classement : classement, rythme, positions,
+  statistiques, incidents, chat. Pas les tours ni la régularité, qui demandent la télémétrie. Une
+  course de ce PC s'ouvre par sa session, ou par son seul fichier de résultats si elle n'a pas été
+  enregistrée ; celle d'un ami, par le classement qu'il a partagé (`groupe/seances.py`). « Toi » y
+  est le propriétaire de ce PC s'il a couru, et personne sinon. La course d'un ami dont la version
+  de l'outil ne partage pas encore les courses ne mène nulle part (sa bulle le dit).
+* **La liste des sessions se met à jour toute seule** : la page la redemande toutes les 20 s et
+  quand la fenêtre revient au premier plan, et ne se redessine que si elle a changé. Une session
+  que le jeu tient ouverte se retente au bout de 20 s (60 avant) : la course apparaît peu après
+  qu'on a quitté la séance, quand le jeu referme son fichier.
+* **Le nom de la voiture, jamais celui de l'écurie**, dans les cartes de l'onglet Télémétrie : elles
+  montraient l'engagement (« Kessel Racing 2026 #57:ELMS ») au lieu du modèle, que l'index des
+  voitures connaissait pourtant (aucun engagement sans modèle sur les 595 sessions du disque).
+* **Les courses en ligne seulement** : c'était déjà le cas (qualifs et courses en ligne). Mais
+  l'utilisateur, sûr de n'avoir jamais couru en Hypercar en ligne, voyait cette catégorie sur sa
+  fiche : le 29/08, il avait rejoint un serveur Hypercar à Fuji (Peugeot 9x8), dont le jeu a écrit
+  les essais et les qualifs avec lui dedans, à 0 tour, avant de repartir en GT3 dix minutes plus
+  tard. Désormais (`leaderboard.a_roule`), une séance sans aucun tour bouclé ne compte plus, ni à
+  l'affichage, ni à l'envoi au groupe, ni pour les courses partagées ; une course quittée avant
+  la fin du premier tour compte encore, comme un abandon (choix de l'utilisateur : le fichier ne
+  la distingue pas d'un départ du serveur avant le feu vert). Sur le disque et la copie du groupe,
+  4 séances sur 388 sortent (cette qualif, une course sans statut à Bahreïn, deux qualifs d'un
+  ami), 5 abandons sans tour restent, et la fiche de l'utilisateur n'a plus que GT3.
+
+Vérifié dans la page servie par l'outil (données copiées, service du groupe local, un ami simulé
+qui partage une course à Spa) : l'ordre des onglets, l'alignement mesuré (Résultats, et les sept
+colonnes de la page de Spa), la course de l'ami ouverte dans Résultats et ses six onglets sans
+erreur, la Ferrari 296 en une seule ligne, les pastilles de l'onglet Courses jusqu'à la
+comparaison dans Télémétrie (cartes au nom du modèle), Temps au tour sans essais (141 séances), et
+une session ajoutée au dossier pendant que la page était ouverte, apparue seule en 10 s.
 
 ## Vérifié
 

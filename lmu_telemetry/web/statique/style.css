@@ -327,8 +327,12 @@ button.principal svg { width: 17px; height: 17px; color: var(--vert); }
 .pastille-temps.record { --couleur: var(--violet); }
 .pastille-temps.bleu { --couleur: var(--bleu); }
 .pastille-temps.vert { --couleur: var(--vert); }
+/* Le cadre déborde autour du chiffre sans le pousser : des marges négatives rendent ce que
+   le cadre et sa marge intérieure prennent (7 + 1,5 px de chaque côté, 2 + 1,5 en hauteur).
+   Dans une colonne alignée à droite, le meilleur temps reste aligné sur les autres. */
 .temps-record {
   display: inline-block;
+  margin: -3.5px -8.5px;
   padding: 2px 7px;
   border: 1.5px solid var(--violet);
   border-radius: 6px;
@@ -1254,13 +1258,15 @@ b.cmp { color: var(--compare); }
 .pilote-voiture small { gap: 6px; }
 .pilote-voiture .logo { width: 24px; height: 15px; }
 .pilote-voiture .pastille { min-width: 18px; height: 15px; padding: 0 3px; font-size: 8.5px; }
-.tour-gomme { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; }
+/* L'écart laisse la place au cadre d'un meilleur temps, qui déborde de 8,5 px. */
+.tour-gomme { display: inline-flex; align-items: center; justify-content: flex-end; gap: 11px; }
 .tour-gomme .gomme { width: 20px; height: 20px; font-size: 10px; }
 .cellule-icone { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cellule-icone > span { overflow: hidden; text-overflow: ellipsis; }
-/* Une course ou un record mène à son circuit ; le nom d'un pilote, à sa fiche. */
-.table-cliquable tbody tr { cursor: pointer; }
-.table-cliquable tbody tr:hover td { background: var(--survol); }
+/* Une course mène à son classement, un record à son circuit ; le nom d'un pilote, à sa fiche.
+   La course d'un ami qui n'a rien partagé ne mène nulle part. */
+.table-cliquable tbody tr:is([data-seance], [data-trace]) { cursor: pointer; }
+.table-cliquable tbody tr:is([data-seance], [data-trace]):hover td { background: var(--survol); }
 .arrivee .badge { height: 19px; padding: 0 6px; }
 .lien-pilote {
   max-width: 100%; padding: 0;

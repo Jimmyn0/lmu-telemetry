@@ -50,7 +50,7 @@ async function groupeDeDeux() {
 
 test("le service répond qu'il est là", async () => {
   const service = nouveauService();
-  assert.deepEqual(await service("GET", "/v1/sante"), { statut: 200, json: { ok: true, version: 1 } });
+  assert.deepEqual(await service("GET", "/v1/sante"), { statut: 200, json: { ok: true, version: 2 } });
   assert.equal((await service("GET", "/v1/inconnu")).statut, 404);
 });
 
@@ -247,6 +247,41 @@ test("un record qui ne se garde pas", async () => {
   // Rien n'a été écrit.
   const { json } = await service("GET", `/v1/groupes/${a.code}`, { membre: a });
   assert.deepEqual([json.version, json.tours], [0, []]);
+});
+
+test("le classement d'une course : la liste avec le groupe, le classement à la demande", async () => {
+  const { service, a, b } = await groupeDeDeux();
+  const envoyer = (seance, membre = a) => service("PUT", `/v1/groupes/${a.code}/seances`, { membre, corps: { seance } });
+  assert.deepEqual((await envoyer({ id: "1794245179-R", donnees: "SGVsbG8=" })).json, { version: 1 });
+
+  const { json } = await service("GET", `/v1/groupes/${a.code}?depuis=0`, { membre: b });
+  assert.deepEqual(json.seances, [{ membre: a.membre, id: "1794245179-R", maj: 1 }]);
+  const lue = await service("GET", `/v1/groupes/${a.code}/seances/${a.membre}/1794245179-R`, { membre: b });
+  assert.deepEqual(lue.json, { maj: 1, donnees: "SGVsbG8=" });
+
+  // Renvoyée (le fichier du jeu réécrit), elle remplace l'ancienne et revient dans la liste.
+  await envoyer({ id: "1794245179-R", donnees: "QQ==" });
+  const neuf = (await service("GET", `/v1/groupes/${a.code}?depuis=1`, { membre: b })).json;
+  assert.deepEqual(neuf.seances, [{ membre: a.membre, id: "1794245179-R", maj: 2 }]);
+
+  // Ce qui ne se garde pas : un autre identifiant, des essais, autre chose que du base64, trop gros.
+  for (const id of ["abc", "1794245179-P", "1-R; DROP TABLE seances"]) {
+    assert.equal((await envoyer({ id, donnees: "QQ==" })).json.erreur, "seance_invalide");
+  }
+  assert.equal((await envoyer({ id: "2-R", donnees: "pas du base64 !" })).json.erreur, "seance_invalide");
+  assert.equal((await envoyer({ id: "2-R", donnees: "A".repeat(LIMITES.tailleSeance + 4) })).statut, 413);
+  assert.equal((await envoyer(undefined)).json.erreur, "seance_invalide");
+
+  // Sans clé, rien ; une séance absente, introuvable.
+  assert.equal((await service("GET", `/v1/groupes/${a.code}/seances/${a.membre}/1794245179-R`)).statut, 401);
+  assert.equal(
+    (await service("GET", `/v1/groupes/${a.code}/seances/${a.membre}/1-R`, { membre: b })).json.erreur,
+    "seance_introuvable"
+  );
+
+  // Parti, ses séances partent avec lui.
+  await service("DELETE", `/v1/groupes/${a.code}/membres/${a.membre}`, { membre: a });
+  assert.deepEqual((await service("GET", `/v1/groupes/${a.code}`, { membre: b })).json.seances, []);
 });
 
 test("un groupe complet refuse un membre de plus", async () => {

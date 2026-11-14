@@ -77,6 +77,7 @@
   "regularite.indisponible": "Pas de régularité pour cette session",
 
   "resultats.choisir": "Choisis une session",
+  "resultats.course_de": "course de {pilote}",
   "resultats.choisir_texte": "Clique sur une session dans la colonne de gauche pour voir ses tours.",
   "resultats.aucune": "Aucune session pour l'instant",
   "resultats.aucune_texte": "Roule quelques tours dans Le Mans Ultimate, puis reviens ici : le jeu enregistre tes sessions tout seul.",
@@ -315,6 +316,8 @@
   "leaderboard.voir_plus": "Voir {n} de plus",
   "leaderboard.affichees": "{n} sur {total}",
   "leaderboard.voir_circuit": "Voir le leaderboard de ce circuit dans cette catégorie",
+  "leaderboard.voir_course": "Ouvrir le classement de cette course dans Résultats",
+  "leaderboard.course_non_partagee": "Le classement de cette course n'est pas partagé : il le sera quand ce pilote aura la dernière version de l'outil",
   "leaderboard.pilotes": "Pilotes",
   "leaderboard.voitures": "Voitures",
   "leaderboard.voir_profil": "Voir la fiche de ce pilote",
@@ -502,5 +505,7 @@
   "serveur.erreur.groupe_deja": "Ce PC est déjà dans un groupe : quitte-le d'abord.",
   "serveur.erreur.groupe_tour_introuvable": "Ce record n'est plus dans le groupe : synchronise pour mettre la liste à jour.",
   "serveur.erreur.groupe_tour_illisible": "Le record de cet ami ne se lit pas : il vient peut-être d'une version plus récente de l'outil.",
+  "serveur.erreur.groupe_seance_introuvable": "Cette course n'est plus dans le groupe : synchronise pour mettre la liste à jour.",
+  "serveur.erreur.groupe_seance_illisible": "Le classement de cette course ne se lit pas : il vient peut-être d'une version plus récente de l'outil.",
   "serveur.erreur.brute": "{texte}"
 }

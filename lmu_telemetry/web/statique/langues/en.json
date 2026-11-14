@@ -77,6 +77,7 @@
   "regularite.indisponible": "No consistency data for this session",
 
   "resultats.choisir": "Pick a session",
+  "resultats.course_de": "{pilote}'s race",
   "resultats.choisir_texte": "Click a session in the left column to see its laps.",
   "resultats.aucune": "No session yet",
   "resultats.aucune_texte": "Drive a few laps in Le Mans Ultimate, then come back: the game records your sessions on its own.",
@@ -315,6 +316,8 @@
   "leaderboard.voir_plus": "Show {n} more",
   "leaderboard.affichees": "{n} of {total}",
   "leaderboard.voir_circuit": "Show this track's leaderboard in this class",
+  "leaderboard.voir_course": "Open this race's results in Results",
+  "leaderboard.course_non_partagee": "This race's results are not shared: they will be once this driver has the latest version of the tool",
   "leaderboard.pilotes": "Drivers",
   "leaderboard.voitures": "Cars",
   "leaderboard.voir_profil": "Show this driver's profile",
@@ -502,5 +505,7 @@
   "serveur.erreur.groupe_deja": "This PC is already in a group: leave it first.",
   "serveur.erreur.groupe_tour_introuvable": "This record is no longer in the group: synchronise to update the list.",
   "serveur.erreur.groupe_tour_illisible": "This friend's record cannot be read: it may come from a newer version of the tool.",
+  "serveur.erreur.groupe_seance_introuvable": "This race is no longer in the group: synchronise to update the list.",
+  "serveur.erreur.groupe_seance_illisible": "This race's results cannot be read: they may come from a newer version of the tool.",
   "serveur.erreur.brute": "{texte}"
 }

@@ -144,6 +144,21 @@ MARQUES = (
     ("bmw", "BMW"),
 )
 
+#: Les noms qu'un même modèle porte selon la saison du jeu, ramenés à un seul : sinon, le
+#: leaderboard et les records en font deux voitures. Relevés dans les fichiers du jeu le
+#: 2026-11-14 : « Ferrari 296 LMGT3 Evo » (les engagements de 2026) ne diffère en rien de
+#: « Ferrari 296 LMGT3 » (constaté en jeu par l'utilisateur), et « Genesis GMR001 » est
+#: « Genesis GMR-001 » écrit autrement.
+MEMES_VOITURES = {
+    "Ferrari 296 LMGT3 Evo": "Ferrari 296 LMGT3",
+    "Genesis GMR001": "Genesis GMR-001",
+}
+
+
+def modele_canonique(modele: str) -> str:
+    """Le nom sous lequel l'outil range un modèle (`MEMES_VOITURES`) ; les autres, tels quels."""
+    return MEMES_VOITURES.get(modele, modele)
+
 
 @dataclass(frozen=True)
 class Voiture:
@@ -253,7 +268,7 @@ def _index(dossier: Path | str | None) -> _Index | None:
             continue  # fichier tronqué ou verrouillé : il en reste 413 autres
         for pilote in racine_xml.iter("Driver"):
             engagement = pilote.findtext("VehName")
-            modele = pilote.findtext("CarType")
+            modele = modele_canonique(pilote.findtext("CarType") or "")
             if not engagement or not modele or engagement in index.voitures:
                 continue
             index.voitures[engagement] = Voiture(
@@ -525,7 +540,7 @@ def _tour(element: ET.Element) -> TourResultat:
 
 def _engage(pilote: ET.Element) -> Engage:
     texte = pilote.findtext
-    modele = texte("CarType") or ""
+    modele = modele_canonique(texte("CarType") or "")
     return Engage(
         nom=texte("Name") or "",
         engagement=texte("VehName") or "",
@@ -745,3 +760,183 @@ class Seances:
             "en_ligne": seance.en_ligne,
             "victoire": type_ == "R" and resultat == (1, "Finished Normally"),
         }
+
+
+# ----------------------------------------------------------------------
+# Une séance partagée avec le groupe
+# ----------------------------------------------------------------------
+
+#: Garde-fous à la relecture d'une séance reçue : de quoi couvrir une course de 24 h.
+MAX_ENGAGES = 120
+MAX_TOURS_VOITURE = 1500
+MAX_EVENEMENTS = 20_000
+MAX_MESSAGES = 5_000
+GENRES_EVENEMENT = frozenset({"contact", "limites", "penalite", "purge"})
+
+
+def seance_json(seance: ResultatsSession) -> dict:
+    """Une séance prête à partir au groupe : tout ce que l'écran Résultats en montre, sans le
+    chemin du fichier. Les tours s'écrivent en listes, plus courtes que des objets."""
+    return {
+        "type": seance.type,
+        "circuit": seance.circuit,
+        "parcours": seance.parcours,
+        "longueur": seance.longueur,
+        "debut": seance.debut.isoformat() if seance.debut else None,
+        "minutes": seance.minutes,
+        "tours_prevus": seance.tours_prevus,
+        "en_ligne": seance.en_ligne,
+        "engages": [
+            {
+                "nom": e.nom, "engagement": e.engagement, "modele": e.modele, "classe": e.classe,
+                "numero": e.numero, "equipe": e.equipe, "joueur": e.joueur, "grille": e.grille,
+                "place": e.place, "grille_classe": e.grille_classe, "place_classe": e.place_classe,
+                "meilleur_tour": e.meilleur_tour, "temps_total": e.temps_total, "tours": e.tours,
+                "arrets": e.arrets, "statut": e.statut,
+                "tours_detail": [
+                    [t.numero, t.position, t.debut, t.chrono, *t.secteurs, t.vitesse_max, int(t.stands), t.gomme]
+                    for t in e.tours_detail
+                ],
+            }
+            for e in seance.engages
+        ],
+        "evenements": [
+            {cle: valeur for cle, valeur in vars(ev).items() if valeur is not None} for ev in seance.evenements
+        ],
+        "messages": [[m.instant, m.auteur, m.texte] for m in seance.messages],
+    }
+
+
+def _texte_recu(valeur: object, maximum: int = 200) -> str:
+    if not isinstance(valeur, str) or len(valeur) > maximum:
+        raise ValueError(valeur)
+    return valeur
+
+
+def _entier_recu(valeur: object) -> int | None:
+    if valeur is None:
+        return None
+    if isinstance(valeur, bool) or not isinstance(valeur, int) or not -1 <= valeur <= 10**9:
+        raise ValueError(valeur)
+    return valeur
+
+
+def _nombre_recu(valeur: object) -> float | None:
+    if valeur is None:
+        return None
+    if isinstance(valeur, bool) or not isinstance(valeur, int | float) or not -1e9 < valeur < 1e9:
+        raise ValueError(valeur)
+    return float(valeur)
+
+
+def _liste_recue(valeur: object, maximum: int) -> list:
+    if not isinstance(valeur, list) or len(valeur) > maximum:
+        raise ValueError("liste")
+    return valeur
+
+
+def _tour_recu(brut: object) -> TourResultat:
+    numero, position, debut, chrono, s1, s2, s3, vitesse, stands, gomme = _liste_recue(brut, 10)
+    if stands not in (0, 1) or isinstance(stands, bool):
+        raise ValueError(stands)
+    return TourResultat(
+        numero=_entier_recu(numero) or 0,
+        position=_entier_recu(position),
+        debut=_nombre_recu(debut),
+        chrono=_nombre_recu(chrono),
+        secteurs=(_nombre_recu(s1), _nombre_recu(s2), _nombre_recu(s3)),
+        vitesse_max=_nombre_recu(vitesse),
+        stands=stands == 1,
+        gomme=None if gomme is None else _texte_recu(gomme, 40),
+    )
+
+
+def _engage_recu(brut: object) -> Engage:
+    if not isinstance(brut, dict):
+        raise ValueError(brut)
+    # Le nom commun du modèle, et la marque qu'en tire CE PC : rien n'est cru sur parole.
+    modele = modele_canonique(_texte_recu(brut["modele"]))
+    joueur = brut.get("joueur")
+    if not isinstance(joueur, bool):
+        raise ValueError(joueur)
+    return Engage(
+        nom=_texte_recu(brut["nom"], 80),
+        engagement=_texte_recu(brut["engagement"]),
+        modele=modele,
+        marque=marque(modele) if modele else "",
+        classe=_texte_recu(brut["classe"], 40),
+        numero=_texte_recu(brut.get("numero", ""), 20),
+        equipe=_texte_recu(brut.get("equipe", "")),
+        joueur=joueur,
+        grille=_entier_recu(brut.get("grille")),
+        place=_entier_recu(brut.get("place")),
+        grille_classe=_entier_recu(brut.get("grille_classe")),
+        place_classe=_entier_recu(brut.get("place_classe")),
+        meilleur_tour=_nombre_recu(brut.get("meilleur_tour")),
+        temps_total=_nombre_recu(brut.get("temps_total")),
+        tours=_entier_recu(brut.get("tours")) or 0,
+        arrets=_entier_recu(brut.get("arrets")) or 0,
+        statut=_texte_recu(brut.get("statut", ""), 40),
+        tours_detail=tuple(_tour_recu(t) for t in _liste_recue(brut["tours_detail"], MAX_TOURS_VOITURE)),
+    )
+
+
+def _evenement_recu(brut: object) -> Evenement:
+    if not isinstance(brut, dict) or brut.get("genre") not in GENRES_EVENEMENT:
+        raise ValueError(brut)
+    instant = _nombre_recu(brut.get("instant"))
+    if instant is None:
+        raise ValueError("instant")
+
+    def texte(cle: str, maximum: int = 200) -> str | None:
+        return None if brut.get(cle) is None else _texte_recu(brut[cle], maximum)
+
+    return Evenement(
+        genre=brut["genre"],
+        instant=instant,
+        pilote=_texte_recu(brut["pilote"], 80),
+        autre=texte("autre", 80),
+        objet=texte("objet", 80),
+        intensite=_nombre_recu(brut.get("intensite")),
+        suite=texte("suite"),
+        penalite=texte("penalite"),
+        motif=texte("motif"),
+        secondes=_nombre_recu(brut.get("secondes")),
+    )
+
+
+def _message_recu(brut: object) -> Message:
+    instant, auteur, texte = _liste_recue(brut, 3)
+    instant = _nombre_recu(instant)
+    if instant is None:
+        raise ValueError("instant")
+    return Message(instant, _texte_recu(auteur, 80), _texte_recu(texte, 2000))
+
+
+def seance_depuis_json(brut: object, fichier: Path) -> ResultatsSession:
+    """Une séance reçue du groupe (`seance_json` d'un autre PC), vérifiée champ par champ ;
+    `fichier` tient lieu du fichier qu'elle n'a pas sur ce PC. ValueError si elle ne se lit
+    pas, ou dépasse les garde-fous."""
+    try:
+        if not isinstance(brut, dict):
+            raise ValueError(brut)
+        type_ = brut.get("type")
+        if type_ not in ("P", "Q", "R", "W") or not isinstance(brut.get("en_ligne"), bool):
+            raise ValueError(type_)
+        debut = brut.get("debut")
+        return ResultatsSession(
+            fichier=fichier,
+            type=type_,
+            circuit=_texte_recu(brut["circuit"]),
+            parcours=_texte_recu(brut.get("parcours", "")),
+            longueur=_nombre_recu(brut.get("longueur")),
+            debut=None if debut is None else datetime.fromisoformat(_texte_recu(debut, 40)),
+            minutes=_entier_recu(brut.get("minutes")),
+            tours_prevus=_entier_recu(brut.get("tours_prevus")),
+            engages=tuple(_engage_recu(e) for e in _liste_recue(brut["engages"], MAX_ENGAGES)),
+            evenements=tuple(_evenement_recu(e) for e in _liste_recue(brut.get("evenements", []), MAX_EVENEMENTS)),
+            messages=tuple(_message_recu(m) for m in _liste_recue(brut.get("messages", []), MAX_MESSAGES)),
+            en_ligne=brut["en_ligne"],
+        )
+    except (KeyError, TypeError) as erreur:
+        raise ValueError(str(erreur)) from None

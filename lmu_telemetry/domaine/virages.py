@@ -28,7 +28,10 @@ Portimão varie d'un virage. Voir docs/08-numerotation.md.
 Cette stabilité suppose que l'axe de la piste soit propre. Elle a été mise en
 défaut par un tour parti dans le dégagement, qui faussait l'axe de 8 m sur une
 vingtaine de mètres. Les sorties de piste sont depuis écartées de la
-reconstruction : voir `piste.py` et docs/07-sorties-de-piste.md.
+reconstruction : voir `piste.py` et docs/07-sorties-de-piste.md. Puis par deux
+demi-tours sur le bitume du Raidillon, à Spa, que le jeu ne signale pas : 20
+virages au lieu de 17. Les demi-tours, et les passages loin au-delà du bord,
+sont depuis écartés eux aussi.
 
 --------------------------------------------------------------------------
 Une définition par circuit, éditable

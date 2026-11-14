@@ -35,6 +35,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .. import __version__, emplacements, parametres, textes
 from ..errors import DossierIntrouvable, ErreurTelemetrie
+from ..groupe.seances import est_seance
 from ..groupe.synchro import Synchroniseur
 from ..groupe.tours import est_partage
 from ..sources import catalogue
@@ -82,11 +83,15 @@ def _verifier_chemins(contexte: Contexte, params: dict[str, list[str]]) -> None:
     Rien ne justifie d'en ouvrir d'autres que ceux du dossier — y compris le
     fichier d'un autre pilote, qu'on y dépose.
     """
-    # Le record d'un ami (« groupe:<membre>/<numéro> ») n'est pas un chemin : le serveur
-    # le cherche lui-même dans la copie du groupe, d'après un motif strict (voir
-    # groupe/tours.py), jamais sur le disque à l'endroit qu'on lui donne.
+    # Le record d'un ami (« groupe:<membre>/<numéro> ») ou une course (« seance:… ») n'est pas
+    # un chemin : le serveur la cherche lui-même dans la copie du groupe ou les résultats du
+    # jeu, d'après un motif strict (voir groupe/tours.py et groupe/seances.py), jamais sur le
+    # disque à l'endroit qu'on lui donne.
     demandes = [
-        brut for cle in PARAMETRES_CHEMIN for brut in params.get(cle, []) if not est_partage(brut)
+        brut
+        for cle in PARAMETRES_CHEMIN
+        for brut in params.get(cle, [])
+        if not est_partage(brut) and not est_seance(brut)
     ]
     # Rien à vérifier : surtout, ne pas chercher le dossier. Sans lui, la page
     # elle-même refusait de s'afficher — et avec elle l'écran qui permet de

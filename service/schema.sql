@@ -45,6 +45,20 @@ CREATE TABLE IF NOT EXISTS tours (
 );
 CREATE INDEX IF NOT EXISTS tours_par_version ON tours (groupe, maj);
 
+-- Le classement complet d'une course en ligne d'un membre (son fichier de résultats, mis en
+-- forme par l'outil), pour l'ouvrir dans l'onglet Résultats d'un autre PC. `id` : celui de la
+-- performance (« 1794245179-R ») ; `donnees` : du JSON compressé (gzip) puis en base64, lu à
+-- la demande, comme la télémétrie d'un tour.
+CREATE TABLE IF NOT EXISTS seances (
+  groupe TEXT NOT NULL,
+  membre TEXT NOT NULL,
+  id TEXT NOT NULL,
+  donnees TEXT NOT NULL,
+  maj INTEGER NOT NULL,
+  PRIMARY KEY (groupe, membre, id)
+);
+CREATE INDEX IF NOT EXISTS seances_par_version ON seances (groupe, maj);
+
 -- Le contour d'un tracé, pour le fond des cartes : le premier envoyé reste.
 CREATE TABLE IF NOT EXISTS contours (
   groupe TEXT NOT NULL,

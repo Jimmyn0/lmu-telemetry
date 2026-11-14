@@ -42,6 +42,36 @@ function rafraichirSiVisible() {
   if (!etat.session) surResultats();
 }
 
+// Une session finie (le jeu referme son fichier en quittant la séance) apparaît sans
+// relancer l'outil : la liste se redemande toutes les 20 s, et dès que la fenêtre revient
+// au premier plan, en sortant du jeu. Elle ne se redessine que si quelque chose a changé.
+const VEILLE = 20000;
+let derniereVerification = 0;
+
+async function verifierSessions() {
+  // Sans dossier, rien à surveiller ; une lecture en cours se redemande déjà toute seule.
+  if (etat.sansDossier || etat.restant > 0 || Date.now() - derniereVerification < 3000) return;
+  derniereVerification = Date.now();
+  const avant = JSON.stringify(etat.sessions || []);
+  try {
+    await chargerSessions();
+  } catch {
+    return;
+  }
+  if (JSON.stringify(etat.sessions) !== avant) rafraichirSiVisible();
+}
+
+let surveillance = null;
+
+export function surveillerSessions() {
+  if (surveillance) return;
+  surveillance = setInterval(verifierSessions, VEILLE);
+  window.addEventListener("focus", verifierSessions);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) verifierSessions();
+  });
+}
+
 function retenues() {
   return trierSessions(filtrerSessions(etat.sessions, filtres), filtres.tri);
 }

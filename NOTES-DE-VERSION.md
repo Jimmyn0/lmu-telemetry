@@ -6,6 +6,35 @@ correction, celui du milieu pour un ajout, le premier pour un grand changement.
 
 ---
 
+## 2.1.0 — 14/11/2026
+
+**Les courses des amis s'ouvrent dans Résultats, et leurs tours se comparent.**
+
+* Dans le leaderboard, une course s'ouvre dans l'onglet Résultats, même celle
+  d'un ami : classement, rythme, positions, statistiques, incidents et chat.
+* Sur la page d'un circuit, l'onglet Courses a sa colonne Réf. / Comp. : le
+  meilleur tour de chaque course se compare dans l'onglet Télémétrie.
+* Pour cela, chaque PC partage désormais avec son groupe le classement complet
+  de ses courses en ligne (les autres pilotes de la course et son chat compris)
+  et la télémétrie du meilleur tour de chacune. Les amis doivent avoir la 2.1.0
+  pour que leurs courses s'ouvrent.
+* La liste des sessions se met à jour toute seule : une course apparaît peu
+  après qu'on a quitté la séance, sans relancer l'outil.
+* Une séance où l'on n'a bouclé aucun tour (un serveur rejoint sans rouler) ne
+  compte plus au leaderboard. Une course quittée avant la fin du premier tour
+  compte toujours, comme un abandon.
+* Temps au tour ne compte plus les essais, et passe avant Télémétrie dans la
+  barre des onglets.
+* La Ferrari 296 « Evo » et la Ferrari 296 ne font plus qu'une voiture.
+* Le meilleur temps encadré ne décale plus sa colonne dans les tableaux.
+* Les cartes de l'onglet Télémétrie montrent le modèle de la voiture, jamais le
+  nom de l'écurie.
+* Le découpage automatique en virages ne se laisse plus tromper par un
+  demi-tour, ni par un passage dans un dégagement bitumé : à Spa, une course en
+  comptait trois de trop.
+
+---
+
 ## 2.0.1 — 13/11/2026
 
 **La fenêtre s'ouvre aussi quand l'outil vient d'un zip téléchargé.**
